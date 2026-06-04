@@ -1,0 +1,8 @@
+.env
+data/*.db
+data/*.db-*
+bin/
+tmp/
+.git/
+.gitignore
+Dockerfile

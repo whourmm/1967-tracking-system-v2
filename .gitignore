@@ -1,0 +1,22 @@
+.env
+!.env.example
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Backend
+backend/bin/
+backend/tmp/
+
+# SQLite runtime files
+backend/data/*.db
+backend/data/*.db-*
+!backend/data/.gitkeep
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
