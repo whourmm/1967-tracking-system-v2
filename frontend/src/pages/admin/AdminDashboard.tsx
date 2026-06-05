@@ -53,7 +53,7 @@ function getSubmissionChartData(series: typeof submissionSeries) {
   const axisMax = getNiceAxisMax(Math.max(maxDaily, meanDaily));
   const meanY = chartHeight - (meanDaily / axisMax) * chartHeight;
   const linePoints = series
-    .map((item, index) => {
+    .map((_, index) => {
       const x = series.length === 1 ? 0 : (index / (series.length - 1)) * chartWidth;
       return `${x.toFixed(1)},${meanY.toFixed(1)}`;
     })
