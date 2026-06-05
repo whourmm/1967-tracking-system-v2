@@ -1,17 +1,31 @@
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import {
   Bell,
   BookOpen,
+  CalendarClock,
+  CheckCheck,
+  CheckCircle2,
   ClipboardList,
   GraduationCap,
   Home,
   LifeBuoy,
+  Megaphone,
   Search,
   Settings,
   Users,
 } from "lucide-react";
 import { cn } from "../../lib/cn";
-import { currentFellow } from "../../data/mock";
+import { currentFellow, notifications as mockNotifications } from "../../data/mock";
+import type { NotificationKind } from "../../types";
+
+const notificationIcon: Record<NotificationKind, typeof Bell> = {
+  submission: CheckCircle2,
+  resource: BookOpen,
+  team: Users,
+  announcement: Megaphone,
+  deadline: CalendarClock,
+};
 
 const mainNav = [
   { to: "/fellow", label: "Home", icon: Home, end: true },
@@ -111,6 +125,130 @@ function Sidebar() {
   );
 }
 
+function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState(mockNotifications);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const unread = items.filter((n) => !n.read).length;
+
+  // Close on outside click or Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const markAllRead = () =>
+    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markRead = (id: number) =>
+    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "relative rounded-md p-2 transition-colors",
+          open
+            ? "bg-slate-100 text-slate-700"
+            : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+        )}
+        aria-label="Notifications"
+        aria-haspopup="true"
+        aria-expanded={open}
+      >
+        <Bell className="h-5 w-5" />
+        {unread > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+            {unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 z-30 mt-2 w-80 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <p className="text-sm font-semibold text-slate-900">
+              Notifications
+              {unread > 0 && (
+                <span className="ml-2 rounded-full bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">
+                  {unread} new
+                </span>
+              )}
+            </p>
+            {unread > 0 && (
+              <button
+                onClick={markAllRead}
+                className="flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                Mark all read
+              </button>
+            )}
+          </div>
+
+          <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
+            {items.length === 0 ? (
+              <li className="px-4 py-10 text-center text-sm text-slate-400">
+                You’re all caught up.
+              </li>
+            ) : (
+              items.map((n) => {
+                const Icon = notificationIcon[n.kind];
+                return (
+                  <li key={n.id}>
+                    <button
+                      onClick={() => markRead(n.id)}
+                      className={cn(
+                        "flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50",
+                        !n.read && "bg-brand-50/40"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                          n.read
+                            ? "bg-slate-100 text-slate-500"
+                            : "bg-brand-100 text-brand-600"
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-slate-900">
+                          {n.title}
+                        </p>
+                        <p className="text-xs text-slate-500">{n.body}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          {n.time}
+                        </p>
+                      </div>
+                      {!n.read && (
+                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />
+                      )}
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Topbar() {
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-200 bg-white/80 px-8 backdrop-blur">
@@ -123,13 +261,7 @@ function Topbar() {
         />
       </div>
       <div className="ml-auto flex items-center gap-2">
-        <button
-          className="relative rounded-md p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-white" />
-        </button>
+        <NotificationBell />
         <NavLink
           to="/fellow/profile"
           className={({ isActive }) =>

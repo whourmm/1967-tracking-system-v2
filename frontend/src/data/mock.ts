@@ -5,6 +5,7 @@ import type {
   FellowProfile,
   FellowRecord,
   LearningBlock,
+  Notification,
   Resource,
   SpecialCurriculum,
   Sprint,
@@ -331,6 +332,49 @@ export const recentActivity: ActivityItem[] = [
     text: "Naphat joined Team Mekong.",
     time: "4 days ago",
     kind: "team",
+  },
+];
+
+export const notifications: Notification[] = [
+  {
+    id: 1,
+    title: "Assignment due soon",
+    body: "“Customer Interview Notes” is due in 2 days.",
+    time: "10 min ago",
+    kind: "deadline",
+    read: false,
+  },
+  {
+    id: 2,
+    title: "Submission graded",
+    body: "Your “Lean Canvas Draft” was graded A.",
+    time: "2 hours ago",
+    kind: "submission",
+    read: false,
+  },
+  {
+    id: 3,
+    title: "New lecture added",
+    body: "“Pitching to Investors” is now in the Learning System.",
+    time: "Yesterday",
+    kind: "resource",
+    read: false,
+  },
+  {
+    id: 4,
+    title: "Mentor feedback",
+    body: "Your mentor left feedback on your Problem Statement.",
+    time: "2 days ago",
+    kind: "announcement",
+    read: true,
+  },
+  {
+    id: 5,
+    title: "Teammate joined",
+    body: "Naphat Tan joined Team Mekong.",
+    time: "4 days ago",
+    kind: "team",
+    read: true,
   },
 ];
 

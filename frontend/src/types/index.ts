@@ -138,3 +138,19 @@ export interface ActivityItem {
   time: string;
   kind: "submission" | "resource" | "team" | "announcement";
 }
+
+export type NotificationKind =
+  | "submission"
+  | "resource"
+  | "team"
+  | "announcement"
+  | "deadline";
+
+export interface Notification {
+  id: number;
+  title: string;
+  body: string;
+  time: string;
+  kind: NotificationKind;
+  read: boolean;
+}
