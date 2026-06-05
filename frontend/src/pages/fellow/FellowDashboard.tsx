@@ -16,8 +16,8 @@ import {
   assignments,
   currentFellow,
   currentSprint,
+  learningBlocks,
   recentActivity,
-  resources,
   teamMembers,
 } from "../../data/mock";
 import {
@@ -27,7 +27,7 @@ import {
   formatShortDate,
 } from "../../lib/format";
 import { cn } from "../../lib/cn";
-import type { ActivityItem } from "../../types";
+import type { ActivityItem, TeamMember } from "../../types";
 
 const stats = [
   {
@@ -47,12 +47,14 @@ const stats = [
     color: "text-emerald-600 bg-emerald-50",
   },
   {
-    label: "Learning progress",
+    label: "Forms submitted",
     value:
-      Math.round(
-        resources.reduce((s, r) => s + r.progress, 0) / resources.length
-      ) + "%",
-    sub: "across resources",
+      assignments.filter(
+        (a) => a.status === "graded" || a.status === "submitted"
+      ).length +
+      " / " +
+      assignments.length,
+    sub: "across all blocks",
     icon: BookOpen,
     color: "text-brand-600 bg-brand-50",
   },
@@ -72,6 +74,14 @@ const activityIcon: Record<ActivityItem["kind"], typeof CheckCircle2> = {
   announcement: Megaphone,
 };
 
+// TeamFlow archetype chip colors.
+const teamflowChip: Record<TeamMember["teamflow"], string> = {
+  Initiator: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  Translator: "bg-sky-50 text-sky-700 ring-sky-600/20",
+  Sharper: "bg-violet-50 text-violet-700 ring-violet-600/20",
+  Finisher: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+};
+
 export default function FellowDashboard() {
   const sprintTotal = daysUntil(currentSprint.deadline) + 18; // mock span
   const sprintLeft = Math.max(daysUntil(currentSprint.deadline), 0);
@@ -85,9 +95,15 @@ export default function FellowDashboard() {
     .sort((a, b) => daysUntil(a.deadline) - daysUntil(b.deadline))
     .slice(0, 3);
 
-  const continueLearning = resources
-    .filter((r) => r.progress > 0 && r.progress < 100)
-    .slice(0, 2);
+  // A block is "done" once all its Google Forms are submitted. There is no
+  // percentage of a course — progress is tracked by form submissions per block.
+  const blockProgress = learningBlocks.map((block) => {
+    const forms = assignments.filter((a) => a.block === block.id);
+    const submitted = forms.filter(
+      (a) => a.status === "graded" || a.status === "submitted"
+    ).length;
+    return { block, submitted, total: forms.length };
+  });
 
   return (
     <div className="space-y-6">
@@ -237,66 +253,113 @@ export default function FellowDashboard() {
         <div className="space-y-6">
           {/* Team */}
           <Card>
-            <CardHeader title={currentFellow.team} subtitle="Your team" />
+            <CardHeader
+              title={currentFellow.team}
+              subtitle={`${teamMembers.length} fellows · ${
+                new Set(teamMembers.map((m) => m.country)).size
+              } nationalities`}
+            />
             <ul className="space-y-1 p-3">
-              {teamMembers.map((m) => (
-                <li
-                  key={m.name}
-                  className="flex items-center gap-3 rounded-md px-2 py-2 transition hover:bg-slate-50"
-                >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
-                    {m.initials}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-900">
-                      {m.name}
-                    </p>
-                    <p className="text-xs text-slate-500">{m.role}</p>
-                  </div>
-                </li>
-              ))}
+              {teamMembers.map((m) => {
+                const isMe = m.name === currentFellow.name;
+                return (
+                  <li
+                    key={m.name}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-2 py-2 transition",
+                      isMe ? "bg-brand-50/60" : "hover:bg-slate-50"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                        isMe
+                          ? "bg-brand-600 text-white"
+                          : "bg-slate-100 text-slate-600"
+                      )}
+                    >
+                      {m.initials}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {m.name}
+                        </p>
+                        {isMe && (
+                          <span className="rounded bg-brand-100 px-1 text-[10px] font-semibold text-brand-700">
+                            You
+                          </span>
+                        )}
+                      </div>
+                      <p className="truncate text-xs text-slate-500">
+                        {m.country} · {m.university}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
+                        teamflowChip[m.teamflow]
+                      )}
+                    >
+                      {m.teamflow}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </Card>
 
-          {/* Continue learning */}
+          {/* Learning blocks */}
           <Card>
             <CardHeader
-              title="Continue learning"
+              title="Learning blocks"
+              subtitle="Watch, read, then submit each block’s forms"
               action={
                 <Link
                   to="/fellow/learning"
                   className="text-xs font-semibold text-brand-600 hover:text-brand-700"
                 >
-                  Library
+                  Open
                 </Link>
               }
             />
-            <div className="space-y-3 p-4">
-              {continueLearning.map((r) => (
-                <Link
-                  key={r.id}
-                  to="/fellow/learning"
-                  className="block rounded-md border border-slate-100 p-3 transition hover:border-brand-200 hover:bg-brand-50/40"
-                >
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-brand-600" />
-                    <p className="truncate text-sm font-semibold text-slate-900">
-                      {r.name}
-                    </p>
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-brand-100">
-                      <div
-                        className="h-full rounded-full bg-brand-600"
-                        style={{ width: `${r.progress}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-medium text-slate-500">
-                      {r.progress}%
+            <div className="space-y-2 p-4">
+              {blockProgress.map(({ block, submitted, total }) => {
+                const done = total > 0 && submitted === total;
+                return (
+                  <Link
+                    key={block.id}
+                    to="/fellow/learning"
+                    className="flex items-center gap-3 rounded-md border border-slate-100 p-3 transition hover:border-brand-200 hover:bg-brand-50/40"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-bold",
+                        done
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-brand-600 text-white"
+                      )}
+                    >
+                      {block.id}
                     </span>
-                  </div>
-                </Link>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {block.title}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {total === 0
+                          ? "No forms"
+                          : `${submitted}/${total} forms submitted`}
+                      </p>
+                    </div>
+                    {done ? (
+                      <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
+                    ) : (
+                      <ArrowRight className="h-4 w-4 shrink-0 text-slate-300" />
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           </Card>
 

@@ -82,6 +82,18 @@ export interface FellowProfile {
   avatarInitials: string;
 }
 
+// TeamFlow archetype — every fellow is tagged with one. A team must include at
+// least one Finisher (composition rule).
+export type TeamFlow = "Initiator" | "Translator" | "Sharper" | "Finisher";
+
+export interface TeamMember {
+  name: string;
+  initials: string;
+  country: string;
+  university: string;
+  teamflow: TeamFlow;
+}
+
 export interface ActivityItem {
   id: number;
   text: string;

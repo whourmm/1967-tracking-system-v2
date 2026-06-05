@@ -6,6 +6,7 @@ import type {
   Resource,
   SpecialCurriculum,
   Sprint,
+  TeamMember,
 } from "../types";
 
 export const currentFellow: FellowProfile = {
@@ -300,9 +301,35 @@ export const recentActivity: ActivityItem[] = [
   },
 ];
 
-export const teamMembers = [
-  { name: "Sirada Wong", role: "Product", initials: "SW" },
-  { name: "Naphat Tan", role: "Engineering", initials: "NT" },
-  { name: "Mali Chen", role: "Design", initials: "MC" },
-  { name: "Arthit Kul", role: "Business", initials: "AK" },
+// Teams are sanitized: country, university, and TeamFlow archetype only — no
+// personal contact fields. Composition rules: ≥3 nationalities, ≥1 Finisher.
+export const teamMembers: TeamMember[] = [
+  {
+    name: "Sirada Wong",
+    initials: "SW",
+    country: "Thailand",
+    university: "Chulalongkorn University",
+    teamflow: "Initiator",
+  },
+  {
+    name: "Naphat Tan",
+    initials: "NT",
+    country: "Vietnam",
+    university: "VNU University of Science",
+    teamflow: "Sharper",
+  },
+  {
+    name: "Mali Chen",
+    initials: "MC",
+    country: "Singapore",
+    university: "National University of Singapore",
+    teamflow: "Translator",
+  },
+  {
+    name: "Arthit Kul",
+    initials: "AK",
+    country: "Indonesia",
+    university: "Universitas Indonesia",
+    teamflow: "Finisher",
+  },
 ];
