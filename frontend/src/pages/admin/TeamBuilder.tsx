@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
+  CalendarDays,
+  Check,
   Globe,
   Plus,
   Shapes,
   Shuffle,
   Trash2,
+  Undo2,
   UserMinus,
   Users,
   UsersRound,
@@ -13,6 +16,8 @@ import { Card } from "../../components/ui/Card";
 import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
 import { allFellows } from "../../data/mock";
+import { SPRINTS } from "../../data/adminMock";
+import { useSuspended } from "../../data/cohortStore";
 import { flagFor, teamflowChip } from "../../lib/cohort";
 import { cn } from "../../lib/cn";
 import type { FellowRecord } from "../../types";
@@ -23,30 +28,56 @@ const TEAM_NAMES = [
   "Mae Klong", "Pasak", "Ping", "Nan", "Yom", "Wang", "Kok",
 ];
 
-type Member = FellowRecord & { teamId: number | null };
 interface Team {
   id: number;
   name: string;
 }
 
+// Each sprint keeps its own teams + fellow→team assignment, so teams can be
+// rebuilt fresh every sprint without disturbing the others.
+interface SprintBoard {
+  teams: Team[];
+  assignment: Record<number, number | null>; // fellowId → teamId (null/absent = unassigned)
+}
+
 let tid = 0;
 const nextTeamId = () => ++tid;
 
-// Build initial teams from the distinct team names already on the fellows, and
-// point each fellow at its team by id.
-function seed(): { teams: Team[]; members: Member[] } {
+const cloneBoard = (b: SprintBoard): SprintBoard => ({
+  teams: b.teams.map((t) => ({ ...t })),
+  assignment: { ...b.assignment },
+});
+const cloneAll = (bs: Record<string, SprintBoard>): Record<string, SprintBoard> =>
+  Object.fromEntries(Object.entries(bs).map(([k, v]) => [k, cloneBoard(v)]));
+
+function boardEqual(a: SprintBoard, b: SprintBoard): boolean {
+  if (a.teams.length !== b.teams.length) return false;
+  if (a.teams.some((t, i) => t.id !== b.teams[i].id || t.name !== b.teams[i].name)) return false;
+  for (const f of allFellows) {
+    if ((a.assignment[f.id] ?? null) !== (b.assignment[f.id] ?? null)) return false;
+  }
+  return true;
+}
+
+// Seed every sprint with the same starting teams (independent copies). The
+// admin then edits each sprint on its own.
+function seedBoards(): Record<string, SprintBoard> {
   const names = [...new Set(allFellows.map((f) => f.team))];
-  const byName = new Map<string, number>();
-  const teams: Team[] = names.map((name) => {
-    const id = nextTeamId();
-    byName.set(name, id);
-    return { id, name };
-  });
-  const members: Member[] = allFellows.map((f) => ({
-    ...f,
-    teamId: byName.get(f.team) ?? null,
-  }));
-  return { teams, members };
+  const boards: Record<string, SprintBoard> = {};
+  for (const s of SPRINTS) {
+    const byName = new Map<string, number>();
+    const teams = names.map((name) => {
+      const id = nextTeamId();
+      byName.set(name, id);
+      return { id, name };
+    });
+    const assignment: Record<number, number | null> = {};
+    allFellows.forEach((f) => {
+      assignment[f.id] = byName.get(f.team) ?? null;
+    });
+    boards[s] = { teams, assignment };
+  }
+  return boards;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -59,56 +90,91 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export default function TeamBuilder() {
-  const seeded = useMemo(seed, []);
-  const [teams, setTeams] = useState<Team[]>(seeded.teams);
-  const [members, setMembers] = useState<Member[]>(seeded.members);
+  const [initialBoards] = useState(seedBoards);
+  const [boards, setBoards] = useState(() => cloneAll(initialBoards)); // working draft
+  const [saved, setSaved] = useState(() => cloneAll(initialBoards)); // last saved snapshot
+  const [sprint, setSprint] = useState(SPRINTS[SPRINTS.length - 1]); // current sprint
   const { showToast, toast } = useToast();
+  const suspended = useSuspended();
 
-  // Constraints
+  // Constraints (shared across sprints)
   const [teamSize, setTeamSize] = useState(4);
   const [needFinisher, setNeedFinisher] = useState(true);
   const [mixCountries, setMixCountries] = useState(true);
 
-  const pool = members.filter((m) => m.teamId === null);
-  const membersOf = (id: number) => members.filter((m) => m.teamId === id);
+  const board = boards[sprint];
+  const teams = board.teams;
+  const dirty = !boardEqual(board, saved[sprint]);
+
+  const isSuspended = (fellowId: number) => suspended.has(fellowId);
+  // Suspended fellows are forced into the pool regardless of their assignment.
+  const teamIdOf = (fellowId: number) => (isSuspended(fellowId) ? null : board.assignment[fellowId] ?? null);
+  const membersOf = (teamId: number) => allFellows.filter((f) => teamIdOf(f.id) === teamId);
+  const pool = allFellows.filter((f) => teamIdOf(f.id) === null); // includes suspended
+  const assignablePool = pool.filter((f) => !isSuspended(f.id)); // can be placed / shuffled
+  const suspendedInPool = pool.filter((f) => isSuspended(f.id));
 
   const completeTeams = teams.filter((t) => {
     const ms = membersOf(t.id);
     return ms.length >= teamSize && ms.some((m) => m.teamflow === "Finisher");
   }).length;
 
-  function assign(memberId: number, teamId: number | null) {
-    setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, teamId } : m)));
+  // Apply a change to the currently selected sprint's board only.
+  function updateBoard(updater: (b: SprintBoard) => SprintBoard) {
+    setBoards((prev) => ({ ...prev, [sprint]: updater(prev[sprint]) }));
+  }
+
+  function assign(fellowId: number, teamId: number | null) {
+    if (teamId !== null && isSuspended(fellowId)) return; // can't place a suspended fellow
+    updateBoard((b) => ({ ...b, assignment: { ...b.assignment, [fellowId]: teamId } }));
   }
 
   function addTeam() {
-    const name = "Team " + (TEAM_NAMES[teams.length] ?? teams.length + 1);
-    setTeams((prev) => [...prev, { id: nextTeamId(), name }]);
+    updateBoard((b) => ({
+      ...b,
+      teams: [...b.teams, { id: nextTeamId(), name: "Team " + (TEAM_NAMES[b.teams.length] ?? b.teams.length + 1) }],
+    }));
   }
 
   function removeTeam(id: number) {
-    setMembers((prev) => prev.map((m) => (m.teamId === id ? { ...m, teamId: null } : m)));
-    setTeams((prev) => prev.filter((t) => t.id !== id));
+    updateBoard((b) => {
+      const assignment = { ...b.assignment };
+      allFellows.forEach((f) => {
+        if (assignment[f.id] === id) assignment[f.id] = null;
+      });
+      return { teams: b.teams.filter((t) => t.id !== id), assignment };
+    });
   }
 
   function unassignAll() {
-    setMembers((prev) => prev.map((m) => ({ ...m, teamId: null })));
-    showToast("All fellows unassigned");
+    updateBoard((b) => ({ ...b, assignment: {} }));
+    showToast(`Cleared assignments for ${sprint}`);
   }
 
-  // Auto-build teams honouring the toggles, mirroring the mock console.
+  function save() {
+    setSaved((prev) => ({ ...prev, [sprint]: cloneBoard(board) }));
+    showToast(`Saved teams for ${sprint}`);
+  }
+
+  function discard() {
+    setBoards((prev) => ({ ...prev, [sprint]: cloneBoard(saved[sprint]) }));
+    showToast(`Reverted ${sprint} to last saved`);
+  }
+
+  // Auto-build this sprint's teams honouring the toggles. Suspended fellows are
+  // skipped and stay in the pool.
   function randomise() {
     const size = Math.max(2, Math.min(8, teamSize));
-    const needed = Math.max(1, Math.ceil(members.length / size));
+    const active = allFellows.filter((f) => !isSuspended(f.id));
+    const needed = Math.max(1, Math.ceil(active.length / size));
 
-    // Make sure enough teams exist.
     const work = teams.slice();
     while (work.length < needed) {
       work.push({ id: nextTeamId(), name: "Team " + (TEAM_NAMES[work.length] ?? work.length + 1) });
     }
-    const buckets = work.slice(0, needed).map((t) => ({ t, list: [] as Member[] }));
+    const buckets = work.slice(0, needed).map((t) => ({ t, list: [] as FellowRecord[] }));
 
-    let candidates = shuffle(members);
+    let candidates = shuffle(active);
 
     // Seed one finisher per team first when required.
     if (needFinisher) {
@@ -131,21 +197,21 @@ export default function TeamBuilder() {
       cands[0].list.push(m);
     });
 
-    const teamIdByMember = new Map<number, number>();
-    buckets.forEach((b) => b.list.forEach((m) => teamIdByMember.set(m.id, b.t.id)));
+    const assignment: Record<number, number | null> = {};
+    allFellows.forEach((f) => (assignment[f.id] = null));
+    buckets.forEach((b) => b.list.forEach((m) => (assignment[m.id] = b.t.id)));
 
-    setTeams(work.slice(0, needed));
-    setMembers((prev) => prev.map((m) => ({ ...m, teamId: teamIdByMember.get(m.id) ?? null })));
+    updateBoard(() => ({ teams: work.slice(0, needed), assignment }));
 
     const noFin = buckets.filter((b) => !b.list.some((m) => m.teamflow === "Finisher")).length;
-    let msg = `Built ${buckets.length} teams of ~${size}`;
+    let msg = `Built ${buckets.length} teams for ${sprint}`;
     if (needFinisher && noFin === 0) msg += " · every team has a finisher";
     else if (needFinisher && noFin > 0) msg += ` · ${noFin} without a finisher`;
     showToast(msg);
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page space-y-6">
       {toast}
 
       {/* Header */}
@@ -153,10 +219,23 @@ export default function TeamBuilder() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Teams</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Build teams by hand, or auto-assign with constraints. Each team needs a Finisher and a mix of countries.
+            Each sprint keeps its own teams — pick a sprint to edit, then save. Suspended fellows stay in the pool.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white py-1 pl-3 pr-1.5">
+            <CalendarDays className="h-4 w-4 text-slate-400" />
+            <select
+              value={sprint}
+              onChange={(e) => setSprint(e.target.value)}
+              aria-label="Sprint"
+              className="bg-transparent py-1 text-sm font-semibold text-slate-700 outline-none"
+            >
+              {SPRINTS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
           <button
             type="button"
             onClick={unassignAll}
@@ -168,10 +247,32 @@ export default function TeamBuilder() {
           <button
             type="button"
             onClick={randomise}
-            className="flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+            className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
           >
             <Shuffle className="h-4 w-4" />
-            Randomise teams
+            Randomise
+          </button>
+          {dirty && (
+            <button
+              type="button"
+              onClick={discard}
+              className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+            >
+              <Undo2 className="h-4 w-4" />
+              Discard
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={save}
+            disabled={!dirty}
+            className={cn(
+              "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition",
+              dirty ? "bg-emerald-600 text-white hover:bg-emerald-500" : "bg-slate-100 text-slate-400"
+            )}
+          >
+            <Check className="h-4 w-4" />
+            {dirty ? "Save changes" : "Saved"}
           </button>
         </div>
       </div>
@@ -179,9 +280,9 @@ export default function TeamBuilder() {
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard icon={UsersRound} label="Teams" value={teams.length} color="text-brand-600 bg-brand-50" />
-        <StatCard icon={Users} label="Fellows" value={members.length} color="text-sky-600 bg-sky-50" />
+        <StatCard icon={Users} label="Fellows" value={allFellows.length} color="text-sky-600 bg-sky-50" />
         <StatCard icon={Shapes} label="Complete teams" value={`${completeTeams} / ${teams.length}`} color="text-emerald-600 bg-emerald-50" />
-        <StatCard icon={UserMinus} label="Unassigned" value={pool.length} color="text-amber-600 bg-amber-50" />
+        <StatCard icon={UserMinus} label="Unassigned" value={assignablePool.length} color="text-amber-600 bg-amber-50" />
       </div>
 
       {/* Constraints bar */}
@@ -200,7 +301,7 @@ export default function TeamBuilder() {
 
         <ConstraintToggle
           title="Must have a Finisher"
-          subtitle={`${members.filter((m) => m.teamflow === "Finisher").length} finishers available`}
+          subtitle={`${allFellows.filter((m) => m.teamflow === "Finisher" && !isSuspended(m.id)).length} finishers available`}
           on={needFinisher}
           onToggle={() => setNeedFinisher((v) => !v)}
         />
@@ -271,12 +372,12 @@ export default function TeamBuilder() {
 
               <select
                 value=""
-                disabled={pool.length === 0}
+                disabled={assignablePool.length === 0}
                 onChange={(e) => e.target.value && assign(Number(e.target.value), team.id)}
                 className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-600 outline-none focus:border-brand-300 disabled:opacity-50"
               >
-                <option value="">{pool.length ? "+ Add member…" : "All fellows assigned"}</option>
-                {pool.map((m) => (
+                <option value="">{assignablePool.length ? "+ Add member…" : "No one to add"}</option>
+                {assignablePool.map((m) => (
                   <option key={m.id} value={m.id}>{m.name} · {m.country} · {m.teamflow}</option>
                 ))}
               </select>
@@ -301,19 +402,35 @@ export default function TeamBuilder() {
             <Globe className="h-4 w-4 text-slate-400" />
             <p className="text-sm font-semibold text-slate-700">Unassigned pool</p>
           </div>
-          <p className="text-xs text-slate-400">{pool.length} waiting to be placed</p>
+          <p className="text-xs text-slate-400">
+            {assignablePool.length} waiting{suspendedInPool.length > 0 ? ` · ${suspendedInPool.length} suspended` : ""}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2 p-5">
           {pool.length === 0 ? (
             <p className="text-sm text-slate-400">Everyone is assigned to a team.</p>
           ) : (
-            pool.map((m) => (
-              <span key={m.id} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1 pl-1 pr-3 text-sm">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white">{m.initials}</span>
-                <span className="font-semibold text-slate-800">{m.name}</span>
-                <span>{flagFor(m.country)}</span>
-              </span>
-            ))
+            pool.map((m) => {
+              const sus = isSuspended(m.id);
+              return (
+                <span
+                  key={m.id}
+                  title={sus ? "Suspended — reinstate in Members to assign" : undefined}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm",
+                    sus ? "border-slate-200 bg-slate-100 text-slate-400" : "border-slate-200 bg-slate-50"
+                  )}
+                >
+                  <span className={cn("flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white", sus ? "bg-slate-400" : "bg-brand-600")}>{m.initials}</span>
+                  <span className={cn("font-semibold", sus ? "text-slate-500" : "text-slate-800")}>{m.name}</span>
+                  {sus ? (
+                    <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">suspended</span>
+                  ) : (
+                    <span>{flagFor(m.country)}</span>
+                  )}
+                </span>
+              );
+            })
           )}
         </div>
       </Card>
@@ -345,7 +462,7 @@ function ConstraintToggle({
         aria-checked={on}
         className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", on ? "bg-brand-600" : "bg-slate-300")}
       >
-        <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform", on ? "translate-x-4" : "translate-x-0.5")} />
+        <span className={cn("absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform", on ? "translate-x-4" : "translate-x-0")} />
       </button>
     </div>
   );

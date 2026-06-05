@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
 import {
+  Ban,
   CheckCircle2,
+  ClipboardCheck,
   Clock,
   Globe,
   GraduationCap,
   Plus,
+  RotateCcw,
   Search,
   Trash2,
   Users,
@@ -13,10 +16,11 @@ import {
 import { Card, CardHeader } from "../../components/ui/Card";
 import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
+import { useSuspended, toggleSuspended } from "../../data/cohortStore";
 import { allFellows } from "../../data/mock";
-import { countryFlag, flagFor, teamflowChip, allTeamflows } from "../../lib/cohort";
+import { countryFlag, flagFor, teamflowChip } from "../../lib/cohort";
 import { cn } from "../../lib/cn";
-import type { FellowRecord, FellowStatus, TeamFlow } from "../../types";
+import type { FellowRecord } from "../../types";
 
 const UNASSIGNED = "Unassigned";
 const countryOptions = Object.keys(countryFlag);
@@ -24,41 +28,102 @@ const countryOptions = Object.keys(countryFlag);
 let tmpId = 1000; // ids for fellows added in-session
 const nextId = () => ++tmpId;
 
-function StatusPill({ status }: { status: FellowStatus }) {
-  const confirmed = status === "Confirmed";
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset",
-        confirmed
-          ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
-          : "bg-amber-50 text-amber-700 ring-amber-600/20"
-      )}
-    >
-      <span className={cn("h-1.5 w-1.5 rounded-full", confirmed ? "bg-emerald-500" : "bg-amber-500")} />
-      {status}
-    </span>
-  );
+// Teamflow is collected via a form fellows submit before Sprint 1 — it is not
+// set by the admin. These ids haven't completed it yet (mock), so their
+// teamflow shows as "Not submitted".
+const TEAMFLOW_PENDING_IDS = new Set([7, 16, 20]);
+
+// `lastActiveAt` is the last time a fellow signed in to the website. null means
+// they've been invited but never signed in yet.
+type ManagedFellow = FellowRecord & {
+  teamflowSubmitted: boolean;
+  lastActiveAt: number | null;
+};
+
+const MIN = 60_000;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
+const ACTIVITY_OFFSETS = [3 * MIN, 38 * MIN, 2 * HOUR, 5 * HOUR, 9 * HOUR, 26 * HOUR, 2 * DAY, 4 * DAY];
+
+const initialsOf = (name: string) =>
+  name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+
+function lastActiveLabel(ts: number): string {
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 60) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+
+// Match a pasted country string to a known country, else keep it as typed.
+function resolveCountry(raw: string): string {
+  if (!raw) return countryOptions[0];
+  return countryOptions.find((c) => c.toLowerCase() === raw.toLowerCase()) ?? raw;
+}
+
+// Parse pasted spreadsheet rows: one fellow per line, columns Name / Country /
+// University, tab- (Google Sheets) or comma-separated.
+function parseRows(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const cols = (line.includes("\t") ? line.split("\t") : line.split(/\s{2,}|,/)).map((c) => c.trim());
+      return { name: cols[0] ?? "", country: cols[1] ?? "", university: cols[2] ?? "" };
+    })
+    .filter((r) => r.name && r.name.toLowerCase() !== "name");
+}
+
+function makeFellow(name: string, country: string, university: string): ManagedFellow {
+  return {
+    id: nextId(),
+    name,
+    initials: initialsOf(name),
+    country,
+    university: university || "—",
+    teamflow: "Initiator", // placeholder; hidden until the Teamflow form is submitted
+    teamflowSubmitted: false,
+    team: UNASSIGNED,
+    status: "Pending",
+    startDate: "2026-06-05",
+    lastActiveAt: null,
+    email: null,
+    discord: null,
+    line: null,
+    instagram: null,
+  };
 }
 
 export default function FellowManagement() {
   // Local, page-scoped copy of the roster — the admin edits this mock in place.
-  const [fellows, setFellows] = useState<FellowRecord[]>(() =>
-    allFellows.map((f) => ({ ...f }))
-  );
+  const [fellows, setFellows] = useState<ManagedFellow[]>(() => {
+    const now = Date.now();
+    return allFellows.map((f) => ({
+      ...f,
+      teamflowSubmitted: !TEAMFLOW_PENDING_IDS.has(f.id),
+      lastActiveAt: f.status === "Confirmed" ? now - ACTIVITY_OFFSETS[f.id % ACTIVITY_OFFSETS.length] : null,
+    }));
+  });
   const { showToast, toast } = useToast();
+  const suspended = useSuspended();
 
   // Add-fellow form
+  const [addMode, setAddMode] = useState<"single" | "paste">("single");
   const [name, setName] = useState("");
   const [country, setCountry] = useState(countryOptions[0]);
   const [university, setUniversity] = useState("");
-  const [teamflow, setTeamflow] = useState<TeamFlow>("Initiator");
+  const [pasteText, setPasteText] = useState("");
+  const parsedCount = useMemo(() => parseRows(pasteText).length, [pasteText]);
 
   // Filters
   const [query, setQuery] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
   const [filterTeam, setFilterTeam] = useState("");
-  const [filterStatus, setFilterStatus] = useState<FellowStatus | "">("");
+  const [activityFilter, setActivityFilter] = useState<"" | "in" | "out">("");
 
   const teams = useMemo(
     () => [...new Set(fellows.map((f) => f.team).filter((t) => t && t !== UNASSIGNED))].sort(),
@@ -71,14 +136,17 @@ export default function FellowManagement() {
       if (q && !f.name.toLowerCase().includes(q) && !f.university.toLowerCase().includes(q)) return false;
       if (filterCountry && f.country !== filterCountry) return false;
       if (filterTeam && f.team !== filterTeam) return false;
-      if (filterStatus && f.status !== filterStatus) return false;
+      if (activityFilter === "in" && f.lastActiveAt == null) return false;
+      if (activityFilter === "out" && f.lastActiveAt != null) return false;
       return true;
     });
-  }, [fellows, query, filterCountry, filterTeam, filterStatus]);
+  }, [fellows, query, filterCountry, filterTeam, activityFilter]);
 
-  const confirmed = fellows.filter((f) => f.status === "Confirmed").length;
-  const pending = fellows.length - confirmed;
+  const signedIn = fellows.filter((f) => f.lastActiveAt != null).length;
+  const teamflowDone = fellows.filter((f) => f.teamflowSubmitted).length;
   const countries = new Set(fellows.map((f) => f.country)).size;
+  const awaitingTeamflow = fellows.length - teamflowDone;
+  const suspendedCount = fellows.filter((f) => suspended.has(f.id)).length;
 
   function addFellow() {
     const trimmed = name.trim();
@@ -86,33 +154,22 @@ export default function FellowManagement() {
       showToast("Enter a name first");
       return;
     }
-    const initials = trimmed
-      .split(/\s+/)
-      .map((w) => w[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
-    setFellows((prev) => [
-      {
-        id: nextId(),
-        name: trimmed,
-        initials,
-        country,
-        university: university.trim() || "—",
-        teamflow,
-        team: UNASSIGNED,
-        status: "Pending",
-        startDate: "2026-06-05",
-        email: null,
-        discord: null,
-        line: null,
-        instagram: null,
-      },
-      ...prev,
-    ]);
+    setFellows((prev) => [makeFellow(trimmed, country, university.trim()), ...prev]);
     setName("");
     setUniversity("");
     showToast(`Added ${trimmed}`);
+  }
+
+  function addBulk() {
+    const rows = parseRows(pasteText);
+    if (rows.length === 0) {
+      showToast("Paste some rows first");
+      return;
+    }
+    const created = rows.map((r) => makeFellow(r.name, resolveCountry(r.country), r.university));
+    setFellows((prev) => [...created, ...prev]);
+    setPasteText("");
+    showToast(`Added ${created.length} fellow${created.length === 1 ? "" : "s"}`);
   }
 
   function updateFellow(id: number, patch: Partial<FellowRecord>) {
@@ -126,86 +183,115 @@ export default function FellowManagement() {
     }
   }
 
-  function toggleStatus(id: number) {
-    setFellows((prev) =>
-      prev.map((f) =>
-        f.id === id
-          ? { ...f, status: f.status === "Confirmed" ? "Pending" : "Confirmed" }
-          : f
-      )
-    );
-  }
-
-  const hasFilters = Boolean(filterCountry || filterTeam || filterStatus || query);
+  const hasFilters = Boolean(filterCountry || filterTeam || activityFilter || query);
+  const inputCls =
+    "w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100";
+  const labelCls = "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500";
 
   return (
-    <div className="space-y-6">
+    <div className="page space-y-6">
       {toast}
 
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Fellows</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Manage everyone in the cohort — add fellows, assign teams and confirm participation.
+          Manage everyone in the cohort — add fellows, assign teams and track sign-in.
+          {awaitingTeamflow > 0 && (
+            <span className="text-amber-600"> · {awaitingTeamflow} awaiting the Teamflow form</span>
+          )}
+          {suspendedCount > 0 && <span className="text-slate-500"> · {suspendedCount} suspended</span>}
         </p>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard icon={Users} label="Total Fellows" value={fellows.length} color="text-brand-600 bg-brand-50" />
-        <StatCard icon={CheckCircle2} label="Confirmed" value={confirmed} color="text-emerald-600 bg-emerald-50" />
-        <StatCard icon={Clock} label="Pending" value={pending} color="text-amber-600 bg-amber-50" />
+        <StatCard icon={CheckCircle2} label="Signed in" value={`${signedIn} / ${fellows.length}`} color="text-emerald-600 bg-emerald-50" />
+        <StatCard icon={ClipboardCheck} label="Teamflow done" value={`${teamflowDone} / ${fellows.length}`} color="text-violet-600 bg-violet-50" />
         <StatCard icon={Globe} label="Countries" value={countries} color="text-sky-600 bg-sky-50" />
       </div>
 
       {/* Add fellow */}
       <Card>
-        <CardHeader title="Add a fellow" subtitle="They land unassigned and pending until placed on a team." />
-        <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
-          <div className="lg:col-span-1">
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Full name</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addFellow()}
-              placeholder="e.g. Sirikit Wong"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Country</label>
-            <select value={country} onChange={(e) => setCountry(e.target.value)} className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-300">
-              {countryOptions.map((c) => (
-                <option key={c} value={c}>{countryFlag[c]} {c}</option>
+        <CardHeader
+          title="Add a fellow"
+          subtitle={addMode === "single" ? "They land unassigned, awaiting sign-in and the Teamflow form." : "Paste rows from Google Sheets — one fellow per line."}
+          action={
+            <div className="flex gap-1 rounded-md bg-slate-100 p-0.5">
+              {(["single", "paste"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setAddMode(m)}
+                  className={cn(
+                    "rounded px-2.5 py-1 text-xs font-semibold transition",
+                    addMode === m ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  {m === "single" ? "Single" : "Paste from sheet"}
+                </button>
               ))}
-            </select>
+            </div>
+          }
+        />
+
+        {addMode === "single" ? (
+          <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+            <div className="lg:col-span-1">
+              <label className={labelCls}>Full name</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addFellow()}
+                placeholder="e.g. Sirikit Wong"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Country</label>
+              <select value={country} onChange={(e) => setCountry(e.target.value)} className={inputCls}>
+                {countryOptions.map((c) => (
+                  <option key={c} value={c}>{countryFlag[c]} {c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>University</label>
+              <input value={university} onChange={(e) => setUniversity(e.target.value)} placeholder="e.g. Chulalongkorn" className={inputCls} />
+            </div>
+            <button
+              type="button"
+              onClick={addFellow}
+              className="flex items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+            >
+              <Plus className="h-4 w-4" />
+              Add fellow
+            </button>
           </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">University</label>
-            <input
-              value={university}
-              onChange={(e) => setUniversity(e.target.value)}
-              placeholder="e.g. Chulalongkorn"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+        ) : (
+          <div className="space-y-3 p-5">
+            <textarea
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              rows={6}
+              placeholder={"Paste straight from Google Sheets — one fellow per row:\nName\tCountry\tUniversity\nSirikit Wong\tThailand\tChulalongkorn University\nMinh Le\tVietnam\tVNU University of Science"}
+              className={cn(inputCls, "resize-y font-mono text-xs leading-relaxed")}
             />
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={addBulk}
+                disabled={parsedCount === 0}
+                className="flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500 disabled:opacity-60"
+              >
+                <Plus className="h-4 w-4" />
+                Add {parsedCount > 0 ? parsedCount : ""} fellow{parsedCount === 1 ? "" : "s"}
+              </button>
+              <span className="text-xs text-slate-400">Columns: Name · Country · University — tab or comma separated. A header row is ignored.</span>
+            </div>
           </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">Archetype</label>
-            <select value={teamflow} onChange={(e) => setTeamflow(e.target.value as TeamFlow)} className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-300">
-              {allTeamflows.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="button"
-            onClick={addFellow}
-            className="flex items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
-          >
-            <Plus className="h-4 w-4" />
-            Add fellow
-          </button>
-        </div>
+        )}
       </Card>
 
       {/* Filters */}
@@ -236,10 +322,10 @@ export default function FellowManagement() {
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as FellowStatus | "")} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-300">
-          <option value="">Any status</option>
-          <option value="Confirmed">Confirmed</option>
-          <option value="Pending">Pending</option>
+        <select value={activityFilter} onChange={(e) => setActivityFilter(e.target.value as "" | "in" | "out")} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-300">
+          <option value="">Any activity</option>
+          <option value="in">Signed in</option>
+          <option value="out">Not signed in</option>
         </select>
       </div>
 
@@ -261,7 +347,7 @@ export default function FellowManagement() {
             {hasFilters && (
               <button
                 type="button"
-                onClick={() => { setQuery(""); setFilterCountry(""); setFilterTeam(""); setFilterStatus(""); }}
+                onClick={() => { setQuery(""); setFilterCountry(""); setFilterTeam(""); setActivityFilter(""); }}
                 className="mt-1 text-xs font-semibold text-brand-600 hover:text-brand-700"
               >
                 Clear all filters
@@ -273,7 +359,7 @@ export default function FellowManagement() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 text-left">
-                  {["Fellow", "Country", "Archetype", "Team", "Status", ""].map((h, i) => (
+                  {["Fellow", "Country", "Teamflow", "Team", "Last active", ""].map((h, i) => (
                     <th key={i} className="px-5 py-2.5 font-mono text-[11px] font-medium uppercase tracking-wider text-slate-400">
                       {h}
                     </th>
@@ -281,13 +367,18 @@ export default function FellowManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.map((f) => (
-                  <tr key={f.id} className="transition hover:bg-slate-50">
+                {filtered.map((f) => {
+                  const sus = suspended.has(f.id);
+                  return (
+                  <tr key={f.id} className={cn("transition hover:bg-slate-50", sus && "opacity-60")}>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">{f.initials}</div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-900">{f.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="truncate text-sm font-semibold text-slate-900">{f.name}</p>
+                            {sus && <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">Suspended</span>}
+                          </div>
                           <p className="flex items-center gap-1 truncate text-xs text-slate-400">
                             <GraduationCap className="h-3 w-3 shrink-0" />
                             {f.university}
@@ -300,9 +391,19 @@ export default function FellowManagement() {
                       {f.country}
                     </td>
                     <td className="px-5 py-3">
-                      <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-medium", teamflowChip[f.teamflow])}>
-                        {f.teamflow}
-                      </span>
+                      {f.teamflowSubmitted ? (
+                        <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-medium", teamflowChip[f.teamflow])}>
+                          {f.teamflow}
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20"
+                          title="Hasn't completed the pre-sprint Teamflow form"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          Not submitted
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3">
                       <select
@@ -316,23 +417,46 @@ export default function FellowManagement() {
                         ))}
                       </select>
                     </td>
-                    <td className="px-5 py-3">
-                      <button type="button" onClick={() => toggleStatus(f.id)} title="Toggle status">
-                        <StatusPill status={f.status} />
-                      </button>
+                    <td className="whitespace-nowrap px-5 py-3">
+                      {f.lastActiveAt != null ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          {lastActiveLabel(f.lastActiveAt)}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-400" title="Invited but never signed in">
+                          <Clock className="h-3.5 w-3.5" />
+                          Never signed in
+                        </span>
+                      )}
                     </td>
-                    <td className="px-5 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => removeFellow(f.id)}
-                        className="rounded-md p-1.5 text-slate-400 transition hover:bg-brand-50 hover:text-brand-600"
-                        aria-label={`Remove ${f.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => toggleSuspended(f.id)}
+                          className={cn(
+                            "rounded-md p-1.5 transition",
+                            sus ? "text-emerald-600 hover:bg-emerald-50" : "text-slate-400 hover:bg-amber-50 hover:text-amber-600"
+                          )}
+                          aria-label={sus ? `Reinstate ${f.name}` : `Suspend ${f.name}`}
+                          title={sus ? "Reinstate" : "Suspend (leaves the cohort)"}
+                        >
+                          {sus ? <RotateCcw className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeFellow(f.id)}
+                          className="rounded-md p-1.5 text-slate-400 transition hover:bg-brand-50 hover:text-brand-600"
+                          aria-label={`Remove ${f.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -42,9 +42,7 @@ const navGroups = [
 const routeLabels: Record<string, string> = {
   "/admin": "Overview",
   "/admin/cases": "Cases",
-  "/admin/cases/new": "Add case",
   "/admin/resources": "Resources",
-  "/admin/resources/new": "Add resource",
   "/admin/teams": "Teams",
   "/admin/fellows": "Members",
   "/admin/sprints": "Sprint & Schedule",

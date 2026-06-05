@@ -107,7 +107,7 @@ export default function EventManagement() {
   const labelCls = "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500";
 
   return (
-    <div className="space-y-6">
+    <div className="page space-y-6">
       {toast}
 
       {/* Header */}
@@ -172,7 +172,7 @@ export default function EventManagement() {
               onClick={() => set("allDay", !form.allDay)}
               className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", form.allDay ? "bg-brand-600" : "bg-slate-300")}
             >
-              <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform", form.allDay ? "translate-x-4" : "translate-x-0.5")} />
+              <span className={cn("absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform", form.allDay ? "translate-x-4" : "translate-x-0")} />
             </button>
           </div>
 

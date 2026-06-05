@@ -6,6 +6,20 @@ import { allFellows } from "./mock";
 // Cohorts shown in the top-bar selector (mock only — switching is cosmetic).
 export const COHORTS = ["Cohort 2026", "Cohort 2025", "Cohort 2024"];
 
+// Each fellow's "SEA Bridge ID" (SBIE) — the key a Google Form collects and an
+// Apps Script matches against the response sheet to mark a submission. Mock
+// format: SBIE26-001.
+export const sbieId = (fellowId: number) => `SBIE26-${String(fellowId).padStart(3, "0")}`;
+
+// Program sprints. An assignment is filed under one of these. The last entry is
+// treated as the current sprint (default selection when adding an assignment).
+export const SPRINTS = [
+  "Sprint 1 · Foundations",
+  "Sprint 2 · Customer Discovery",
+  "Sprint 3 · Demo Build",
+  "Sprint 4 · Investor Narrative",
+];
+
 export const adminEvents: AdminEvent[] = [
   {
     id: 1,
@@ -61,6 +75,7 @@ export const adminAssignments: AdminAssignment[] = [
   {
     id: 1,
     title: "Customer Interview Notes",
+    sprint: "Sprint 2 · Customer Discovery",
     formUrl: "https://forms.gle/example-interviews",
     due: "2026-06-08",
     description:
@@ -70,6 +85,7 @@ export const adminAssignments: AdminAssignment[] = [
   {
     id: 2,
     title: "Sprint 4 Retrospective",
+    sprint: "Sprint 4 · Investor Narrative",
     formUrl: "https://forms.gle/example-retro",
     due: "2026-06-14",
     description: "Reflect on what your team shipped this sprint and what you'd change next.",
@@ -78,6 +94,7 @@ export const adminAssignments: AdminAssignment[] = [
   {
     id: 3,
     title: "Weekly Check-in",
+    sprint: "Sprint 3 · Demo Build",
     formUrl: "https://forms.gle/example-checkin",
     due: "2026-06-09",
     description: "Quick status: wins, blockers and what you need help with this week.",

@@ -163,6 +163,7 @@ export interface AdminEvent {
 export interface AdminAssignment {
   id: number;
   title: string;
+  sprint: string; // which program sprint this assignment belongs to
   formUrl: string;
   due: string; // ISO date, "" when none
   description: string;
