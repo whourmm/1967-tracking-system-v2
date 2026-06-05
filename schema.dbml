@@ -1,0 +1,157 @@
+Table cohort {
+  id               int          [pk]
+  name             varchar
+  start_date       date
+  end_date         date
+  presentation_date date
+  is_active        boolean
+  created_at       timestamp
+  update_at        timestamp
+  created_by       int          [note: '-> user.id (audit)']
+}
+
+Table user {
+  id           int        [pk]
+  name         varchar
+  role         varchar    [note: 'fellow, admin, PO']
+  created_at   timestamp
+  discord_name varchar
+  line_id      varchar
+  phone        varchar
+  linkedin     varchar
+  photo_url    varchar
+  country      varchar
+  update_at    timestamp
+  gmail        varchar
+}
+
+// 1:1 extension of user — user_id IS the primary key (no id needed)
+Table admin {
+  user_id int [pk, ref: - user.id]
+}
+
+// mentor = which user mentors which team.
+// (user_id, team_id) is the natural composite key — no id needed.
+Table mentor {
+  user_id int [ref: > user.id]
+  team_id int [ref: > team.id]
+  indexes {
+    (user_id, team_id) [pk]
+  }
+}
+
+// 1:1 extension of user — user_id IS the primary key (no id needed)
+Table fellow {
+  user_id    int      [pk, ref: - user.id]
+  team_id    int      [ref: > team.id, note: 'current team']
+  university varchar
+  major      varchar
+  status     varchar  [note: 'confirmed, pending, dropped']
+  group_id   int      [ref: > group.id]
+  teamflow   varchar
+}
+
+Table sprint {
+  id                 int       [pk]
+  cohort_id          int       [ref: > cohort.id]
+  name               text
+  description        text      [null]
+  starts_on          timestamp
+  submission_deadline timestamp
+  is_current         boolean   [note: 'marks the active sprint for UI (or compute from dates)']
+  created_at         timestamp
+  update_at          timestamp
+  created_by         int       [note: '-> user.id (audit)']
+}
+
+Table group {
+  id         int       [pk]
+  cohort_id  int       [ref: > cohort.id]
+  name       varchar   [note: 'Team number']
+  created_at timestamp
+  case_id    int       [ref: > case.id]
+  update_at  timestamp
+  start_date date
+  end_date   date
+  created_by int       [note: '-> user.id (audit)']
+}
+
+Table team {
+  id         int       [pk]
+  group_id   int       [ref: > group.id]
+  name       varchar   [note: 'Team number']
+  created_at timestamp
+  case_id    int       [ref: > case.id]
+  update_at  timestamp
+  created_by int       [note: '-> user.id (audit)']
+}
+
+Table case {
+  id               int       [pk]
+  cohort_id        int       [ref: > cohort.id]
+  sprint_id        int       [ref: > sprint.id]
+  title            varchar
+  case_owner       varchar   [note: 'sponsor / owner name (keep varchar, or make FK to user if owner is a platform account)']
+  status           varchar
+  summary          text
+  file_name        varchar
+  published_date   date
+  googledrive_link varchar
+  created_at       timestamp
+  update_at        timestamp
+  theme            varchar
+  create_by        int       [note: '-> user.id (audit)']
+}
+
+Table assignment {
+  id          int       [pk]
+  cohort_id   int       [ref: > cohort.id]
+  sprint_id   int       [ref: > sprint.id]
+  title       varchar
+  form_url    varchar
+  deadline    timestamp
+  description text
+  created_at  timestamp
+  update_at   timestamp
+  created_by  int       [note: '-> user.id (audit)']
+}
+
+// This IS the junction table for the fellow <-> assignment N:N.
+// (assignment_id, member_id) is the natural composite key — no id needed.
+Table assignment_submission {
+  assignment_id int       [ref: > assignment.id]
+  member_id     int       [ref: > user.id, note: 'the fellow (= user.id) who submitted']
+  submitted_at  timestamp
+  indexes {
+    (assignment_id, member_id) [pk]
+  }
+}
+
+Table resource {
+  id          int       [pk]
+  type        varchar   [note: 'CASE, LECTURE, ARTICLE']
+  name        varchar
+  description text
+  created_at  timestamp
+  updated_at  timestamp
+  created_by  int       [note: '-> user.id']
+}
+
+// API sync table: records pushes to Google Sheet for submissions
+Table api {
+  id            int       [pk]
+  assignment_id int       [ref: > assignment.id]
+  updated_at    timestamp
+  created_at    timestamp
+}
+
+Table events {
+  id          int       [pk]
+  cohort_id   int       [ref: > cohort.id]
+  name        varchar
+  description text
+  user_id     int       [ref: > user.id, note: 'owner']
+  created_at  timestamp
+  updated_at  timestamp
+  create_by   int       [note: '-> user.id (audit)']
+}
