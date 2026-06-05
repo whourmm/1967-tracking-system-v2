@@ -31,6 +31,7 @@ import {
   formatShortDate,
 } from "../../lib/format";
 import { cn } from "../../lib/cn";
+import { flagFor } from "../../lib/cohort";
 import type { ActivityItem, TeamMember } from "../../types";
 
 const stats = [
@@ -177,33 +178,41 @@ export default function FellowDashboard() {
           </p>
         </div>
         {/* Sprint switcher — step between sprints with the chevrons. */}
-        <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+        <div className="inline-flex items-center gap-1">
           <button
             onClick={goPrev}
             disabled={atStart}
             aria-label="Previous sprint"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-30"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-slate-400 transition hover:text-slate-700 disabled:pointer-events-none disabled:opacity-25"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <div className="min-w-44 px-2 text-center">
+          {/* Fixed width keeps the chevrons put as the sprint name changes. */}
+          <div className="w-60 px-2 text-center">
             <p className="truncate text-sm font-semibold leading-tight text-slate-900">
               {selectedSprint.name}
             </p>
-            <p
-              className={cn(
-                "text-[10px] font-bold uppercase tracking-wide leading-tight",
-                sprintState === "Current" ? "text-brand-600" : "text-slate-400"
-              )}
-            >
-              {sprintState}
-            </p>
+            {/* One dot per sprint: red = current sprint, the viewed one is a pill. */}
+            <div className="mt-2 flex items-center justify-center gap-1.5">
+              {sprints.map((s, i) => (
+                <span
+                  key={s.id}
+                  className={cn(
+                    "h-2.5 rounded-full transition-all",
+                    i === sprintIndex ? "w-6 ring-2 ring-offset-1" : "w-2.5",
+                    s.isCurrent
+                      ? "bg-brand-500 ring-brand-200"
+                      : "bg-slate-300 ring-slate-200"
+                  )}
+                />
+              ))}
+            </div>
           </div>
           <button
             onClick={goNext}
             disabled={atEnd}
             aria-label="Next sprint"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-30"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-slate-400 transition hover:text-slate-700 disabled:pointer-events-none disabled:opacity-25"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
@@ -395,7 +404,7 @@ export default function FellowDashboard() {
                 </Link>
               }
             />
-            <ul className="flex gap-3 overflow-x-auto p-4">
+            <ul className="flex gap-2 overflow-x-auto p-4">
               {[...teamMembers]
                 .sort((a, b) => {
                   if (a.name === currentFellow.name) return -1;
@@ -408,47 +417,44 @@ export default function FellowDashboard() {
                     <li
                       key={m.name}
                       className={cn(
-                        "flex w-44 shrink-0 flex-col gap-3 rounded-lg p-3 transition",
-                        isMe
-                          ? "bg-brand-50/60 ring-1 ring-brand-100"
-                          : "border border-slate-100 hover:bg-slate-50"
+                        "flex w-40 shrink-0 flex-col items-center gap-2 rounded-lg p-3 text-center transition",
+                        isMe ? "bg-brand-50/60 ring-1 ring-brand-100" : "hover:bg-slate-50"
                       )}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="relative">
                         <div
                           className={cn(
-                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                            "flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold",
                             isMe
-                              ? "bg-brand-600 text-white"
+                              ? "bg-brand-600 text-white ring-2 ring-brand-100"
                               : "bg-slate-100 text-slate-600"
                           )}
                         >
                           {m.initials}
                         </div>
                         <span
+                          className="absolute -bottom-1 -right-1 text-base leading-none"
+                          title={m.country}
+                        >
+                          {flagFor(m.country)}
+                        </span>
+                      </div>
+                      <div className="w-full">
+                        <p className="truncate text-sm font-semibold leading-tight text-slate-900">
+                          {m.name}
+                        </p>
+                        <span
                           className={cn(
-                            "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
+                            "mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
                             teamflowChip[m.teamflow]
                           )}
                         >
                           {m.teamflow}
                         </span>
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="truncate text-sm font-semibold text-slate-900">
-                            {m.name}
-                          </p>
-                          {isMe && (
-                            <span className="shrink-0 rounded bg-brand-100 px-1 text-[10px] font-semibold text-brand-700">
-                              You
-                            </span>
-                          )}
-                        </div>
-                        <p className="truncate text-xs text-slate-500">
-                          {m.country} · {m.university}
-                        </p>
-                      </div>
+                      <p className="w-full truncate text-[11px] text-slate-500">
+                        {m.university}
+                      </p>
                     </li>
                   );
                 })}

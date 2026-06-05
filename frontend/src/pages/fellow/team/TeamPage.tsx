@@ -66,7 +66,7 @@ function MemberCard({ member, isMe }: { member: TeamMember; isMe: boolean }) {
   );
 
   const cardClass = cn(
-    "group relative flex flex-col items-center gap-3 rounded-xl border p-5 text-center transition",
+    "group relative flex w-56 shrink-0 flex-col items-center gap-3 rounded-xl border p-5 text-center transition",
     isMe
       ? "border-brand-200 bg-brand-50/40 ring-2 ring-brand-100"
       : "cursor-pointer border-slate-200 bg-white hover:border-brand-200 hover:bg-brand-50/20 hover:shadow-sm"
@@ -133,7 +133,7 @@ export default function TeamPage() {
 
       <Card>
         <CardHeader title={currentFellow.team} subtitle={`${teamMembers.length} fellows · ${nationalities} nationalities · ${selectedSprint.name}`} />
-        <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="flex gap-4 overflow-x-auto p-5">
           {[
             ...teamMembers.filter((m) => m.name === currentFellow.name),
             ...teamMembers.filter((m) => m.name !== currentFellow.name),
