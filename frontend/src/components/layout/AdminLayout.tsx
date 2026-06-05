@@ -1,6 +1,7 @@
 import {
   BookOpen,
   Box,
+  CalendarClock,
   CalendarDays,
   ChevronDown,
   Download,
@@ -32,6 +33,7 @@ const navGroups = [
     label: "Schedule",
     items: [
       { label: "Sprints", to: "/admin/sprints", icon: CalendarDays, count: 3 },
+      { label: "Upcoming Events", to: "/admin/events", icon: CalendarClock, count: 4 },
       { label: "Assignments", to: "/admin/assignments", icon: FolderOpen, count: 2 },
     ],
   },
@@ -46,7 +48,7 @@ const routeLabels: Record<string, string> = {
   "/admin/teams": "Teams",
   "/admin/fellows": "Members",
   "/admin/sprints": "Sprint & Schedule",
-  "/admin/events": "Sprint & Schedule",
+  "/admin/events": "Upcoming Events",
   "/admin/assignments": "Assignments",
 };
 

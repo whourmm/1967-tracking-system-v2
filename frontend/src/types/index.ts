@@ -138,3 +138,33 @@ export interface ActivityItem {
   time: string;
   kind: "submission" | "resource" | "team" | "announcement";
 }
+
+// --- Admin portal ------------------------------------------------------------
+// Types backing the [Anda]-owned admin pages: Fellows, Teams, Upcoming Events
+// and Assignments. They sit alongside the fellow-facing types so the admin
+// pages can later swap mock data for the same API responses.
+
+// A calendar event the admin publishes. Attendees add it to Google Calendar
+// with one click (see lib/calendar.ts).
+export interface AdminEvent {
+  id: number;
+  title: string;
+  date: string; // ISO date (YYYY-MM-DD)
+  allDay: boolean;
+  start: string; // "HH:MM" — empty when allDay
+  end: string; // "HH:MM" — empty when allDay
+  tz: string; // IANA timezone, e.g. "Asia/Bangkok"
+  location: string;
+  description: string;
+}
+
+// Cohort-wide view of an assignment: which fellows have submitted its Google
+// Form. Mirrors the fellow-side `Assignment`, but tracked across everyone.
+export interface AdminAssignment {
+  id: number;
+  title: string;
+  formUrl: string;
+  due: string; // ISO date, "" when none
+  description: string;
+  submittedIds: number[]; // FellowRecord ids that have submitted
+}

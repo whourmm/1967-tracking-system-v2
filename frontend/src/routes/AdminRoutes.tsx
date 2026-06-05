@@ -6,18 +6,11 @@ import CaseManagement from "../pages/admin/CaseManagement";
 import ResourceFormPage from "../pages/admin/ResourceFormPage";
 import ResourcesPage from "../pages/admin/ResourcesPage";
 import SprintManagement from "../pages/admin/SprintManagement";
-
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="page">
-      <header className="page-header">
-        <h1 className="page-title">{title}</h1>
-        <p className="page-subtitle">This admin screen is ready for the next implementation pass.</p>
-      </header>
-      <div className="card placeholder-page">No data connected yet.</div>
-    </div>
-  );
-}
+// [Anda]-owned admin pages.
+import FellowManagement from "../pages/admin/FellowManagement";
+import TeamBuilder from "../pages/admin/TeamBuilder";
+import EventManagement from "../pages/admin/EventManagement";
+import FormTracker from "../pages/admin/FormTracker";
 
 export default function AdminRoutes() {
   return (
@@ -30,11 +23,11 @@ export default function AdminRoutes() {
         <Route path="resources" element={<ResourcesPage />} />
         <Route path="resources/new" element={<ResourceFormPage />} />
         <Route path="resources/:resourceId/edit" element={<ResourceFormPage />} />
-        <Route path="teams" element={<PlaceholderPage title="Teams" />} />
-        <Route path="fellows" element={<PlaceholderPage title="Members" />} />
+        <Route path="teams" element={<TeamBuilder />} />
+        <Route path="fellows" element={<FellowManagement />} />
         <Route path="sprints" element={<SprintManagement />} />
-        <Route path="events" element={<SprintManagement />} />
-        <Route path="assignments" element={<PlaceholderPage title="Assignments" />} />
+        <Route path="events" element={<EventManagement />} />
+        <Route path="assignments" element={<FormTracker />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>
