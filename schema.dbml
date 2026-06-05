@@ -23,6 +23,7 @@ Table user {
   country      varchar
   update_at    timestamp
   gmail        varchar
+  last_login_at timestamp [null, note: 'most recent successful login']
 }
 
 // 1:1 extension of user — user_id IS the primary key (no id needed)
