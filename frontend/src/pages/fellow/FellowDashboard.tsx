@@ -258,6 +258,14 @@ export default function FellowDashboard() {
               subtitle={`${teamMembers.length} fellows · ${
                 new Set(teamMembers.map((m) => m.country)).size
               } nationalities`}
+              action={
+                <Link
+                  to="/fellow/teams"
+                  className="text-xs font-semibold text-brand-600 hover:text-brand-700"
+                >
+                  See all
+                </Link>
+              }
             />
             <ul className="space-y-1 p-3">
               {teamMembers.map((m) => {
