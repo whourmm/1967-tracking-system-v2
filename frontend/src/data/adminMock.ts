@@ -6,6 +6,28 @@ import { allFellows } from "./mock";
 // Cohorts shown in the top-bar selector (mock only — switching is cosmetic).
 export const COHORTS = ["Cohort 2026", "Cohort 2025", "Cohort 2024"];
 
+// The signed-in admin — backs the admin Profile page and the top-bar avatar.
+export const adminProfile = {
+  name: "Praewa Suksai",
+  nickname: "Praewa",
+  role: "Program Lead",
+  department: "Cohort Operations",
+  organization: "SEA Bridge · 1967 Fellowship",
+  accessLevel: "Full admin",
+  adminId: "SBIE-ADM-007",
+  email: "praewa@seabridge.org",
+  discord: "praewa_s",
+  line: "praewasuk",
+  instagram: "@praewa.s",
+};
+
+export const adminInitials = adminProfile.name
+  .split(" ")
+  .map((n) => n[0])
+  .slice(0, 2)
+  .join("")
+  .toUpperCase();
+
 // Each fellow's "SEA Bridge ID" (SBIE) — the key a Google Form collects and an
 // Apps Script matches against the response sheet to mark a submission. Mock
 // format: SBIE26-001.

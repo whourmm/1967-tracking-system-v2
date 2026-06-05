@@ -9,6 +9,7 @@ import FellowManagement from "../pages/admin/FellowManagement";
 import TeamBuilder from "../pages/admin/TeamBuilder";
 import EventManagement from "../pages/admin/EventManagement";
 import FormTracker from "../pages/admin/FormTracker";
+import AdminProfile from "../pages/admin/AdminProfile";
 
 export default function AdminRoutes() {
   return (
@@ -22,6 +23,7 @@ export default function AdminRoutes() {
         <Route path="sprints" element={<SprintManagement />} />
         <Route path="events" element={<EventManagement />} />
         <Route path="assignments" element={<FormTracker />} />
+        <Route path="profile" element={<AdminProfile />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>

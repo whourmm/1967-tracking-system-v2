@@ -1,10 +1,11 @@
+import { useState } from "react";
 import {
   BookOpen,
   Box,
   CalendarClock,
   CalendarDays,
+  Check,
   ChevronDown,
-  Download,
   FileText,
   FolderOpen,
   Grid2X2,
@@ -12,6 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { adminInitials, COHORTS } from "../../data/adminMock";
 
 const navGroups = [
   {
@@ -48,6 +50,7 @@ const routeLabels: Record<string, string> = {
   "/admin/sprints": "Sprint & Schedule",
   "/admin/events": "Upcoming Events",
   "/admin/assignments": "Assignments",
+  "/admin/profile": "My Profile",
 };
 
 export default function AdminLayout() {
@@ -56,6 +59,20 @@ export default function AdminLayout() {
     ?? (pathname.startsWith("/admin/cases/") ? "Edit case" : undefined)
     ?? (pathname.startsWith("/admin/resources/") ? "Edit resource" : undefined)
     ?? "Overview";
+
+  // Cohort selector + creation (cosmetic mock — scopes nothing yet).
+  const [cohorts, setCohorts] = useState<string[]>(COHORTS);
+  const [cohort, setCohort] = useState(COHORTS[0]);
+  const [cohortMenuOpen, setCohortMenuOpen] = useState(false);
+
+  function addCohort() {
+    const name = window.prompt("Name the new cohort:", "Summer 2026");
+    if (name && name.trim()) {
+      const trimmed = name.trim();
+      setCohorts((prev) => (prev.includes(trimmed) ? prev : [trimmed, ...prev]));
+      setCohort(trimmed);
+    }
+  }
 
   return (
     <div className="admin-shell">
@@ -106,19 +123,48 @@ export default function AdminLayout() {
             Program <span aria-hidden="true">&gt;</span> <strong>{pageLabel}</strong>
           </div>
           <div className="topbar-actions">
-            <button className="select-button" type="button">
-              <span className="select-kicker">Cohort</span>
-              Spring 2026
-              <ChevronDown size={14} />
-            </button>
-            <button className="button" type="button">
+            <div className="relative">
+              <button className="select-button" type="button" onClick={() => setCohortMenuOpen((o) => !o)}>
+                <span className="select-kicker">Cohort</span>
+                {cohort}
+                <ChevronDown size={14} />
+              </button>
+              {cohortMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setCohortMenuOpen(false)} />
+                  <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-md border border-admin-border bg-white py-1 shadow-lg">
+                    {cohorts.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => { setCohort(c); setCohortMenuOpen(false); }}
+                        className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-slate-50 ${c === cohort ? "font-semibold text-admin-red" : "text-slate-700"}`}
+                      >
+                        {c}
+                        {c === cohort && <Check size={14} />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <button className="button" type="button" onClick={addCohort}>
               <Plus size={14} />
               New cohort
             </button>
-            <button className="button primary" type="button">
-              <Download size={14} />
-              Export
-            </button>
+    
+            <NavLink
+              to="/admin/profile"
+              aria-label="My profile"
+              title="My profile"
+              className={({ isActive }) =>
+                `flex h-9 w-9 items-center justify-center rounded-full bg-admin-red text-xs font-bold text-white transition ${
+                  isActive ? "ring-2 ring-admin-red/40 ring-offset-1" : "hover:opacity-90"
+                }`
+              }
+            >
+              {adminInitials}
+            </NavLink>
           </div>
         </header>
         <Outlet />
