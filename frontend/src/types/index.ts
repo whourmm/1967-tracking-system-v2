@@ -112,6 +112,26 @@ export interface TeamMember {
   teamflow: TeamFlow;
 }
 
+export type FellowStatus = "Confirmed" | "Pending";
+
+// Full public-facing fellow record surfaced on the Roster and Fellow Detail pages.
+export interface FellowRecord {
+  id: number;
+  name: string;
+  initials: string;
+  country: string;
+  university: string;
+  teamflow: TeamFlow;
+  team: string;
+  status: FellowStatus;
+  startDate: string; // ISO date
+  // Contact visibility is per-field; null means the fellow has set it private.
+  email: string | null;
+  discord: string | null;
+  line: string | null;
+  instagram: string | null;
+}
+
 export interface ActivityItem {
   id: number;
   text: string;

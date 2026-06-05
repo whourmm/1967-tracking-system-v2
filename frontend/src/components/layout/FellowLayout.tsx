@@ -6,8 +6,9 @@ import {
   GraduationCap,
   LayoutDashboard,
   LifeBuoy,
-  LogOut,
   Search,
+  Settings,
+  UserCircle,
   Users,
 } from "lucide-react";
 import { cn } from "../../lib/cn";
@@ -17,11 +18,8 @@ const mainNav = [
   { to: "/fellow", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/fellow/assignments", label: "Assignments", icon: ClipboardList },
   { to: "/fellow/learning", label: "Learning System", icon: BookOpen },
-];
-
-const soonNav = [
-  { label: "My Team", icon: Users },
-  { label: "Fellows Roster", icon: GraduationCap },
+  { to: "/fellow/teams", label: "My Team", icon: Users },
+  { to: "/fellow/roster", label: "Fellows Roster", icon: GraduationCap },
 ];
 
 function Sidebar() {
@@ -75,26 +73,33 @@ function Sidebar() {
           ))}
         </ul>
 
-        <p className="px-3 pb-2 pt-6 text-xs font-semibold uppercase tracking-wider text-slate-400">
-          Coming soon
-        </p>
-        <ul className="space-y-1">
-          {soonNav.map((item) => (
-            <li key={item.label}>
-              <span className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-400">
-                <item.icon className="h-5 w-5 shrink-0 text-slate-300" />
-                {item.label}
-                <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-                  Soon
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
       </nav>
 
       {/* Help + profile */}
       <div className="border-t border-slate-100 p-3">
+        <NavLink
+          to="/fellow/settings"
+          className={({ isActive }) =>
+            cn(
+              "mb-1 flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+              isActive
+                ? "bg-brand-50 text-brand-700"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            )
+          }
+        >
+          {({ isActive }) => (
+            <>
+              <Settings
+                className={cn(
+                  "h-5 w-5 shrink-0",
+                  isActive ? "text-brand-600" : "text-slate-400"
+                )}
+              />
+              Settings
+            </>
+          )}
+        </NavLink>
         <a
           href="#"
           className="mb-2 flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
@@ -102,23 +107,44 @@ function Sidebar() {
           <LifeBuoy className="h-5 w-5 text-slate-400" />
           Help & Support
         </a>
-        <div className="flex items-center gap-3 rounded-md bg-slate-50 px-3 py-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
-            {currentFellow.avatarInitials}
-          </div>
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-sm font-semibold text-slate-900">
-              {currentFellow.name}
-            </p>
-            <p className="truncate text-xs text-slate-500">{currentFellow.team}</p>
-          </div>
-          <button
-            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700"
-            aria-label="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
+        <NavLink
+          to="/fellow/profile"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors",
+              isActive
+                ? "bg-brand-50 ring-1 ring-brand-100"
+                : "bg-slate-50 hover:bg-slate-100"
+            )
+          }
+        >
+          {({ isActive }) => (
+            <>
+              <div
+                className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white",
+                  isActive ? "bg-brand-700" : "bg-brand-600"
+                )}
+              >
+                {currentFellow.avatarInitials}
+              </div>
+              <div className="min-w-0 flex-1 leading-tight">
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {currentFellow.name}
+                </p>
+                <p className="truncate text-xs text-slate-500">
+                  {currentFellow.team}
+                </p>
+              </div>
+              <UserCircle
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  isActive ? "text-brand-500" : "text-slate-300"
+                )}
+              />
+            </>
+          )}
+        </NavLink>
       </div>
     </aside>
   );
@@ -143,14 +169,24 @@ function Topbar() {
           <Bell className="h-5 w-5" />
           <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-white" />
         </button>
-        <div className="flex items-center gap-2.5 rounded-md border border-slate-200 py-1.5 pl-1.5 pr-3">
+        <NavLink
+          to="/fellow/profile"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-2.5 rounded-md border py-1.5 pl-1.5 pr-3 transition-colors",
+              isActive
+                ? "border-brand-300 bg-brand-50"
+                : "border-slate-200 hover:border-brand-200 hover:bg-brand-50/50"
+            )
+          }
+        >
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">
             {currentFellow.avatarInitials}
           </div>
           <span className="hidden text-sm font-medium text-slate-700 sm:block">
             {currentFellow.name}
           </span>
-        </div>
+        </NavLink>
       </div>
     </header>
   );
