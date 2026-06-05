@@ -4,7 +4,7 @@ import {
   BookOpen,
   ClipboardList,
   GraduationCap,
-  LayoutDashboard,
+  Home,
   LifeBuoy,
   Search,
   Settings,
@@ -15,7 +15,7 @@ import { cn } from "../../lib/cn";
 import { currentFellow } from "../../data/mock";
 
 const mainNav = [
-  { to: "/fellow", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/fellow", label: "Home", icon: Home, end: true },
   { to: "/fellow/assignments", label: "Assignments", icon: ClipboardList },
   { to: "/fellow/learning", label: "Learning System", icon: BookOpen },
   { to: "/fellow/teams", label: "My Team", icon: Users },

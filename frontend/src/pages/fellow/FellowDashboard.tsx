@@ -8,7 +8,6 @@ import {
   ClipboardList,
   Clock,
   Megaphone,
-  TrendingUp,
   UserPlus,
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
@@ -195,39 +194,32 @@ export default function FellowDashboard() {
                 const key = dateKey(date);
                 const isToday = key === todayKey;
                 const isPast = key < todayKey;
-                const state = isToday ? "Today" : isPast ? "Done" : "Next";
+
+                const isFuture = !isToday && !isPast;
 
                 return (
-                  <div
+                  <span
                     key={key}
-                    className="min-w-20 shrink-0"
+                    aria-current={isToday ? "date" : undefined}
+                    style={
+                      isFuture
+                        ? {
+                            backgroundImage:
+                              "repeating-linear-gradient(45deg, rgba(255,255,255,0.22) 0, rgba(255,255,255,0.22) 2px, transparent 2px, transparent 7px)",
+                          }
+                        : undefined
+                    }
+                    className={cn(
+                      "flex h-8 min-w-16 flex-1 items-center justify-center rounded-md px-3 text-xs font-semibold",
+                      isToday
+                        ? "bg-white/15 text-white ring-2 ring-inset ring-white"
+                        : isPast
+                          ? "bg-white/15 text-white ring-1 ring-white/10"
+                          : "text-brand-100/70 ring-1 ring-white/10"
+                    )}
                   >
-                    <div
-                      className={cn(
-                        "mb-1 text-center text-[10px] font-semibold uppercase tracking-wider",
-                        isToday
-                          ? "text-white"
-                          : isPast
-                            ? "text-white/70"
-                            : "text-brand-100/70"
-                      )}
-                    >
-                      {state}
-                    </div>
-                    <span
-                      aria-current={isToday ? "date" : undefined}
-                      className={cn(
-                        "flex h-8 items-center justify-center rounded-md px-3 text-xs font-semibold ring-1",
-                        isToday
-                          ? "bg-white text-brand-700 ring-white shadow-sm"
-                          : isPast
-                            ? "bg-white/25 text-white ring-white/15"
-                            : "bg-white/10 text-brand-100 ring-white/15"
-                      )}
-                    >
-                      {formatSprintDate(date)}
-                    </span>
-                  </div>
+                    {formatSprintDate(date)}
+                  </span>
                 );
               })}
             </div>
@@ -348,53 +340,63 @@ export default function FellowDashboard() {
                 </Link>
               }
             />
-            <ul className="grid gap-2 p-4 sm:grid-cols-2">
-              {teamMembers.map((m) => {
-                const isMe = m.name === currentFellow.name;
-                return (
-                  <li
-                    key={m.name}
-                    className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2.5 transition",
-                      isMe ? "bg-brand-50/60" : "border border-slate-100 hover:bg-slate-50"
-                    )}
-                  >
-                    <div
+            <ul className="flex gap-3 overflow-x-auto p-4">
+              {[...teamMembers]
+                .sort((a, b) => {
+                  if (a.name === currentFellow.name) return -1;
+                  if (b.name === currentFellow.name) return 1;
+                  return 0;
+                })
+                .map((m) => {
+                  const isMe = m.name === currentFellow.name;
+                  return (
+                    <li
+                      key={m.name}
                       className={cn(
-                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                        "flex w-44 shrink-0 flex-col gap-3 rounded-lg p-3 transition",
                         isMe
-                          ? "bg-brand-600 text-white"
-                          : "bg-slate-100 text-slate-600"
+                          ? "bg-brand-50/60 ring-1 ring-brand-100"
+                          : "border border-slate-100 hover:bg-slate-50"
                       )}
                     >
-                      {m.initials}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-medium text-slate-900">
-                          {m.name}
-                        </p>
-                        {isMe && (
-                          <span className="rounded bg-brand-100 px-1 text-[10px] font-semibold text-brand-700">
-                            You
-                          </span>
-                        )}
+                      <div className="flex items-center justify-between">
+                        <div
+                          className={cn(
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                            isMe
+                              ? "bg-brand-600 text-white"
+                              : "bg-slate-100 text-slate-600"
+                          )}
+                        >
+                          {m.initials}
+                        </div>
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
+                            teamflowChip[m.teamflow]
+                          )}
+                        >
+                          {m.teamflow}
+                        </span>
                       </div>
-                      <p className="truncate text-xs text-slate-500">
-                        {m.country} · {m.university}
-                      </p>
-                    </div>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
-                        teamflowChip[m.teamflow]
-                      )}
-                    >
-                      {m.teamflow}
-                    </span>
-                  </li>
-                );
-              })}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-sm font-semibold text-slate-900">
+                            {m.name}
+                          </p>
+                          {isMe && (
+                            <span className="shrink-0 rounded bg-brand-100 px-1 text-[10px] font-semibold text-brand-700">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <p className="truncate text-xs text-slate-500">
+                          {m.country} · {m.university}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
             </ul>
           </Card>
 
@@ -412,7 +414,7 @@ export default function FellowDashboard() {
                 </Link>
               }
             />
-            <div className="grid gap-2 p-4 sm:grid-cols-2">
+            <div className="grid gap-2 p-4">
               {blockProgress.map(({ block, submitted, total }) => {
                 const done = total > 0 && submitted === total;
                 return (
@@ -510,13 +512,6 @@ export default function FellowDashboard() {
               })}
             </ul>
           </Card>
-
-          <div className="flex items-center gap-2 rounded-lg bg-brand-50 p-4 text-brand-700">
-            <TrendingUp className="h-5 w-5" />
-            <p className="text-xs font-medium">
-              You’re on track this sprint. Keep the momentum going!
-            </p>
-          </div>
         </div>
       </div>
     </div>
