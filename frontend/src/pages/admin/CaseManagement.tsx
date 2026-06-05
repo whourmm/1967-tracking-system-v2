@@ -1,17 +1,19 @@
+import { useState } from "react";
 import { Edit3, FileText, Plus, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import CaseFormDialog, { type CaseFormValues } from "../../components/admin/CaseFormDialog";
+import type { CaseItem } from "../../components/admin/contentTypes";
 
-export const caseItems = [
+const initialCases: CaseItem[] = [
   {
     id: "coral-payments",
     title: "How Team Coral shipped a payments demo in 48h",
     status: "Published",
     author: "Linh Pham",
     summary: "A breakdown of how a cross-country team scoped, split work and demoed a working payments flow over one weekend.",
-    meta: "By Linh Pham   May 21, 2026   team-coral-payments-writeup.pdf",
     document: "team-coral-payments-writeup.pdf",
     tags: ["sprint", "fintech", "teamwork"],
+    date: "May 21, 2026",
   },
   {
     id: "user-calls",
@@ -19,9 +21,9 @@ export const caseItems = [
     status: "Published",
     author: "Wei-Lin Tan",
     summary: "What we learned booking, running and synthesising a dozen customer interviews in five days.",
-    meta: "By Wei-Lin Tan   May 18, 2026   user-research-synthesis.docx",
     document: "user-research-synthesis.docx",
     tags: ["research", "validation"],
+    date: "May 18, 2026",
   },
   {
     id: "scope-demo",
@@ -29,13 +31,50 @@ export const caseItems = [
     status: "Draft",
     author: "Dewi Putri",
     summary: "A finisher's guide to cutting scope so the team has something to show on demo day.",
-    meta: "By Dewi Putri   May 25, 2026   No document",
     document: "",
     tags: ["scope", "demo-day"],
+    date: "May 25, 2026",
   },
 ];
 
+const todayLabel = () =>
+  new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
 export default function CaseManagement() {
+  const [cases, setCases] = useState<CaseItem[]>(initialCases);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<CaseItem | null>(null);
+
+  function openCreate() {
+    setEditing(null);
+    setShowForm(true);
+  }
+
+  function openEdit(item: CaseItem) {
+    setEditing(item);
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    setEditing(null);
+  }
+
+  function handleSave(values: CaseFormValues) {
+    if (editing) {
+      setCases((cur) => cur.map((c) => (c.id === editing.id ? { ...c, ...values } : c)));
+    } else {
+      setCases((cur) => [{ id: `case-${Date.now()}`, date: todayLabel(), ...values }, ...cur]);
+    }
+    closeForm();
+  }
+
+  function remove(item: CaseItem) {
+    if (window.confirm(`Delete "${item.title}"?`)) {
+      setCases((cur) => cur.filter((c) => c.id !== item.id));
+    }
+  }
+
   return (
     <div className="page">
       <header className="page-header">
@@ -44,24 +83,24 @@ export default function CaseManagement() {
             <h1 className="page-title">Cases</h1>
             <p className="page-subtitle">Write up what teams built and learned so the rest of the cohort can read it.</p>
           </div>
-          <Link className="round-button" to="/admin/cases/new">
+          <button className="round-button" type="button" onClick={openCreate}>
             <Plus size={15} />
             Add case
-          </Link>
+          </button>
         </div>
       </header>
 
       <div className="content-stack">
         <section className="card list-card">
           <h2 className="list-title">Library</h2>
-          <p className="list-subtitle">3 cases</p>
+          <p className="list-subtitle">{cases.length} case{cases.length === 1 ? "" : "s"}</p>
           <div className="library-list">
-            {caseItems.map((item, index) => (
+            {cases.map((item, index) => (
               <motion.article
                 animate={{ opacity: 1, y: 0 }}
                 className="library-item"
                 initial={{ opacity: 0, y: 12 }}
-                key={item.title}
+                key={item.id}
                 transition={{ delay: index * 0.05 }}
               >
                 <div className="doc-icon"><FileText size={18} /></div>
@@ -71,7 +110,7 @@ export default function CaseManagement() {
                     <span className={`pill ${item.status === "Published" ? "success" : "draft"}`}>{item.status}</span>
                   </p>
                   <p className="item-summary">{item.summary}</p>
-                  <p className="case-meta">{item.meta}</p>
+                  <p className="case-meta">By {item.author || "—"} · {item.date} · {item.document || "No document"}</p>
                   <div className="inline-tags">
                     {item.tags.map((tag) => (
                       <span className="pill" key={tag}>{tag}</span>
@@ -79,10 +118,10 @@ export default function CaseManagement() {
                   </div>
                 </div>
                 <div className="item-actions">
-                  <Link className="icon-link" to={`/admin/cases/${item.id}/edit`} aria-label={`Edit ${item.title}`}>
+                  <button className="icon-link" type="button" aria-label={`Edit ${item.title}`} onClick={() => openEdit(item)}>
                     <Edit3 size={15} />
-                  </Link>
-                  <button className="icon-link" type="button" aria-label={`Delete ${item.title}`}>
+                  </button>
+                  <button className="icon-link" type="button" aria-label={`Delete ${item.title}`} onClick={() => remove(item)}>
                     <Trash2 size={15} />
                   </button>
                 </div>
@@ -91,6 +130,8 @@ export default function CaseManagement() {
           </div>
         </section>
       </div>
+
+      {showForm && <CaseFormDialog initial={editing} onClose={closeForm} onSave={handleSave} />}
     </div>
   );
 }

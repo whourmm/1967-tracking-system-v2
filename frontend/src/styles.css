@@ -16,7 +16,7 @@
   --color-brand-800: #991b1b;
   --color-brand-900: #7f1d1d;
 
-  --color-admin-page: #e9edff;
+  --color-admin-page: #f8fafc; /* slate-50 — matches the fellow portal background */
   --color-admin-panel: #f1f3ff;
   --color-admin-card: #ffffff;
   --color-admin-border: #e5e7eb;
