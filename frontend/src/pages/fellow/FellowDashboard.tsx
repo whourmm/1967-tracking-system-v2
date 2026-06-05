@@ -210,7 +210,7 @@ export default function FellowDashboard() {
                       <p className="truncate text-sm font-semibold text-slate-900">
                         {a.title}
                       </p>
-                      <p className="text-xs text-slate-500">{a.sprint}</p>
+                      <p className="text-xs text-slate-500">Block {a.block}</p>
                     </div>
                     <div className="hidden text-right sm:block">
                       <p

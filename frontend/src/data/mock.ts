@@ -2,7 +2,9 @@ import type {
   ActivityItem,
   Assignment,
   FellowProfile,
+  LearningBlock,
   Resource,
+  SpecialCurriculum,
   Sprint,
 } from "../types";
 
@@ -25,68 +27,68 @@ export const currentSprint: Sprint = {
   isCurrent: true,
 };
 
+// Assignments are the Google Forms tied to each learning block. `block` maps
+// them back to the block they belong to, so the Learning System page can show
+// them under "Submit" while the Assignments page tracks their status.
 export const assignments: Assignment[] = [
   {
     id: 101,
-    title: "Customer Interview Synthesis",
+    title: "Block A Reflection",
     description:
-      "Submit a synthesis of at least 8 customer interviews including key pain points and quotes.",
-    sprint: "Sprint 4",
-    deadline: "2026-06-12",
-    status: "pending",
-    formUrl: "#",
+      "Reflect on the founder's mindset videos and what 'thinking like a founder' means to you.",
+    block: "A",
+    deadline: "2026-04-28",
+    status: "graded",
+    submittedAt: "2026-04-27",
+    grade: "A-",
+    formUrl: "https://forms.gle/example-a1",
   },
   {
     id: 102,
-    title: "Problem Statement v2",
-    description:
-      "Refine your problem statement based on mentor feedback from the last review.",
-    sprint: "Sprint 4",
-    deadline: "2026-06-08",
-    status: "pending",
-    formUrl: "#",
+    title: "Self-Assessment Survey",
+    description: "A short survey to baseline your skills before the program begins.",
+    block: "A",
+    deadline: "2026-04-28",
+    status: "submitted",
+    submittedAt: "2026-04-26",
+    formUrl: "https://forms.gle/example-a2",
   },
   {
     id: 103,
-    title: "Competitive Landscape Map",
+    title: "Customer Interview Notes",
     description:
-      "Map at least 5 competitors across two axes relevant to your market.",
-    sprint: "Sprint 3",
-    deadline: "2026-05-30",
+      "Submit notes from at least 8 customer interviews, including key pain points and quotes.",
+    block: "B",
+    deadline: "2026-05-12",
     status: "overdue",
-    formUrl: "#",
+    formUrl: "https://forms.gle/example-b1",
   },
   {
     id: 104,
     title: "Lean Canvas Draft",
     description: "Complete the first draft of your Lean Canvas for review.",
-    sprint: "Sprint 3",
-    deadline: "2026-05-22",
-    status: "graded",
-    submittedAt: "2026-05-21",
-    grade: "A",
-    formUrl: "#",
+    block: "C",
+    deadline: "2026-06-08",
+    status: "pending",
+    formUrl: "https://forms.gle/example-c1",
   },
   {
     id: 105,
-    title: "Team Charter",
-    description: "Agree on roles, working norms, and a communication plan.",
-    sprint: "Sprint 2",
-    deadline: "2026-05-10",
-    status: "submitted",
-    submittedAt: "2026-05-09",
-    formUrl: "#",
+    title: "Experiment Plan",
+    description: "Design your first validation experiment and define a success metric.",
+    block: "C",
+    deadline: "2026-06-12",
+    status: "pending",
+    formUrl: "https://forms.gle/example-c2",
   },
   {
     id: 106,
-    title: "Problem Discovery Brief",
-    description: "Document the problem space and your initial hypotheses.",
-    sprint: "Sprint 1",
-    deadline: "2026-04-28",
-    status: "graded",
-    submittedAt: "2026-04-27",
-    grade: "A-",
-    formUrl: "#",
+    title: "Pitch Deck Submission",
+    description: "Submit your pitch deck draft ahead of the mentor review session.",
+    block: "D",
+    deadline: "2026-06-20",
+    status: "pending",
+    formUrl: "https://forms.gle/example-d1",
   },
 ];
 
@@ -156,6 +158,118 @@ export const resources: Resource[] = [
     author: "Ash Maurya",
     tag: "Strategy",
     progress: 100,
+  },
+];
+
+// Standalone curriculum that doesn't belong to any block.
+export const specialCurriculum: SpecialCurriculum[] = [
+  {
+    title: "The Startup Mindset Book",
+    description:
+      "Recommended reading for every fellow. Available as an English draft PDF and a Thai edition on MEB.",
+    links: [
+      {
+        label: "English Version — Draft PDF",
+        url: "https://drive.google.com/file/d/1HJqIT4hw_lgzVuur_N2Js_xookcOTRDF/view?usp=sharing",
+        kind: "pdf",
+        meta: "Google Drive",
+      },
+      {
+        label: "Thai Version on MEB",
+        url: "https://www.mebmarket.com/ebook-398897-THE-STARTUP-MINDSET",
+        kind: "external",
+        meta: "Thai · MEB",
+      },
+    ],
+  },
+];
+
+// The core curriculum, grouped into blocks. Blocks are flexible: a block may
+// have only videos, only articles, or only assignments.
+export const learningBlocks: LearningBlock[] = [
+  {
+    id: "A",
+    title: "Foundations of the Startup Mindset",
+    description:
+      "Why founders think differently, and the core principles you'll build on all program.",
+    videos: [
+      {
+        label: "What is a Startup? (Intro)",
+        url: "https://www.youtube.com",
+        kind: "video",
+        meta: "14 min",
+      },
+      {
+        label: "The Founder's Mindset",
+        url: "https://www.youtube.com",
+        kind: "video",
+        meta: "22 min",
+      },
+    ],
+    articles: [
+      {
+        label: "From Idea to Opportunity",
+        url: "https://seabridge.example.com/articles/idea-to-opportunity",
+        kind: "article",
+        meta: "SEAbridge · 8 min read",
+      },
+    ],
+  },
+  {
+    id: "B",
+    title: "Problem Discovery & Customers",
+    description:
+      "Finding a problem worth solving and talking to the people who have it.",
+    videos: [
+      {
+        label: "How to Run Customer Interviews",
+        url: "https://www.youtube.com",
+        kind: "video",
+        meta: "18 min",
+      },
+    ],
+    // No articles for this block — that's fine, blocks aren't fixed.
+  },
+  {
+    id: "C",
+    title: "Building & Validating Solutions",
+    description: "Turn insights into a testable solution and validate fast.",
+    // No videos for this block.
+    articles: [
+      {
+        label: "The Lean Canvas, Explained",
+        url: "https://seabridge.example.com/articles/lean-canvas",
+        kind: "article",
+        meta: "SEAbridge · 9 min read",
+      },
+      {
+        label: "Designing Your First Experiment",
+        url: "https://seabridge.example.com/articles/first-experiment",
+        kind: "article",
+        meta: "SEAbridge · 11 min read",
+      },
+    ],
+  },
+  {
+    id: "D",
+    title: "Pitching & Telling Your Story",
+    description: "Craft a narrative and a deck that holds attention.",
+    videos: [
+      {
+        label: "Pitching to Investors",
+        url: "https://www.youtube.com",
+        kind: "video",
+        meta: "55 min",
+      },
+    ],
+    articles: [
+      {
+        label: "Anatomy of a Great Pitch Deck",
+        url: "https://seabridge.example.com/articles/pitch-deck",
+        kind: "article",
+        meta: "SEAbridge · 7 min read",
+      },
+    ],
   },
 ];
 

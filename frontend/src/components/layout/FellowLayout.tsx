@@ -28,14 +28,13 @@ function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-slate-200 bg-white">
       {/* Brand */}
-      <div className="flex h-16 items-center gap-3 border-b border-slate-100 px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-brand-600 text-sm font-bold text-white shadow-sm">
-          19
-        </div>
-        <div className="leading-tight">
-          <p className="text-sm font-bold text-slate-900">1967 Fellowship</p>
-          <p className="text-xs text-slate-500">Fellow Portal</p>
-        </div>
+      <div className="flex h-16 flex-col justify-center border-b border-slate-100 px-6">
+        <p className="text-base font-bold tracking-tight text-slate-900">
+          <span className="text-brand-600">1967</span> Fellowship
+        </p>
+        <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+          Fellow Portal
+        </p>
       </div>
 
       {/* Navigation */}
