@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -5,6 +6,8 @@ import {
   Building2,
   CalendarClock,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Clock,
   Megaphone,
@@ -16,9 +19,9 @@ import {
   assignments,
   caseAssignments,
   currentFellow,
-  currentSprint,
   learningBlocks,
   recentActivity,
+  sprints,
   teamMembers,
 } from "../../data/mock";
 import {
@@ -111,16 +114,43 @@ function formatSprintDate(date: Date) {
 }
 
 export default function FellowDashboard() {
-  const sprintLeft = Math.max(daysUntil(currentSprint.deadline), 0);
-  const sprintDates = getSprintDates(currentSprint.startsOn, currentSprint.deadline);
+  // Sprint switcher: start on the active sprint, let the fellow step through.
+  const currentIndex = Math.max(
+    sprints.findIndex((s) => s.isCurrent),
+    0
+  );
+  const [sprintIndex, setSprintIndex] = useState(currentIndex);
+  const selectedSprint = sprints[sprintIndex];
+  const atStart = sprintIndex === 0;
+  const atEnd = sprintIndex === sprints.length - 1;
+  const goPrev = () => setSprintIndex((i) => Math.max(i - 1, 0));
+  const goNext = () =>
+    setSprintIndex((i) => Math.min(i + 1, sprints.length - 1));
+
+  const sprintDates = getSprintDates(
+    selectedSprint.startsOn,
+    selectedSprint.deadline
+  );
   const todayKey = dateKey(new Date());
+
+  // Timing relative to today drives the label/eyebrow, so past and upcoming
+  // sprints read correctly (not just "0 days left").
+  const hasStarted = daysUntil(selectedSprint.startsOn) <= 0;
+  const hasEnded = daysUntil(selectedSprint.deadline) < 0;
+  const daysLeft = Math.max(daysUntil(selectedSprint.deadline), 0);
+  const sprintState = hasEnded ? "Past" : !hasStarted ? "Upcoming" : "Current";
+  const sprintStatusLabel = hasEnded
+    ? "Completed"
+    : !hasStarted
+      ? `Starts ${formatShortDate(selectedSprint.startsOn)}`
+      : `${daysLeft} days left`;
 
   const upcoming = [...assignments]
     .filter((a) => a.status === "pending" || a.status === "overdue")
     .sort((a, b) => daysUntil(a.deadline) - daysUntil(b.deadline))
     .slice(0, 3);
   const currentSprintCase = caseAssignments.find(
-    (assignment) => assignment.sprint === currentSprint.name
+    (assignment) => assignment.sprint === selectedSprint.name
   );
 
   // A block is "done" once all its Google Forms are submitted. There is no
@@ -146,13 +176,38 @@ export default function FellowDashboard() {
             happening this sprint.
           </p>
         </div>
-        <Link
-          to="/fellow/assignments"
-          className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-500"
-        >
-          View assignments
-          <ArrowRight className="h-4 w-4" />
-        </Link>
+        {/* Sprint switcher — step between sprints with the chevrons. */}
+        <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+          <button
+            onClick={goPrev}
+            disabled={atStart}
+            aria-label="Previous sprint"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-30"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="min-w-44 px-2 text-center">
+            <p className="truncate text-sm font-semibold leading-tight text-slate-900">
+              {selectedSprint.name}
+            </p>
+            <p
+              className={cn(
+                "text-[10px] font-bold uppercase tracking-wide leading-tight",
+                sprintState === "Current" ? "text-brand-600" : "text-slate-400"
+              )}
+            >
+              {sprintState}
+            </p>
+          </div>
+          <button
+            onClick={goNext}
+            disabled={atEnd}
+            aria-label="Next sprint"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-30"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Current sprint */}
@@ -163,20 +218,20 @@ export default function FellowDashboard() {
               <div className="flex items-center gap-2 text-brand-100">
                 <CalendarClock className="h-4 w-4" />
                 <span className="text-xs font-semibold uppercase tracking-wider">
-                  Current sprint
+                  {sprintState} sprint
                 </span>
               </div>
-              <h2 className="mt-2 text-xl font-bold">{currentSprint.name}</h2>
+              <h2 className="mt-2 text-xl font-bold">{selectedSprint.name}</h2>
               <p className="mt-1 max-w-2xl text-sm text-brand-100">
-                {currentSprint.description}
+                {selectedSprint.description}
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
               <span className="whitespace-nowrap rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/20">
-                {sprintLeft} days left
+                {sprintStatusLabel}
               </span>
               <span className="whitespace-nowrap rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/20">
-                Due {formatShortDate(currentSprint.deadline)}
+                Due {formatShortDate(selectedSprint.deadline)}
               </span>
             </div>
           </div>
@@ -185,8 +240,8 @@ export default function FellowDashboard() {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs font-medium text-brand-100">
               <span>Sprint dates</span>
               <span>
-                {formatShortDate(currentSprint.startsOn)} -{" "}
-                {formatShortDate(currentSprint.deadline)}
+                {formatShortDate(selectedSprint.startsOn)} -{" "}
+                {formatShortDate(selectedSprint.deadline)}
               </span>
             </div>
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">

@@ -21,15 +21,58 @@ export const currentFellow: FellowProfile = {
   avatarInitials: "SW",
 };
 
-export const currentSprint: Sprint = {
-  id: 4,
-  name: "Sprint 4 · Market Validation",
-  description:
-    "Validate your problem statement with real users and synthesize findings into an insight report.",
-  startsOn: "2026-06-02",
-  deadline: "2026-06-08",
-  isCurrent: true,
-};
+// All sprints for the cohort, in order. `isCurrent` marks the active one.
+export const sprints: Sprint[] = [
+  {
+    id: 1,
+    name: "Sprint 1 · Discovery",
+    description:
+      "Map the problem space and interview early users to find a worthwhile problem.",
+    startsOn: "2026-05-04",
+    deadline: "2026-05-10",
+    isCurrent: false,
+  },
+  {
+    id: 2,
+    name: "Sprint 2 · Problem Framing",
+    description:
+      "Turn raw research into a sharp, testable problem statement for your team.",
+    startsOn: "2026-05-11",
+    deadline: "2026-05-17",
+    isCurrent: false,
+  },
+  {
+    id: 3,
+    name: "Sprint 3 · Prototyping",
+    description:
+      "Build the smallest prototype that lets you test your riskiest assumption.",
+    startsOn: "2026-05-18",
+    deadline: "2026-05-24",
+    isCurrent: false,
+  },
+  {
+    id: 4,
+    name: "Sprint 4 · Market Validation",
+    description:
+      "Validate your problem statement with real users and synthesize findings into an insight report.",
+    startsOn: "2026-06-02",
+    deadline: "2026-06-08",
+    isCurrent: true,
+  },
+  {
+    id: 5,
+    name: "Sprint 5 · Storytelling & Pitch",
+    description:
+      "Shape your findings into a compelling narrative and rehearse your final pitch.",
+    startsOn: "2026-06-09",
+    deadline: "2026-06-15",
+    isCurrent: false,
+  },
+];
+
+// The active sprint — derived so there is a single source of truth.
+export const currentSprint: Sprint =
+  sprints.find((s) => s.isCurrent) ?? sprints[0];
 
 // Assignments are the Google Forms tied to each learning block. `block` maps
 // them back to the block they belong to, so the Learning System page can show
