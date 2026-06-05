@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   BookOpen,
+  Building2,
   CalendarClock,
   CheckCircle2,
   ClipboardList,
@@ -14,6 +15,7 @@ import { Card, CardHeader } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import {
   assignments,
+  caseAssignments,
   currentFellow,
   currentSprint,
   learningBlocks,
@@ -82,18 +84,45 @@ const teamflowChip: Record<TeamMember["teamflow"], string> = {
   Finisher: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
 };
 
+function dateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getSprintDates(start: string, end: string) {
+  const dates: Date[] = [];
+  const current = new Date(`${start}T00:00:00`);
+  const final = new Date(`${end}T00:00:00`);
+
+  while (current <= final) {
+    dates.push(new Date(current));
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function formatSprintDate(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default function FellowDashboard() {
-  const sprintTotal = daysUntil(currentSprint.deadline) + 18; // mock span
   const sprintLeft = Math.max(daysUntil(currentSprint.deadline), 0);
-  const sprintProgress = Math.min(
-    Math.round(((sprintTotal - sprintLeft) / sprintTotal) * 100),
-    100
-  );
+  const sprintDates = getSprintDates(currentSprint.startsOn, currentSprint.deadline);
+  const todayKey = dateKey(new Date());
 
   const upcoming = [...assignments]
     .filter((a) => a.status === "pending" || a.status === "overdue")
     .sort((a, b) => daysUntil(a.deadline) - daysUntil(b.deadline))
     .slice(0, 3);
+  const currentSprintCase = caseAssignments.find(
+    (assignment) => assignment.sprint === currentSprint.name
+  );
 
   // A block is "done" once all its Google Forms are submitted. There is no
   // percentage of a course — progress is tracked by form submissions per block.
@@ -127,35 +156,11 @@ export default function FellowDashboard() {
         </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((s) => (
-          <Card key={s.label} className="p-5">
-            <div className="flex items-center justify-between">
-              <span
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-md",
-                  s.color
-                )}
-              >
-                <s.icon className="h-5 w-5" />
-              </span>
-            </div>
-            <p className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
-              {s.value}
-            </p>
-            <p className="mt-1 text-sm font-medium text-slate-600">{s.label}</p>
-            <p className="text-xs text-slate-400">{s.sub}</p>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left column */}
-        <div className="space-y-6 lg:col-span-2">
-          {/* Current sprint */}
-          <Card className="overflow-hidden">
-            <div className="bg-gradient-to-br from-brand-600 to-brand-800 p-6 text-white">
+      {/* Current sprint */}
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-br from-brand-600 to-brand-800 p-6 text-white">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
               <div className="flex items-center gap-2 text-brand-100">
                 <CalendarClock className="h-4 w-4" />
                 <span className="text-xs font-semibold uppercase tracking-wider">
@@ -163,32 +168,111 @@ export default function FellowDashboard() {
                 </span>
               </div>
               <h2 className="mt-2 text-xl font-bold">{currentSprint.name}</h2>
-              <p className="mt-1 max-w-xl text-sm text-brand-100">
+              <p className="mt-1 max-w-2xl text-sm text-brand-100">
                 {currentSprint.description}
               </p>
-
-              <div className="mt-5">
-                <div className="flex items-center justify-between text-xs font-medium text-brand-100">
-                  <span>Progress</span>
-                  <span>{sprintProgress}%</span>
-                </div>
-                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white/20">
-                  <div
-                    className="h-full rounded-full bg-white"
-                    style={{ width: `${sprintProgress}%` }}
-                  />
-                </div>
-                <div className="mt-3 flex items-center gap-4 text-xs text-brand-100">
-                  <span>Started {formatShortDate(currentSprint.startsOn)}</span>
-                  <span className="h-1 w-1 rounded-full bg-brand-300" />
-                  <span className="font-semibold text-white">
-                    {sprintLeft} days left · due{" "}
-                    {formatShortDate(currentSprint.deadline)}
-                  </span>
-                </div>
-              </div>
             </div>
-          </Card>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <span className="whitespace-nowrap rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/20">
+                {sprintLeft} days left
+              </span>
+              <span className="whitespace-nowrap rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/20">
+                Due {formatShortDate(currentSprint.deadline)}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs font-medium text-brand-100">
+              <span>Sprint dates</span>
+              <span>
+                {formatShortDate(currentSprint.startsOn)} -{" "}
+                {formatShortDate(currentSprint.deadline)}
+              </span>
+            </div>
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+              {sprintDates.map((date) => {
+                const key = dateKey(date);
+                const isToday = key === todayKey;
+                const isPast = key < todayKey;
+                const state = isToday ? "Today" : isPast ? "Done" : "Next";
+
+                return (
+                  <div
+                    key={key}
+                    className="min-w-20 shrink-0"
+                  >
+                    <div
+                      className={cn(
+                        "mb-1 text-center text-[10px] font-semibold uppercase tracking-wider",
+                        isToday
+                          ? "text-white"
+                          : isPast
+                            ? "text-white/70"
+                            : "text-brand-100/70"
+                      )}
+                    >
+                      {state}
+                    </div>
+                    <span
+                      aria-current={isToday ? "date" : undefined}
+                      className={cn(
+                        "flex h-8 items-center justify-center rounded-md px-3 text-xs font-semibold ring-1",
+                        isToday
+                          ? "bg-white text-brand-700 ring-white shadow-sm"
+                          : isPast
+                            ? "bg-white/25 text-white ring-white/15"
+                            : "bg-white/10 text-brand-100 ring-white/15"
+                      )}
+                    >
+                      {formatSprintDate(date)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Left column */}
+        <div className="space-y-6 lg:col-span-2">
+          {currentSprintCase ? (
+            <Card className="p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600">
+                    <Building2 className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">
+                        Sprint case
+                      </span>
+                      <span className="text-xs font-medium text-slate-400">
+                        {currentSprintCase.company}
+                      </span>
+                    </div>
+                    <h3 className="mt-2 truncate text-base font-semibold text-slate-900">
+                      {currentSprintCase.caseTitle}
+                    </h3>
+                    <p className="mt-1 line-clamp-1 text-sm text-slate-500">
+                      {currentSprintCase.deliverable}
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  to="/fellow/assignments"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-brand-700 ring-1 ring-brand-200 transition hover:bg-brand-50"
+                >
+                  View case
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </Card>
+          ) : null}
 
           {/* Upcoming assignments */}
           <Card>
@@ -247,10 +331,7 @@ export default function FellowDashboard() {
               })}
             </ul>
           </Card>
-        </div>
 
-        {/* Right column */}
-        <div className="space-y-6">
           {/* Team */}
           <Card>
             <CardHeader
@@ -267,15 +348,15 @@ export default function FellowDashboard() {
                 </Link>
               }
             />
-            <ul className="space-y-1 p-3">
+            <ul className="grid gap-2 p-4 sm:grid-cols-2">
               {teamMembers.map((m) => {
                 const isMe = m.name === currentFellow.name;
                 return (
                   <li
                     key={m.name}
                     className={cn(
-                      "flex items-center gap-3 rounded-md px-2 py-2 transition",
-                      isMe ? "bg-brand-50/60" : "hover:bg-slate-50"
+                      "flex items-center gap-3 rounded-md px-3 py-2.5 transition",
+                      isMe ? "bg-brand-50/60" : "border border-slate-100 hover:bg-slate-50"
                     )}
                   >
                     <div
@@ -331,7 +412,7 @@ export default function FellowDashboard() {
                 </Link>
               }
             />
-            <div className="space-y-2 p-4">
+            <div className="grid gap-2 p-4 sm:grid-cols-2">
               {blockProgress.map(({ block, submitted, total }) => {
                 const done = total > 0 && submitted === total;
                 return (
@@ -368,6 +449,44 @@ export default function FellowDashboard() {
                   </Link>
                 );
               })}
+            </div>
+          </Card>
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-6">
+          {/* At a glance */}
+          <Card>
+            <CardHeader title="At a glance" />
+            <div className="divide-y divide-slate-100 px-4">
+              {stats.map((s) => (
+                <div
+                  key={s.label}
+                  className="flex items-center justify-between gap-3 py-3"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
+                        s.color
+                      )}
+                    >
+                      <s.icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-700">
+                        {s.label}
+                      </p>
+                      <p className="truncate text-xs text-slate-400">
+                        {s.sub}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="shrink-0 text-lg font-bold tracking-tight text-slate-900">
+                    {s.value}
+                  </p>
+                </div>
+              ))}
             </div>
           </Card>
 

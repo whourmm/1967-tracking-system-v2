@@ -18,6 +18,24 @@ export interface Assignment {
   grade?: string;
 }
 
+export type CaseAssignmentStatus = "pending" | "submitted" | "reviewed";
+
+// A case assignment is separate from a learning-block form. It is sprint-based
+// and tied to the company/case brief assigned to a fellow's team.
+export interface CaseAssignment {
+  id: number;
+  sprint: string;
+  company: string;
+  caseTitle: string;
+  description: string;
+  assignedTeam: string;
+  deadline: string;
+  status: CaseAssignmentStatus;
+  briefUrl: string;
+  submissionUrl: string;
+  deliverable: string;
+}
+
 export type ResourceType = "CASE" | "LECTURE" | "ARTICLE";
 
 export interface Resource {

@@ -1,6 +1,7 @@
 import type {
   ActivityItem,
   Assignment,
+  CaseAssignment,
   FellowProfile,
   LearningBlock,
   Resource,
@@ -23,8 +24,8 @@ export const currentSprint: Sprint = {
   name: "Sprint 4 · Market Validation",
   description:
     "Validate your problem statement with real users and synthesize findings into an insight report.",
-  startsOn: "2026-05-26",
-  deadline: "2026-06-12",
+  startsOn: "2026-06-02",
+  deadline: "2026-06-08",
   isCurrent: true,
 };
 
@@ -90,6 +91,37 @@ export const assignments: Assignment[] = [
     deadline: "2026-06-20",
     status: "pending",
     formUrl: "https://forms.gle/example-d1",
+  },
+];
+
+export const caseAssignments: CaseAssignment[] = [
+  {
+    id: 301,
+    sprint: "Sprint 4 · Market Validation",
+    company: "Grab",
+    caseTitle: "Merchant onboarding research",
+    description:
+      "Interview small merchants and identify the biggest friction points in adopting super-app services.",
+    assignedTeam: "Team Mekong",
+    deadline: "2026-06-08",
+    status: "pending",
+    briefUrl: "https://drive.google.com/example-grab-brief",
+    submissionUrl: "https://forms.gle/example-case-grab",
+    deliverable: "Insight memo + interview evidence",
+  },
+  {
+    id: 303,
+    sprint: "Sprint 3 · Customer Discovery",
+    company: "Gojek",
+    caseTitle: "Driver partner pain-point synthesis",
+    description:
+      "Synthesize interview notes into three validated pain points and rank them by urgency.",
+    assignedTeam: "Team Mekong",
+    deadline: "2026-05-24",
+    status: "reviewed",
+    briefUrl: "https://drive.google.com/example-gojek-brief",
+    submissionUrl: "https://forms.gle/example-case-gojek",
+    deliverable: "Problem ranking brief",
   },
 ];
 
