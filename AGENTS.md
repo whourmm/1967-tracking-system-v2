@@ -50,6 +50,42 @@ Keep these areas logically separated, even if the exact folder structure changes
 
 ---
 
+## Database Schema (Source of Truth)
+
+The database schema is the source of truth for the project's data model.
+
+Authoritative files:
+
+```txt
+schema.dbml                      # human-readable schema (DBML) — read this first
+backend/migrations/001_init.sql  # the SQL that creates the same tables
+```
+
+These two must stay in sync. They currently define these tables:
+
+```txt
+cohort, user, admin, mentor, fellow, sprint, group, team,
+case, assignment, assignment_submission, resource, api, events
+```
+
+Rules:
+
+- Before creating a new feature or editing existing behavior, read `schema.dbml`
+  (and `backend/migrations/001_init.sql`) and make the work consistent with it.
+- Match real table names, column names, types, and relationships. Do not invent
+  fields or rename existing ones casually.
+- Frontend `types/` and mock data should mirror the schema's entities and fields
+  so the mock layer maps cleanly onto the real backend later.
+- API request/response shapes should reflect schema entities and relationships.
+- If a feature genuinely needs a schema change, update **both** `schema.dbml`
+  and the SQL migration together, keep them in sync, and call out the change
+  explicitly in your summary.
+- Do not silently diverge the code's data model from the schema. If the schema
+  looks wrong or incomplete for the requested feature, surface it instead of
+  guessing.
+
+---
+
 ## Suggested Starting Structure
 
 This is the preferred initial structure, but it is flexible.
@@ -593,6 +629,8 @@ Do not modify these unless the user directly asks:
 When working on this repository:
 
 - Read this file first.
+- Read `schema.dbml` before creating or editing any feature that touches data,
+  and keep the work consistent with it (see "Database Schema (Source of Truth)").
 - Treat the suggested structure as a guide, not a strict rule.
 - Keep the project easy to understand.
 - Prefer simple setup first.
