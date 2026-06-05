@@ -8,7 +8,6 @@ import {
   LifeBuoy,
   Search,
   Settings,
-  UserCircle,
   Users,
 } from "lucide-react";
 import { cn } from "../../lib/cn";
@@ -107,44 +106,6 @@ function Sidebar() {
           <LifeBuoy className="h-5 w-5 text-slate-400" />
           Help & Support
         </a>
-        <NavLink
-          to="/fellow/profile"
-          className={({ isActive }) =>
-            cn(
-              "flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors",
-              isActive
-                ? "bg-brand-50 ring-1 ring-brand-100"
-                : "bg-slate-50 hover:bg-slate-100"
-            )
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <div
-                className={cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white",
-                  isActive ? "bg-brand-700" : "bg-brand-600"
-                )}
-              >
-                {currentFellow.avatarInitials}
-              </div>
-              <div className="min-w-0 flex-1 leading-tight">
-                <p className="truncate text-sm font-semibold text-slate-900">
-                  {currentFellow.name}
-                </p>
-                <p className="truncate text-xs text-slate-500">
-                  {currentFellow.team}
-                </p>
-              </div>
-              <UserCircle
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  isActive ? "text-brand-500" : "text-slate-300"
-                )}
-              />
-            </>
-          )}
-        </NavLink>
       </div>
     </aside>
   );
