@@ -8,7 +8,7 @@ import {
 import { Card } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { assignments } from "../../data/mock";
-import { daysUntil, deadlineLabel, formatDate } from "../../lib/format";
+import { deadlineLabel, formatDate } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import type { Assignment, AssignmentStatus } from "../../types";
 
@@ -25,6 +25,19 @@ const filters: { key: Filter; label: string }[] = [
 function count(status: Filter) {
   if (status === "all") return assignments.length;
   return assignments.filter((a) => a.status === status).length;
+}
+
+function assignmentPriority(status: AssignmentStatus) {
+  if (status === "overdue") return 0;
+  if (status === "pending") return 1;
+  return 2;
+}
+
+function sortByActionDate(a: Assignment, b: Assignment) {
+  const priority = assignmentPriority(a.status) - assignmentPriority(b.status);
+  if (priority !== 0) return priority;
+
+  return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
 }
 
 function AssignmentRow({ a }: { a: Assignment }) {
@@ -99,7 +112,7 @@ export default function AssignmentsPage() {
       .filter((a) =>
         a.title.toLowerCase().includes(query.trim().toLowerCase())
       )
-      .sort((a, b) => daysUntil(a.deadline) - daysUntil(b.deadline));
+      .sort(sortByActionDate);
   }, [filter, query]);
 
   return (
@@ -113,20 +126,6 @@ export default function AssignmentsPage() {
           Every assignment is a Google Form tied to a learning block. Submit
           each one after working through its block.
         </p>
-      </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {(["pending", "overdue", "submitted", "graded"] as AssignmentStatus[]).map(
-          (s) => (
-            <Card key={s} className="p-4">
-              <p className="text-2xl font-bold text-slate-900">{count(s)}</p>
-              <div className="mt-1">
-                <StatusBadge status={s} />
-              </div>
-            </Card>
-          )
-        )}
       </div>
 
       {/* Toolbar */}

@@ -224,8 +224,8 @@ export default function LearningSystemPage() {
             Learning System
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Work through each block — watch, read, then submit. Tick items off as
-            you complete them.
+            Work through special sources separately, then complete the resources
+            and submissions inside each block.
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-md bg-white px-4 py-2.5 ring-1 ring-slate-200">
@@ -236,55 +236,77 @@ export default function LearningSystemPage() {
         </div>
       </div>
 
-      {/* Special curriculum (outside any block) */}
-      {specialCurriculum.map((item) => {
-        const items = toItems(`special:${item.title}`, item.links);
-        return (
-          <Card
-            key={item.title}
-            className="overflow-hidden border-brand-200 bg-brand-50/40"
-          >
-            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-600 text-white">
-                  <Sparkles className="h-5 w-5" />
-                </span>
-                <div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-brand-600">
-                    Special
+      {/* Special sources live outside the block sequence. */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+            Special Sources
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Standalone materials that support the whole program.
+          </p>
+        </div>
+
+        {specialCurriculum.map((item) => {
+          const items = toItems(`special:${item.title}`, item.links);
+          return (
+            <Card
+              key={item.title}
+              className="overflow-hidden border-brand-200 bg-brand-50/40"
+            >
+              <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-600 text-white">
+                    <Sparkles className="h-5 w-5" />
                   </span>
-                  <h3 className="text-base font-semibold text-slate-900">
-                    {item.title}
-                  </h3>
-                  {item.description && (
-                    <p className="mt-0.5 max-w-xl text-sm text-slate-500">
-                      {item.description}
-                    </p>
-                  )}
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-brand-600">
+                      Special source
+                    </span>
+                    <h3 className="text-base font-semibold text-slate-900">
+                      {item.title}
+                    </h3>
+                    {item.description && (
+                      <p className="mt-0.5 max-w-xl text-sm text-slate-500">
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="grid gap-2 border-t border-brand-100 p-5 pt-4 sm:grid-cols-2">
-              {items.map((it) => (
-                <LinkRow
-                  key={it.id}
-                  item={it}
-                  done={isDone(it)}
-                  onToggle={() => toggle(it)}
-                />
-              ))}
-            </div>
-          </Card>
-        );
-      })}
+              <div className="grid gap-2 border-t border-brand-100 p-5 pt-4 sm:grid-cols-2">
+                {items.map((it) => (
+                  <LinkRow
+                    key={it.id}
+                    item={it}
+                    done={isDone(it)}
+                    onToggle={() => toggle(it)}
+                  />
+                ))}
+              </div>
+            </Card>
+          );
+        })}
+      </section>
 
       {/* Blocks */}
-      <div className="space-y-5">
+      <section className="space-y-5">
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+            Learning Blocks
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Each block keeps its resources and submission forms in separate
+            sections.
+          </p>
+        </div>
+
         {learningBlocks.map((block) => {
           const videos = toItems(`block:${block.id}:v`, block.videos);
           const articles = toItems(`block:${block.id}:a`, block.articles);
+          const resources = [...videos, ...articles];
           const forms = assignmentItems(block.id);
-          const all = [...videos, ...articles, ...forms];
+          const all = [...resources, ...forms];
           const completed = all.filter(isDone).length;
           const allDone = all.length > 0 && completed === all.length;
 
@@ -330,16 +352,9 @@ export default function LearningSystemPage() {
 
               <div className="space-y-5 p-5">
                 <LinkGroup
-                  label="Watch"
-                  icon={PlayCircle}
-                  items={videos}
-                  isDone={isDone}
-                  toggle={toggle}
-                />
-                <LinkGroup
-                  label="Read"
+                  label="Resources"
                   icon={BookOpen}
-                  items={articles}
+                  items={resources}
                   isDone={isDone}
                   toggle={toggle}
                 />
@@ -354,7 +369,7 @@ export default function LearningSystemPage() {
             </Card>
           );
         })}
-      </div>
+      </section>
     </div>
   );
 }

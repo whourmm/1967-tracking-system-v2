@@ -7,7 +7,7 @@ export default function App() {
     <Routes>
       <Route path="/admin/*" element={<AdminRoutes />} />
       <Route path="/fellow/*" element={<FellowRoutes />} />
-      <Route path="*" element={<Navigate to="/admin" replace />} />
+      <Route path="*" element={<Navigate to="/fellow" replace />} />
     </Routes>
   );
 }
