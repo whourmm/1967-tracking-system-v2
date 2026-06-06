@@ -1,16 +1,49 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import AuthLayout from "./AuthLayout";
+import { homeForRole, login, type MockUser } from "../../lib/auth";
+
+type LoginLocationState = {
+  from?: {
+    pathname: string;
+    search?: string;
+    hash?: string;
+  };
+};
+
+function canReturnTo(user: MockUser, pathname: string) {
+  return (
+    (user.role === "admin" && pathname.startsWith("/admin")) ||
+    (user.role === "fellow" && pathname.startsWith("/fellow"))
+  );
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
+  const [error, setError] = useState("");
 
-  // Mock only — no backend. Just route into the portal.
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    navigate("/fellow");
+    const result = login(email, password, remember);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    const from = (location.state as LoginLocationState | null)?.from;
+    const destination =
+      from && canReturnTo(result.user, from.pathname)
+        ? `${from.pathname}${from.search ?? ""}${from.hash ?? ""}`
+        : homeForRole(result.user.role);
+
+    navigate(destination, { replace: true });
   };
 
   return (
@@ -39,6 +72,11 @@ export default function LoginPage() {
             <input
               type="email"
               required
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setError("");
+              }}
               placeholder="you@example.com"
               className="w-full rounded-md border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100"
             />
@@ -54,6 +92,11 @@ export default function LoginPage() {
             <input
               type={showPassword ? "text" : "password"}
               required
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setError("");
+              }}
               placeholder="••••••••"
               className="w-full rounded-md border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-10 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100"
             />
@@ -76,6 +119,8 @@ export default function LoginPage() {
           <label className="flex items-center gap-2 text-slate-600">
             <input
               type="checkbox"
+              checked={remember}
+              onChange={(event) => setRemember(event.target.checked)}
               className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
             />
             Remember me
@@ -84,6 +129,12 @@ export default function LoginPage() {
             Forgot password?
           </a>
         </div>
+
+        {error && (
+          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"

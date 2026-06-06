@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Bell,
   BookOpen,
@@ -10,13 +10,15 @@ import {
   GraduationCap,
   Home,
   LifeBuoy,
+  LogOut,
   Megaphone,
   Search,
   Settings,
   Users,
 } from "lucide-react";
-import { cn } from "../../lib/cn";
 import { currentFellow, notifications as mockNotifications } from "../../data/mock";
+import { getCurrentUser, logout } from "../../lib/auth";
+import { cn } from "../../lib/cn";
 import type { NotificationKind } from "../../types";
 
 const notificationIcon: Record<NotificationKind, typeof Bell> = {
@@ -36,6 +38,13 @@ const mainNav = [
 ];
 
 function Sidebar() {
+  const navigate = useNavigate();
+
+  function handleSignOut() {
+    logout();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-slate-200 bg-white">
       {/* Brand */}
@@ -120,6 +129,14 @@ function Sidebar() {
           <LifeBuoy className="h-5 w-5 text-slate-400" />
           Help & Support
         </a>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-700"
+        >
+          <LogOut className="h-5 w-5 text-slate-400" />
+          Sign out
+        </button>
       </div>
     </aside>
   );
@@ -250,6 +267,11 @@ function NotificationBell() {
 }
 
 function Topbar() {
+  const user = getCurrentUser();
+  const displayName = user?.role === "fellow" ? user.name : currentFellow.name;
+  const initials =
+    user?.role === "fellow" ? user.initials : currentFellow.avatarInitials;
+
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-200 bg-white/80 px-8 backdrop-blur">
       <div className="relative hidden w-full max-w-sm md:block">
@@ -274,10 +296,10 @@ function Topbar() {
           }
         >
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">
-            {currentFellow.avatarInitials}
+            {initials}
           </div>
           <span className="hidden text-sm font-medium text-slate-700 sm:block">
-            {currentFellow.name}
+            {displayName}
           </span>
         </NavLink>
       </div>

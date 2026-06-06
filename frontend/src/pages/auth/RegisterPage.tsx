@@ -2,15 +2,27 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import AuthLayout from "./AuthLayout";
+import { homeForRole, registerFellow } from "../../lib/auth";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [error, setError] = useState("");
 
-  // Mock only — no backend. Just route into the portal.
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    navigate("/fellow");
+    const result = registerFellow({ name, email, password });
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    navigate(homeForRole(result.user.role), { replace: true });
   };
 
   return (
@@ -39,6 +51,11 @@ export default function RegisterPage() {
             <input
               type="text"
               required
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                setError("");
+              }}
               placeholder="Sirada Wong"
               className="w-full rounded-md border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100"
             />
@@ -54,6 +71,11 @@ export default function RegisterPage() {
             <input
               type="email"
               required
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setError("");
+              }}
               placeholder="you@example.com"
               className="w-full rounded-md border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100"
             />
@@ -69,6 +91,11 @@ export default function RegisterPage() {
             <input
               type={showPassword ? "text" : "password"}
               required
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setError("");
+              }}
               placeholder="At least 8 characters"
               className="w-full rounded-md border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-10 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100"
             />
@@ -91,6 +118,8 @@ export default function RegisterPage() {
           <input
             type="checkbox"
             required
+            checked={acceptedTerms}
+            onChange={(event) => setAcceptedTerms(event.target.checked)}
             className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
           />
           <span>
@@ -105,6 +134,12 @@ export default function RegisterPage() {
             .
           </span>
         </label>
+
+        {error && (
+          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"

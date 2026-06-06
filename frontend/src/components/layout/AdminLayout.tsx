@@ -9,11 +9,13 @@ import {
   FileText,
   FolderOpen,
   Grid2X2,
+  LogOut,
   Plus,
   Users,
 } from "lucide-react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { adminInitials, COHORTS } from "../../data/adminMock";
+import { getCurrentUser, logout } from "../../lib/auth";
 
 const navGroups = [
   {
@@ -55,6 +57,9 @@ const routeLabels: Record<string, string> = {
 
 export default function AdminLayout() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const user = getCurrentUser();
+  const avatarInitials = user?.role === "admin" ? user.initials : adminInitials;
   const pageLabel = routeLabels[pathname]
     ?? (pathname.startsWith("/admin/cases/") ? "Edit case" : undefined)
     ?? (pathname.startsWith("/admin/resources/") ? "Edit resource" : undefined)
@@ -72,6 +77,11 @@ export default function AdminLayout() {
       setCohorts((prev) => (prev.includes(trimmed) ? prev : [trimmed, ...prev]));
       setCohort(trimmed);
     }
+  }
+
+  function handleSignOut() {
+    logout();
+    navigate("/login", { replace: true });
   }
 
   return (
@@ -152,6 +162,10 @@ export default function AdminLayout() {
               <Plus size={14} />
               New cohort
             </button>
+            <button className="button" type="button" onClick={handleSignOut}>
+              <LogOut size={14} />
+              Sign out
+            </button>
     
             <NavLink
               to="/admin/profile"
@@ -163,7 +177,7 @@ export default function AdminLayout() {
                 }`
               }
             >
-              {adminInitials}
+              {avatarInitials}
             </NavLink>
           </div>
         </header>
