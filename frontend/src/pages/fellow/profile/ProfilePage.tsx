@@ -81,7 +81,7 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Profile</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">My Profile</h1>
         <p className="mt-1 text-sm text-slate-500">Manage your personal information, contacts, and availability.</p>
       </div>
 
@@ -126,8 +126,8 @@ export default function ProfilePage() {
 
         <div className="space-y-4 lg:col-span-2">
           <Card>
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <div>
+            <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-slate-900">Personal Information</h3>
                 <p className="mt-0.5 text-xs text-slate-500">Displayed to admins and your team</p>
               </div>
@@ -183,14 +183,16 @@ export default function ProfilePage() {
               {contacts.map((c) => {
                 const Icon = c.icon;
                 return (
-                  <div key={c.key} className="flex items-center gap-4 px-5 py-3.5">
+                  <div key={c.key} className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500"><Icon className="h-4 w-4" /></span>
                     <div className="min-w-0 flex-1">
                       <p className="mb-1 text-xs font-semibold text-slate-500">{c.label}</p>
                       <input type="text" value={c.value} onChange={(e) => handleContactValue(c.key, e.target.value)} placeholder={c.placeholder}
                         className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-900 outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100" />
                     </div>
-                    <VisibilityToggle visibility={c.visibility} onChange={(v) => handleVisibilityChange(c.key, v)} />
+                    <div className="self-start sm:self-auto">
+                      <VisibilityToggle visibility={c.visibility} onChange={(v) => handleVisibilityChange(c.key, v)} />
+                    </div>
                   </div>
                 );
               })}
@@ -205,13 +207,13 @@ export default function ProfilePage() {
           </Card>
 
           <Card className="p-5">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600"><User className="h-4 w-4" /></span>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">SBIE Fellow ID</p>
                 <p className="mt-0.5 font-mono text-sm font-semibold text-slate-900">SBIE-2026-042</p>
               </div>
-              <span className="ml-auto rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">Confirmed</span>
+              <span className="self-start rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 sm:ml-auto sm:self-auto">Confirmed</span>
             </div>
           </Card>
         </div>

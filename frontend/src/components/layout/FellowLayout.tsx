@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   BookOpen,
@@ -12,9 +12,12 @@ import {
   LifeBuoy,
   LogOut,
   Megaphone,
+  MoreHorizontal,
   Search,
   Settings,
+  User,
   Users,
+  X,
 } from "lucide-react";
 import { currentFellow, notifications as mockNotifications } from "../../data/mock";
 import { getCurrentUser, logout } from "../../lib/auth";
@@ -30,11 +33,26 @@ const notificationIcon: Record<NotificationKind, typeof Bell> = {
 };
 
 const mainNav = [
-  { to: "/fellow", label: "Home", icon: Home, end: true },
-  { to: "/fellow/assignments", label: "Assignments", icon: ClipboardList },
-  { to: "/fellow/learning", label: "Learning System", icon: BookOpen },
-  { to: "/fellow/teams", label: "My Team", icon: Users },
-  { to: "/fellow/roster", label: "Fellows Roster", icon: GraduationCap },
+  { to: "/fellow", label: "Home", mobileLabel: "Home", icon: Home, end: true },
+  {
+    to: "/fellow/assignments",
+    label: "Assignments",
+    mobileLabel: "Tasks",
+    icon: ClipboardList,
+  },
+  {
+    to: "/fellow/learning",
+    label: "Learning System",
+    mobileLabel: "Learn",
+    icon: BookOpen,
+  },
+  { to: "/fellow/teams", label: "My Team", mobileLabel: "Team", icon: Users },
+  {
+    to: "/fellow/roster",
+    label: "Fellows Roster",
+    mobileLabel: "Roster",
+    icon: GraduationCap,
+  },
 ];
 
 function Sidebar() {
@@ -46,7 +64,7 @@ function Sidebar() {
   }
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-slate-200 bg-white">
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
       {/* Brand */}
       <div className="flex h-16 flex-col justify-center border-b border-slate-100 px-6">
         <p className="text-base font-bold tracking-tight text-slate-900">
@@ -194,7 +212,7 @@ function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-80 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+        <div className="fixed left-3 right-3 top-14 z-30 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <p className="text-sm font-semibold text-slate-900">
               Notifications
@@ -273,7 +291,15 @@ function Topbar() {
     user?.role === "fellow" ? user.initials : currentFellow.avatarInitials;
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-200 bg-white/80 px-8 backdrop-blur">
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur lg:h-16 lg:px-8">
+      <div className="min-w-0 lg:hidden">
+        <p className="truncate text-sm font-bold tracking-tight text-slate-900">
+          <span className="text-brand-600">1967</span> Fellowship
+        </p>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          Fellow Portal
+        </p>
+      </div>
       <div className="relative hidden w-full max-w-sm md:block">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
@@ -282,7 +308,7 @@ function Topbar() {
           className="w-full rounded-md border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100"
         />
       </div>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         <NotificationBell />
         <NavLink
           to="/fellow/profile"
@@ -307,16 +333,153 @@ function Topbar() {
   );
 }
 
+function MobileFellowNav() {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const moreActive =
+    location.pathname.startsWith("/fellow/profile") ||
+    location.pathname.startsWith("/fellow/settings");
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [location.pathname]);
+
+  function handleSignOut() {
+    logout();
+    navigate("/login", { replace: true });
+  }
+
+  return (
+    <>
+      {moreOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            className="fixed inset-0 z-30 bg-slate-950/20 lg:hidden"
+            onClick={() => setMoreOpen(false)}
+          />
+          <div className="fixed inset-x-3 bottom-[4.75rem] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl lg:hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <p className="text-sm font-semibold text-slate-900">More</p>
+              <button
+                type="button"
+                onClick={() => setMoreOpen(false)}
+                className="flex h-10 w-10 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+                aria-label="Close menu"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-2">
+              {[
+                { to: "/fellow/profile", label: "Profile", icon: User },
+                { to: "/fellow/settings", label: "Settings", icon: Settings },
+              ].map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-brand-50 text-brand-700"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    )
+                  }
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  {label}
+                </NavLink>
+              ))}
+              <a
+                href="#"
+                className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+              >
+                <LifeBuoy className="h-5 w-5 shrink-0" />
+                Help & Support
+              </a>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-700"
+              >
+                <LogOut className="h-5 w-5 shrink-0" />
+                Sign out
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      <nav
+        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-6 border-t border-slate-200 bg-white/95 px-1 pb-[max(env(safe-area-inset-bottom),0.25rem)] pt-1 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
+        aria-label="Fellow mobile navigation"
+      >
+        {mainNav.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) =>
+              cn(
+                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold leading-none transition-colors",
+                isActive
+                  ? "bg-brand-50 text-brand-700"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              )
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <item.icon
+                  className={cn(
+                    "h-5 w-5",
+                    isActive ? "text-brand-600" : "text-slate-400"
+                  )}
+                />
+                <span className="max-w-full truncate">{item.mobileLabel}</span>
+              </>
+            )}
+          </NavLink>
+        ))}
+        <button
+          type="button"
+          onClick={() => setMoreOpen((open) => !open)}
+          className={cn(
+            "flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold leading-none transition-colors",
+            moreOpen || moreActive
+              ? "bg-brand-50 text-brand-700"
+              : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+          )}
+          aria-expanded={moreOpen}
+          aria-haspopup="menu"
+        >
+          <MoreHorizontal
+            className={cn(
+              "h-5 w-5",
+              moreOpen || moreActive ? "text-brand-600" : "text-slate-400"
+            )}
+          />
+          <span>More</span>
+        </button>
+      </nav>
+    </>
+  );
+}
+
 export default function FellowLayout() {
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50">
       <Sidebar />
-      <div className="pl-64">
+      <div className="min-w-0 lg:pl-64">
         <Topbar />
-        <main className="mx-auto max-w-6xl px-8 py-8">
+        <main className="mx-auto max-w-6xl px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:py-8">
           <Outlet />
         </main>
       </div>
+      <MobileFellowNav />
     </div>
   );
 }

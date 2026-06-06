@@ -88,7 +88,7 @@ function AccountSection() {
           <p className="mt-0.5 text-xs text-slate-500">Irreversible actions — proceed with caution.</p>
         </div>
         <div className="border-t border-red-100 px-5 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-medium text-slate-900">Sign out</p>
               <p className="text-xs text-slate-500">End your current session</p>
@@ -111,10 +111,10 @@ function NotificationsSection() {
     <div className="space-y-4">
       <Card>
         <CardHeader title="Notification Channel" subtitle="How you'd like to receive notifications" />
-        <div className="flex gap-3 p-5">
+        <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
           {([{ key: "email", label: "Email only", icon: Mail }, { key: "inapp", label: "In-app only", icon: Smartphone }, { key: "both", label: "Email & in-app", icon: Bell }] as { key: typeof channel; label: string; icon: typeof Mail }[]).map(({ key, label, icon: Icon }) => (
             <button key={key} type="button" onClick={() => setChannel(key)}
-              className={cn("flex flex-1 flex-col items-center gap-2 rounded-lg border px-3 py-3 text-xs font-medium transition",
+              className={cn("flex min-h-20 flex-col items-center justify-center gap-2 rounded-lg border px-3 py-3 text-xs font-medium transition",
                 channel === key ? "border-brand-300 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
               )}>
               <Icon className="h-4 w-4" />{label}
@@ -125,7 +125,7 @@ function NotificationsSection() {
       <Card>
         <CardHeader title="Notify Me About" subtitle="Toggle individual notification types" />
         <ToggleList items={items} onChange={handleChange} />
-        <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
+        <div className="flex flex-col gap-2 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <span className="text-xs text-slate-500">{items.filter((i) => i.enabled).length} of {items.length} enabled</span>
           <div className="flex gap-2">
             <button type="button" onClick={() => setItems((p) => p.map((i) => ({ ...i, enabled: false })))} className="text-xs font-medium text-slate-500 transition hover:text-slate-700">Disable all</button>
@@ -214,7 +214,7 @@ export default function SettingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Settings</h1>
         <p className="mt-1 text-sm text-slate-500">Manage your account, notifications, and privacy preferences.</p>
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">

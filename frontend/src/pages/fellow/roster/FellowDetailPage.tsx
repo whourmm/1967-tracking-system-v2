@@ -32,8 +32,8 @@ function ContactRow({ icon: Icon, label, value, href }: { icon: typeof Mail; lab
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
         {value ? (
           href ? (
-            <a href={href} target="_blank" rel="noreferrer" className="mt-0.5 flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700">
-              {value}<ExternalLink className="h-3 w-3 shrink-0" />
+            <a href={href} target="_blank" rel="noreferrer" className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700">
+              <span className="truncate">{value}</span><ExternalLink className="h-3 w-3 shrink-0" />
             </a>
           ) : (
             <p className="mt-0.5 text-sm font-medium text-slate-900">{value}</p>
@@ -136,13 +136,13 @@ export default function FellowDetailPage() {
               <ul className="divide-y divide-slate-100">
                 {teammates.map((mate: FellowRecord) => (
                   <li key={mate.id}>
-                    <Link to={`/fellow/roster/${mate.id}`} className="group flex items-center gap-3 px-5 py-3 transition hover:bg-slate-50">
+                    <Link to={`/fellow/roster/${mate.id}`} className="group flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50 sm:px-5">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">{mate.initials}</div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-slate-900">{mate.name}</p>
                         <p className="text-xs text-slate-500">{countryFlag[mate.country] ?? "🌏"} {mate.country}</p>
                       </div>
-                      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", teamflowChip[mate.teamflow])}>{mate.teamflow}</span>
+                      <span className={cn("hidden shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium sm:inline-flex", teamflowChip[mate.teamflow])}>{mate.teamflow}</span>
                       <ArrowLeft className="h-3.5 w-3.5 shrink-0 rotate-180 text-slate-300 transition group-hover:text-slate-500" />
                     </Link>
                   </li>

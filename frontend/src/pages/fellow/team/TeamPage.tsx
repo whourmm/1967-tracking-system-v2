@@ -85,19 +85,19 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Team</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">My Team</h1>
           <p className="mt-1 text-sm text-slate-500">{currentFellow.cohort} · {currentFellow.team}</p>
         </div>
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <button type="button" onClick={() => setSprintOpen((o) => !o)}
-            className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">
-            {selectedSprint.name}
+            className="flex w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 sm:w-auto">
+            <span className="truncate">{selectedSprint.name}</span>
             <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", sprintOpen && "rotate-180")} />
           </button>
           {sprintOpen && (
-            <div className="absolute right-0 z-10 mt-1 w-56 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
+            <div className="absolute inset-x-0 z-10 mt-1 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg sm:left-auto sm:w-56">
               {sprints.map((s) => (
                 <button key={s.id} type="button" onClick={() => { setSelectedSprintId(s.id); setSprintOpen(false); }}
                   className={cn("flex w-full items-center px-4 py-2.5 text-left text-sm transition hover:bg-slate-50",
@@ -151,14 +151,14 @@ export default function TeamPage() {
             { rule: "At least 3 nationalities", met: nationalities >= 3, detail: `${nationalities} nationalities` },
             { rule: "At least 1 Finisher", met: hasFinisher, detail: hasFinisher ? teamMembers.find((m) => m.teamflow === "Finisher")?.name : "Missing Finisher" },
           ].map(({ rule, met, detail }) => (
-            <div key={rule} className="flex items-center justify-between px-5 py-3">
+            <div key={rule} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <div className="flex items-center gap-3">
                 <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold",
                   met ? "bg-emerald-100 text-emerald-600" : "bg-brand-100 text-brand-600"
                 )}>{met ? "✓" : "✗"}</span>
                 <p className="text-sm font-medium text-slate-800">{rule}</p>
               </div>
-              <span className={cn("text-xs font-medium", met ? "text-emerald-600" : "text-brand-600")}>{detail}</span>
+              <span className={cn("break-words pl-8 text-xs font-medium sm:pl-0 sm:text-right", met ? "text-emerald-600" : "text-brand-600")}>{detail}</span>
             </div>
           ))}
         </div>

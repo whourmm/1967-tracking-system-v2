@@ -220,7 +220,7 @@ export default function LearningSystemPage() {
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
             Learning System
           </h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -254,7 +254,7 @@ export default function LearningSystemPage() {
               key={item.title}
               className="overflow-hidden border-brand-200 bg-brand-50/40"
             >
-              <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                 <div className="flex items-start gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-600 text-white">
                     <Sparkles className="h-5 w-5" />
@@ -274,7 +274,7 @@ export default function LearningSystemPage() {
                   </div>
                 </div>
               </div>
-              <div className="grid gap-2 border-t border-brand-100 p-5 pt-4 sm:grid-cols-2">
+              <div className="grid gap-2 border-t border-brand-100 p-4 pt-4 sm:grid-cols-2 sm:p-5">
                 {items.map((it) => (
                   <LinkRow
                     key={it.id}
@@ -312,7 +312,7 @@ export default function LearningSystemPage() {
 
           return (
             <Card key={block.id} className="overflow-hidden">
-              <div className="flex items-start gap-4 border-b border-slate-100 px-5 py-4">
+              <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-start sm:gap-4 sm:px-5">
                 <span
                   className={cn(
                     "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg font-bold",
@@ -339,7 +339,7 @@ export default function LearningSystemPage() {
                 {/* Per-block progress */}
                 <span
                   className={cn(
-                    "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+                    "inline-flex shrink-0 items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-xs font-semibold",
                     allDone
                       ? "bg-emerald-50 text-emerald-700"
                       : "bg-slate-100 text-slate-600"

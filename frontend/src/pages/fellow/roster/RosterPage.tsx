@@ -62,7 +62,7 @@ export default function RosterPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Fellows Roster</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Fellows Roster</h1>
         <p className="mt-1 text-sm text-slate-500">{allFellows.length} fellows · {countryCount} countries · {confirmedCount} confirmed</p>
       </div>
 
@@ -134,7 +134,7 @@ export default function RosterPage() {
       </div>
 
       <Card>
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
           <p className="text-sm font-semibold text-slate-700">{filtered.length} fellow{filtered.length !== 1 ? "s" : ""}</p>
           {filtered.length < allFellows.length && <p className="text-xs text-slate-400">filtered from {allFellows.length}</p>}
         </div>
@@ -148,10 +148,10 @@ export default function RosterPage() {
           <ul className="divide-y divide-slate-100">
             {filtered.map((fellow) => (
               <li key={fellow.id}>
-                <Link to={`/fellow/roster/${fellow.id}`} className="group flex items-center gap-4 px-5 py-4 transition hover:bg-slate-50">
+                <Link to={`/fellow/roster/${fellow.id}`} className="group flex items-center gap-3 px-4 py-4 transition hover:bg-slate-50 sm:gap-4 sm:px-5">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-white">{fellow.initials}</div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-semibold text-slate-900">{fellow.name}</p>
                       <StatusPill status={fellow.status} />
                     </div>
@@ -160,7 +160,7 @@ export default function RosterPage() {
                       <span>{fellow.country}</span>
                       <span className="text-slate-300">·</span>
                       <GraduationCap className="h-3 w-3" />
-                      <span className="truncate">{fellow.university}</span>
+                      <span className="min-w-0 truncate">{fellow.university}</span>
                     </p>
                   </div>
                   <div className="hidden shrink-0 flex-col items-end gap-1.5 sm:flex">

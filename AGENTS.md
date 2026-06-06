@@ -216,6 +216,27 @@ frontend/src/constants/
 
 Do not create optional folders unless they are useful.
 
+### Responsive Design Guidance
+
+Responsive behavior is documented in:
+
+```txt
+RESPONSIVE.md
+```
+
+Rules:
+
+- Before creating or editing responsive behavior, mobile layouts, tablet layouts,
+  narrow-width navigation, overflow fixes, adaptive cards/lists, or viewport
+  behavior, read `RESPONSIVE.md`.
+- Follow `RESPONSIVE.md` for minimum viewport support, phone/tablet/desktop
+  layout patterns, bottom navigation behavior, overflow prevention, and testing.
+- The fellow portal is the current reference implementation.
+- When applying responsive work to the admin portal later, use the admin guidance
+  in `RESPONSIVE.md` instead of simply shrinking desktop tables.
+- Verify responsive work at the viewport widths listed in `RESPONSIVE.md` and
+  mention any intentional exception in the summary.
+
 ---
 
 ## Backend Guidance

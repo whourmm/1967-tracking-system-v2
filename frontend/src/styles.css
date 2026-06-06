@@ -38,7 +38,7 @@
   }
 
   body {
-    @apply m-0 min-w-80 bg-admin-page font-sans text-admin-text;
+    @apply m-0 min-w-0 bg-admin-page font-sans text-admin-text;
   }
 
   button,
