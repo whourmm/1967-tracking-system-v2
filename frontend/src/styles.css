@@ -53,6 +53,17 @@
   }
 }
 
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer components {
   .admin-shell {
     @apply grid min-h-screen bg-admin-page;

@@ -21,6 +21,7 @@ import type { LearningLink } from "../../types";
 interface Item extends LearningLink {
   id: string;
   defaultDone?: boolean;
+  status?: "pending" | "submitted" | "overdue" | "graded";
 }
 
 // --- Completion persistence --------------------------------------------------
@@ -75,6 +76,7 @@ function assignmentItems(blockId: string): Item[] {
       kind: "form" as const,
       meta: "Google Form",
       defaultDone: a.status === "submitted" || a.status === "graded",
+      status: a.status,
     }));
 }
 
@@ -108,6 +110,15 @@ function LinkRow({
 }) {
   const meta = kindMeta[item.kind];
   const Icon = meta.icon;
+  const isForm = item.kind === "form";
+
+  const statusLabel = item.status === "submitted" ? "Submitted" :
+                      item.status === "graded" ? "Graded" :
+                      item.status === "overdue" ? "Overdue" : "Pending";
+  const statusColor = item.status === "submitted" ? "bg-emerald-50 text-emerald-700" :
+                      item.status === "graded" ? "bg-sky-50 text-sky-700" :
+                      item.status === "overdue" ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-600";
+
   return (
     <div
       className={cn(
@@ -119,20 +130,22 @@ function LinkRow({
           : "border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50/40"
       )}
     >
-      {/* Completion toggle */}
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-pressed={done}
-        aria-label={done ? "Mark as not done" : "Mark as complete"}
-        className="shrink-0"
-      >
-        {done ? (
-          <CheckCircle2 className="h-5 w-5 text-slate-400" />
-        ) : (
-          <Circle className="h-5 w-5 text-slate-300 transition group-hover:text-brand-400" />
-        )}
-      </button>
+      {/* Completion toggle - only for non-form items */}
+      {!isForm && (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-pressed={done}
+          aria-label={done ? "Mark as not done" : "Mark as complete"}
+          className="shrink-0"
+        >
+          {done ? (
+            <CheckCircle2 className="h-5 w-5 text-slate-400" />
+          ) : (
+            <Circle className="h-5 w-5 text-slate-300 transition group-hover:text-brand-400" />
+          )}
+        </button>
+      )}
 
       {/* Link area */}
       <a
@@ -166,7 +179,14 @@ function LinkRow({
             </span>
           )}
         </span>
-        <ExternalLink className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-brand-500" />
+        {isForm && item.status && (
+          <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", statusColor)}>
+            {statusLabel}
+          </span>
+        )}
+        {!isForm && (
+          <ExternalLink className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-brand-500" />
+        )}
       </a>
     </div>
   );

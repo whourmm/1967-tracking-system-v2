@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import {
   Building2,
   CalendarClock,
@@ -10,9 +11,10 @@ import {
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { assignments, caseAssignments, currentSprint } from "../../data/mock";
+import { assignments, caseAssignments } from "../../data/mock";
 import { deadlineLabel, formatDate, formatShortDate } from "../../lib/format";
 import { cn } from "../../lib/cn";
+import type { FellowOutletContext } from "../../components/layout/FellowLayout";
 import type {
   Assignment,
   AssignmentStatus,
@@ -110,8 +112,10 @@ function displayStatus(item: QueueItem): AssignmentStatus {
 
 function CurrentSprintCaseCard({
   assignment,
+  sprintName,
 }: {
   assignment: CaseAssignment;
+  sprintName: string;
 }) {
   return (
     <Card className="overflow-hidden">
@@ -121,10 +125,10 @@ function CurrentSprintCaseCard({
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-white ring-1 ring-white/15">
                 <CalendarClock className="h-3.5 w-3.5" />
-                Current sprint case
+                Selected sprint case
               </span>
               <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white ring-1 ring-white/15">
-                {currentSprint.name}
+                {sprintName}
               </span>
               <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white ring-1 ring-white/15">
                 Due {formatShortDate(assignment.deadline)}
@@ -244,10 +248,11 @@ function QueueRow({ item }: { item: QueueItem }) {
 }
 
 export default function AssignmentsPage() {
+  const { selectedSprint } = useOutletContext<FellowOutletContext>();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<QueueFilter>("all");
   const currentSprintCase = caseAssignments.find(
-    (assignment) => assignment.sprint === currentSprint.name
+    (assignment) => assignment.sprint === selectedSprint.name
   );
 
   const queueItems = useMemo<QueueItem[]>(() => {
@@ -264,7 +269,7 @@ export default function AssignmentsPage() {
     }));
 
     const otherCaseItems: QueueItem[] = caseAssignments
-      .filter((assignment) => assignment.sprint !== currentSprint.name)
+      .filter((assignment) => assignment.sprint !== selectedSprint.name)
       .map((assignment) => ({
         kind: "case",
         id: `case:${assignment.id}`,
@@ -280,7 +285,7 @@ export default function AssignmentsPage() {
       }));
 
     return [...learningItems, ...otherCaseItems].sort(sortByActionDate);
-  }, []);
+  }, [selectedSprint.name]);
 
   const visible = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -322,7 +327,10 @@ export default function AssignmentsPage() {
       </div>
 
       {currentSprintCase ? (
-        <CurrentSprintCaseCard assignment={currentSprintCase} />
+        <CurrentSprintCaseCard
+          assignment={currentSprintCase}
+          sprintName={selectedSprint.name}
+        />
       ) : null}
 
       <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">

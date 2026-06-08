@@ -17,6 +17,7 @@ import { currentFellow } from "../../../data/mock";
 import { cn } from "../../../lib/cn";
 
 type Visibility = "public" | "private";
+type ProfileVisibilityKey = "availability";
 
 interface ContactField {
   key: string;
@@ -36,6 +37,9 @@ const defaultContacts: ContactField[] = [
 
 const availabilityDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const defaultAvailability: Record<string, boolean> = { Mon: true, Tue: true, Wed: false, Thu: true, Fri: true, Sat: false, Sun: false };
+const defaultProfileVisibility: Record<ProfileVisibilityKey, Visibility> = {
+  availability: "private",
+};
 
 function VisibilityToggle({ visibility, onChange }: { visibility: Visibility; onChange: (v: Visibility) => void }) {
   return (
@@ -63,9 +67,13 @@ export default function ProfilePage() {
   const [major, setMajor] = useState("Commerce & Accountancy");
   const [contacts, setContacts] = useState<ContactField[]>(defaultContacts);
   const [availability, setAvailability] = useState(defaultAvailability);
+  const [profileVisibility, setProfileVisibility] = useState(defaultProfileVisibility);
 
   function handleVisibilityChange(key: string, v: Visibility) {
     setContacts((prev) => prev.map((c) => (c.key === key ? { ...c, visibility: v } : c)));
+  }
+  function handleProfileVisibilityChange(key: ProfileVisibilityKey, v: Visibility) {
+    setProfileVisibility((prev) => ({ ...prev, [key]: v }));
   }
   function handleContactValue(key: string, value: string) {
     setContacts((prev) => prev.map((c) => (c.key === key ? { ...c, value } : c)));
@@ -106,7 +114,16 @@ export default function ProfilePage() {
           </Card>
 
           <Card>
-            <CardHeader title="Availability" subtitle={`Internship start: 2026-04-14`} />
+            <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-slate-900">Availability</h3>
+                <p className="mt-0.5 text-xs text-slate-500">Internship start: 2026-04-14</p>
+              </div>
+              <VisibilityToggle
+                visibility={profileVisibility.availability}
+                onChange={(v) => handleProfileVisibilityChange("availability", v)}
+              />
+            </div>
             <div className="p-4">
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">Available days</p>
               <div className="grid grid-cols-7 gap-1">
@@ -119,7 +136,9 @@ export default function ProfilePage() {
                   >{day}</button>
                 ))}
               </div>
-              <p className="mt-3 text-xs text-slate-400">{Object.values(availability).filter(Boolean).length} days / week available</p>
+              <p className="mt-3 text-xs text-slate-400">
+                {Object.values(availability).filter(Boolean).length} days / week available · {profileVisibility.availability === "public" ? "Visible on roster" : "Hidden from roster"}
+              </p>
             </div>
           </Card>
         </div>
@@ -201,7 +220,7 @@ export default function ProfilePage() {
               <Lock className="h-3.5 w-3.5 text-slate-400" />
               <p className="text-xs text-slate-500">
                 <span className="font-medium text-slate-700">Private</span> contacts are only visible to admins.{" "}
-                <span className="font-medium text-slate-700">Public</span> contacts appear in the Fellows Roster.
+                <span className="font-medium text-slate-700">Public</span> contacts and profile fields appear in the Fellows Roster.
               </p>
             </div>
           </Card>

@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   Bell,
   BookOpen,
   CalendarClock,
   CheckCheck,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   GraduationCap,
   Home,
   LifeBuoy,
-  LogOut,
   Megaphone,
   MoreHorizontal,
   Search,
@@ -19,10 +20,14 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { currentFellow, notifications as mockNotifications } from "../../data/mock";
-import { getCurrentUser, logout } from "../../lib/auth";
+import { currentFellow, notifications as mockNotifications, sprints } from "../../data/mock";
+import { getCurrentUser } from "../../lib/auth";
 import { cn } from "../../lib/cn";
-import type { NotificationKind } from "../../types";
+import type { NotificationKind, Sprint } from "../../types";
+
+export interface FellowOutletContext {
+  selectedSprint: Sprint;
+}
 
 const notificationIcon: Record<NotificationKind, typeof Bell> = {
   submission: CheckCircle2,
@@ -56,13 +61,6 @@ const mainNav = [
 ];
 
 function Sidebar() {
-  const navigate = useNavigate();
-
-  function handleSignOut() {
-    logout();
-    navigate("/login", { replace: true });
-  }
-
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
       {/* Brand */}
@@ -147,14 +145,6 @@ function Sidebar() {
           <LifeBuoy className="h-5 w-5 text-slate-400" />
           Help & Support
         </a>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-700"
-        >
-          <LogOut className="h-5 w-5 text-slate-400" />
-          Sign out
-        </button>
       </div>
     </aside>
   );
@@ -284,14 +274,85 @@ function NotificationBell() {
   );
 }
 
-function Topbar() {
+function SprintSwitcher({
+  selectedSprint,
+  sprintIndex,
+  onPrevious,
+  onNext,
+}: {
+  selectedSprint: Sprint;
+  sprintIndex: number;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  const atStart = sprintIndex === 0;
+  const atEnd = sprintIndex === sprints.length - 1;
+  const sprintLabel = selectedSprint.name.split(" · ")[0];
+
+  return (
+    <div
+      className="order-3 flex min-h-10 w-full items-center justify-start gap-2 md:order-none md:w-auto"
+      title={selectedSprint.name}
+    >
+      <button
+        type="button"
+        onClick={onPrevious}
+        disabled={atStart}
+        aria-label="Previous sprint"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-25"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <div className="min-w-0 px-1 text-center md:px-2">
+        <p className="min-w-16 truncate text-sm font-semibold leading-tight text-slate-900">
+          {sprintLabel}
+        </p>
+        <div className="mt-1 flex items-center justify-center gap-1">
+          {sprints.map((s, i) => (
+            <span
+              key={s.id}
+              className={cn(
+                "h-1.5 rounded-full transition-all",
+                i === sprintIndex ? "w-5 ring-1 ring-offset-1" : "w-1.5",
+                s.isCurrent
+                  ? "bg-brand-500 ring-brand-200"
+                  : "bg-slate-300 ring-slate-200"
+              )}
+            />
+          ))}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={atEnd}
+        aria-label="Next sprint"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-25"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function Topbar({
+  selectedSprint,
+  sprintIndex,
+  onPreviousSprint,
+  onNextSprint,
+}: {
+  selectedSprint: Sprint;
+  sprintIndex: number;
+  onPreviousSprint: () => void;
+  onNextSprint: () => void;
+}) {
   const user = getCurrentUser();
   const displayName = user?.role === "fellow" ? user.name : currentFellow.name;
   const initials =
     user?.role === "fellow" ? user.initials : currentFellow.avatarInitials;
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur lg:h-16 lg:px-8">
+    <header className="sticky top-0 z-20 flex min-h-14 flex-wrap items-center gap-3 border-b border-slate-200 bg-white/90 px-4 py-2 backdrop-blur lg:min-h-16 lg:px-8">
       <div className="min-w-0 lg:hidden">
         <p className="truncate text-sm font-bold tracking-tight text-slate-900">
           <span className="text-brand-600">1967</span> Fellowship
@@ -300,15 +361,21 @@ function Topbar() {
           Fellow Portal
         </p>
       </div>
-      <div className="relative hidden w-full max-w-sm md:block">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search assignments, resources…"
-          className="w-full rounded-md border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100"
-        />
-      </div>
+      <SprintSwitcher
+        selectedSprint={selectedSprint}
+        sprintIndex={sprintIndex}
+        onPrevious={onPreviousSprint}
+        onNext={onNextSprint}
+      />
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          aria-label="Search"
+          title="Search"
+        >
+          <Search className="h-5 w-5" />
+        </button>
         <NotificationBell />
         <NavLink
           to="/fellow/profile"
@@ -336,7 +403,6 @@ function Topbar() {
 function MobileFellowNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
   const moreActive =
     location.pathname.startsWith("/fellow/profile") ||
     location.pathname.startsWith("/fellow/settings");
@@ -344,11 +410,6 @@ function MobileFellowNav() {
   useEffect(() => {
     setMoreOpen(false);
   }, [location.pathname]);
-
-  function handleSignOut() {
-    logout();
-    navigate("/login", { replace: true });
-  }
 
   return (
     <>
@@ -400,14 +461,6 @@ function MobileFellowNav() {
                 <LifeBuoy className="h-5 w-5 shrink-0" />
                 Help & Support
               </a>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-700"
-              >
-                <LogOut className="h-5 w-5 shrink-0" />
-                Sign out
-              </button>
             </div>
           </div>
         </>
@@ -470,13 +523,28 @@ function MobileFellowNav() {
 }
 
 export default function FellowLayout() {
+  const currentIndex = Math.max(
+    sprints.findIndex((s) => s.isCurrent),
+    0
+  );
+  const [sprintIndex, setSprintIndex] = useState(currentIndex);
+  const selectedSprint = sprints[sprintIndex];
+  const goPreviousSprint = () => setSprintIndex((i) => Math.max(i - 1, 0));
+  const goNextSprint = () =>
+    setSprintIndex((i) => Math.min(i + 1, sprints.length - 1));
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50">
       <Sidebar />
       <div className="min-w-0 lg:pl-64">
-        <Topbar />
+        <Topbar
+          selectedSprint={selectedSprint}
+          sprintIndex={sprintIndex}
+          onPreviousSprint={goPreviousSprint}
+          onNextSprint={goNextSprint}
+        />
         <main className="mx-auto max-w-6xl px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:py-8">
-          <Outlet />
+          <Outlet context={{ selectedSprint } satisfies FellowOutletContext} />
         </main>
       </div>
       <MobileFellowNav />

@@ -28,7 +28,7 @@ export const sprints: Sprint[] = [
     name: "Sprint 1 · Discovery",
     description:
       "Map the problem space and interview early users to find a worthwhile problem.",
-    startsOn: "2026-05-04",
+    startsOn: "2026-04-27",
     deadline: "2026-05-10",
     isCurrent: false,
   },
@@ -38,7 +38,7 @@ export const sprints: Sprint[] = [
     description:
       "Turn raw research into a sharp, testable problem statement for your team.",
     startsOn: "2026-05-11",
-    deadline: "2026-05-17",
+    deadline: "2026-05-24",
     isCurrent: false,
   },
   {
@@ -46,8 +46,8 @@ export const sprints: Sprint[] = [
     name: "Sprint 3 · Prototyping",
     description:
       "Build the smallest prototype that lets you test your riskiest assumption.",
-    startsOn: "2026-05-18",
-    deadline: "2026-05-24",
+    startsOn: "2026-05-25",
+    deadline: "2026-06-07",
     isCurrent: false,
   },
   {
@@ -55,8 +55,8 @@ export const sprints: Sprint[] = [
     name: "Sprint 4 · Market Validation",
     description:
       "Validate your problem statement with real users and synthesize findings into an insight report.",
-    startsOn: "2026-06-02",
-    deadline: "2026-06-08",
+    startsOn: "2026-06-08",
+    deadline: "2026-06-21",
     isCurrent: true,
   },
   {
@@ -64,8 +64,8 @@ export const sprints: Sprint[] = [
     name: "Sprint 5 · Storytelling & Pitch",
     description:
       "Shape your findings into a compelling narrative and rehearse your final pitch.",
-    startsOn: "2026-06-09",
-    deadline: "2026-06-15",
+    startsOn: "2026-06-22",
+    deadline: "2026-07-05",
     isCurrent: false,
   },
 ];
@@ -115,7 +115,7 @@ export const assignments: Assignment[] = [
     title: "Lean Canvas Draft",
     description: "Complete the first draft of your Lean Canvas for review.",
     block: "C",
-    deadline: "2026-06-08",
+    deadline: "2026-06-21",
     status: "pending",
     formUrl: "https://forms.gle/example-c1",
   },
@@ -162,7 +162,7 @@ export const caseAssignments: CaseAssignment[] = [
     description:
       "Synthesize interview notes into three validated pain points and rank them by urgency.",
     assignedTeam: "Team Mekong",
-    deadline: "2026-05-24",
+    deadline: "2026-06-07",
     status: "reviewed",
     briefUrl: "https://drive.google.com/example-gojek-brief",
     submissionUrl: "https://forms.gle/example-case-gojek",

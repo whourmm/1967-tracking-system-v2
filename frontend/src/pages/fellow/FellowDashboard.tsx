@@ -1,17 +1,13 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import {
   ArrowRight,
   BookOpen,
   Building2,
   CalendarClock,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   ClipboardList,
   Clock,
-  Megaphone,
-  UserPlus,
+  PartyPopper,
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -20,8 +16,6 @@ import {
   caseAssignments,
   currentFellow,
   learningBlocks,
-  recentActivity,
-  sprints,
   teamMembers,
 } from "../../data/mock";
 import {
@@ -32,7 +26,8 @@ import {
 } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import { flagFor } from "../../lib/cohort";
-import type { ActivityItem, TeamMember } from "../../types";
+import type { TeamMember } from "../../types";
+import type { FellowOutletContext } from "../../components/layout/FellowLayout";
 
 const stats = [
   {
@@ -72,19 +67,36 @@ const stats = [
   },
 ];
 
-const activityIcon: Record<ActivityItem["kind"], typeof CheckCircle2> = {
-  submission: CheckCircle2,
-  resource: BookOpen,
-  team: UserPlus,
-  announcement: Megaphone,
-};
-
 // TeamFlow archetype chip colors.
 const teamflowChip: Record<TeamMember["teamflow"], string> = {
   Initiator: "bg-amber-50 text-amber-700 ring-amber-600/20",
   Translator: "bg-sky-50 text-sky-700 ring-sky-600/20",
   Sharper: "bg-violet-50 text-violet-700 ring-violet-600/20",
   Finisher: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+};
+
+// Unified "what's due" row shown on the home page.
+type DueItem = {
+  id: string;
+  title: string;
+  sub: string;
+  deadline: string;
+  kind: "assignment" | "case" | "sprint";
+  href: string;
+};
+
+// Urgency tier from days-remaining. Drives the dot color so the most pressing
+// items stand out at a glance.
+function urgency(d: number): "overdue" | "soon" | "upcoming" {
+  if (d < 0) return "overdue";
+  if (d <= 3) return "soon";
+  return "upcoming";
+}
+
+const urgencyDot: Record<ReturnType<typeof urgency>, string> = {
+  overdue: "bg-brand-600",
+  soon: "bg-amber-500",
+  upcoming: "bg-slate-300",
 };
 
 function dateKey(date: Date) {
@@ -115,18 +127,7 @@ function formatSprintDate(date: Date) {
 }
 
 export default function FellowDashboard() {
-  // Sprint switcher: start on the active sprint, let the fellow step through.
-  const currentIndex = Math.max(
-    sprints.findIndex((s) => s.isCurrent),
-    0
-  );
-  const [sprintIndex, setSprintIndex] = useState(currentIndex);
-  const selectedSprint = sprints[sprintIndex];
-  const atStart = sprintIndex === 0;
-  const atEnd = sprintIndex === sprints.length - 1;
-  const goPrev = () => setSprintIndex((i) => Math.max(i - 1, 0));
-  const goNext = () =>
-    setSprintIndex((i) => Math.min(i + 1, sprints.length - 1));
+  const { selectedSprint } = useOutletContext<FellowOutletContext>();
 
   const sprintDates = getSprintDates(
     selectedSprint.startsOn,
@@ -154,6 +155,50 @@ export default function FellowDashboard() {
     (assignment) => assignment.sprint === selectedSprint.name
   );
 
+  // "What's due" combines everything on the fellow's plate for the next 14 days:
+  // pending/overdue learning-block assignments, the current sprint's case brief
+  // deadline, and the sprint submission deadline itself. Sorted by date and
+  // capped at 4 items so the card stays glanceable.
+  const dueItems: DueItem[] = [
+    ...assignments
+      .filter((a) => a.status === "pending" || a.status === "overdue")
+      .map<DueItem>((a) => ({
+        id: `a-${a.id}`,
+        title: a.title,
+        sub: `Block ${a.block}`,
+        deadline: a.deadline,
+        kind: "assignment",
+        href: "/fellow/assignments",
+      })),
+    ...(currentSprintCase && currentSprintCase.status !== "reviewed"
+      ? [
+          {
+            id: `c-${currentSprintCase.id}`,
+            title: currentSprintCase.caseTitle,
+            sub: currentSprintCase.company,
+            deadline: currentSprintCase.deadline,
+            kind: "case" as const,
+            href: "/fellow/assignments",
+          },
+        ]
+      : []),
+    ...(daysUntil(selectedSprint.deadline) >= 0
+      ? [
+          {
+            id: `s-${selectedSprint.id}`,
+            title: `${selectedSprint.name} submission`,
+            sub: "Sprint deadline",
+            deadline: selectedSprint.deadline,
+            kind: "sprint" as const,
+            href: "/fellow",
+          },
+        ]
+      : []),
+  ]
+    .filter((item) => daysUntil(item.deadline) <= 14)
+    .sort((a, b) => daysUntil(a.deadline) - daysUntil(b.deadline))
+    .slice(0, 4);
+
   // A block is "done" once all its Google Forms are submitted. There is no
   // percentage of a course — progress is tracked by form submissions per block.
   const blockProgress = learningBlocks.map((block) => {
@@ -176,46 +221,6 @@ export default function FellowDashboard() {
             {currentFellow.cohort} · {currentFellow.team} — here’s what’s
             happening this sprint.
           </p>
-        </div>
-        {/* Sprint switcher — step between sprints with the chevrons. */}
-        <div className="inline-flex items-center gap-1">
-          <button
-            onClick={goPrev}
-            disabled={atStart}
-            aria-label="Previous sprint"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-slate-400 transition hover:text-slate-700 disabled:pointer-events-none disabled:opacity-25"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          {/* Fixed width keeps the chevrons put as the sprint name changes. */}
-          <div className="w-[min(14rem,calc(100vw-6rem))] px-2 text-center sm:w-60">
-            <p className="truncate text-sm font-semibold leading-tight text-slate-900">
-              {selectedSprint.name}
-            </p>
-            {/* One dot per sprint: red = current sprint, the viewed one is a pill. */}
-            <div className="mt-2 flex items-center justify-center gap-1.5">
-              {sprints.map((s, i) => (
-                <span
-                  key={s.id}
-                  className={cn(
-                    "h-2.5 rounded-full transition-all",
-                    i === sprintIndex ? "w-6 ring-2 ring-offset-1" : "w-2.5",
-                    s.isCurrent
-                      ? "bg-brand-500 ring-brand-200"
-                      : "bg-slate-300 ring-slate-200"
-                  )}
-                />
-              ))}
-            </div>
-          </div>
-          <button
-            onClick={goNext}
-            disabled={atEnd}
-            aria-label="Next sprint"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-slate-400 transition hover:text-slate-700 disabled:pointer-events-none disabled:opacity-25"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
         </div>
       </div>
 
@@ -253,7 +258,7 @@ export default function FellowDashboard() {
                 {formatShortDate(selectedSprint.deadline)}
               </span>
             </div>
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            <div className="scrollbar-none flex gap-2 overflow-x-auto pb-0.5">
               {sprintDates.map((date) => {
                 const key = dateKey(date);
                 const isToday = key === todayKey;
@@ -274,7 +279,7 @@ export default function FellowDashboard() {
                         : undefined
                     }
                     className={cn(
-                      "flex h-8 min-w-16 flex-1 items-center justify-center rounded-md px-3 text-xs font-semibold",
+                      "flex h-8 w-16 shrink-0 items-center justify-center rounded-md px-2 text-xs font-semibold leading-none sm:w-[4.75rem]",
                       isToday
                         ? "bg-white/15 text-white ring-2 ring-inset ring-white"
                         : isPast
@@ -282,7 +287,7 @@ export default function FellowDashboard() {
                           : "text-brand-100/70 ring-1 ring-white/10"
                     )}
                   >
-                    {formatSprintDate(date)}
+                    <span className="whitespace-nowrap">{formatSprintDate(date)}</span>
                   </span>
                 );
               })}
@@ -557,25 +562,76 @@ export default function FellowDashboard() {
             </div>
           </Card>
 
-          {/* Activity */}
+          {/* What's due */}
           <Card>
-            <CardHeader title="Recent activity" />
-            <ul className="space-y-4 p-5">
-              {recentActivity.map((item) => {
-                const Icon = activityIcon[item.kind];
-                return (
-                  <li key={item.id} className="flex gap-3">
-                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                      <Icon className="h-3.5 w-3.5" />
-                    </span>
-                    <div>
-                      <p className="text-sm text-slate-700">{item.text}</p>
-                      <p className="text-xs text-slate-400">{item.time}</p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <CardHeader
+              title="What's due"
+              subtitle="Next 14 days"
+              action={
+                <Link
+                  to="/fellow/assignments"
+                  className="text-xs font-semibold text-brand-600 hover:text-brand-700"
+                >
+                  See all
+                </Link>
+              }
+            />
+            {dueItems.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 px-5 py-8 text-center">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                  <PartyPopper className="h-5 w-5" />
+                </span>
+                <p className="text-sm font-semibold text-slate-800">
+                  You're all clear
+                </p>
+                <p className="text-xs text-slate-500">
+                  Nothing due in the next two weeks.
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {dueItems.map((item) => {
+                  const d = daysUntil(item.deadline);
+                  const tier = urgency(d);
+                  return (
+                    <li key={item.id}>
+                      <Link
+                        to={item.href}
+                        className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50 sm:px-5"
+                      >
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "h-2.5 w-2.5 shrink-0 rounded-full",
+                            urgencyDot[tier]
+                          )}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-slate-900">
+                            {item.title}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">
+                            {item.sub}
+                          </p>
+                        </div>
+                        <p
+                          className={cn(
+                            "shrink-0 text-xs font-semibold",
+                            tier === "overdue"
+                              ? "text-brand-600"
+                              : tier === "soon"
+                                ? "text-amber-600"
+                                : "text-slate-500"
+                          )}
+                        >
+                          {deadlineLabel(item.deadline)}
+                        </p>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </Card>
         </div>
       </div>

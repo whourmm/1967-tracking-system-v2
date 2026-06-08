@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { Bell, Check, ChevronRight, Eye, EyeOff, KeyRound, LogOut, Mail, Shield, Smartphone, User } from "lucide-react";
+import { Bell, Check, ChevronRight, Eye, EyeOff, KeyRound, LogOut, Mail, Smartphone, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardHeader } from "../../../components/ui/Card";
 import { currentFellow } from "../../../data/mock";
+import { logout } from "../../../lib/auth";
 import { cn } from "../../../lib/cn";
 
-type Section = "account" | "notifications" | "privacy" | "security";
+type Section = "account" | "notifications" | "security";
 
 const sections: { key: Section; label: string; icon: typeof User }[] = [
   { key: "account", label: "Account", icon: User },
   { key: "notifications", label: "Notifications", icon: Bell },
-  { key: "privacy", label: "Privacy", icon: Shield },
   { key: "security", label: "Security", icon: KeyRound },
 ];
 
@@ -22,13 +23,6 @@ const notificationDefaults: Toggle[] = [
   { key: "team_updates", label: "Team updates", description: "When members join or leave your team", enabled: false },
   { key: "new_resources", label: "New resources", description: "When new learning resources are added", enabled: false },
   { key: "announcements", label: "Program announcements", description: "Broadcast announcements from the admin team", enabled: true },
-];
-
-const privacyDefaults: Toggle[] = [
-  { key: "show_email", label: "Show email on roster", description: "Your email address is visible to other fellows", enabled: true },
-  { key: "show_discord", label: "Show Discord on roster", description: "Your Discord handle is visible to other fellows", enabled: true },
-  { key: "show_university", label: "Show university", description: "Your university appears on your roster card", enabled: true },
-  { key: "show_availability", label: "Show availability", description: "Your available days are visible to team members", enabled: false },
 ];
 
 function ToggleSwitch({ enabled, onChange, label }: { enabled: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -57,9 +51,15 @@ function ToggleList({ items, onChange }: { items: Toggle[]; onChange: (key: stri
 }
 
 function AccountSection() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("sirada.w@example.com");
   const [saved, setSaved] = useState(false);
   function handleSave() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
+  function handleSignOut() {
+    logout();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -93,7 +93,7 @@ function AccountSection() {
               <p className="text-sm font-medium text-slate-900">Sign out</p>
               <p className="text-xs text-slate-500">End your current session</p>
             </div>
-            <button type="button" className="flex items-center gap-2 rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50">
+            <button type="button" onClick={handleSignOut} className="flex items-center gap-2 rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50">
               <LogOut className="h-3.5 w-3.5" />Sign out
             </button>
           </div>
@@ -135,21 +135,6 @@ function NotificationsSection() {
         </div>
       </Card>
     </div>
-  );
-}
-
-function PrivacySection() {
-  const [items, setItems] = useState(privacyDefaults);
-  function handleChange(key: string, val: boolean) { setItems((prev) => prev.map((i) => (i.key === key ? { ...i, enabled: val } : i))); }
-  return (
-    <Card>
-      <CardHeader title="Roster Visibility" subtitle="Control what other fellows can see on your roster card" />
-      <ToggleList items={items} onChange={handleChange} />
-      <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50/50 px-5 py-3">
-        <Eye className="h-3.5 w-3.5 text-slate-400" />
-        <p className="text-xs text-slate-500">Admins can always see all your information regardless of these settings.</p>
-      </div>
-    </Card>
   );
 }
 
@@ -210,12 +195,12 @@ function SecuritySection() {
 
 export default function SettingPage() {
   const [active, setActive] = useState<Section>("account");
-  const SectionContent = { account: AccountSection, notifications: NotificationsSection, privacy: PrivacySection, security: SecuritySection }[active];
+  const SectionContent = { account: AccountSection, notifications: NotificationsSection, security: SecuritySection }[active];
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Settings</h1>
-        <p className="mt-1 text-sm text-slate-500">Manage your account, notifications, and privacy preferences.</p>
+        <p className="mt-1 text-sm text-slate-500">Manage your account, notifications, and security preferences.</p>
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         <Card className="h-fit lg:col-span-1">

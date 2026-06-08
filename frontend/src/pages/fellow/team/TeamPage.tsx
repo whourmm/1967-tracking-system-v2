@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { ChevronDown, ChevronRight, Flag, Globe, GraduationCap, Pin, Shield, Users } from "lucide-react";
+import { Link, useOutletContext } from "react-router-dom";
+import { ChevronRight, Flag, Globe, GraduationCap, Pin, Shield, Users } from "lucide-react";
 import { Card, CardHeader } from "../../../components/ui/Card";
-import { allFellows, currentFellow, teamMembers, currentSprint } from "../../../data/mock";
+import { allFellows, currentFellow, teamMembers } from "../../../data/mock";
 import type { TeamMember } from "../../../types";
+import type { FellowOutletContext } from "../../../components/layout/FellowLayout";
 import { cn } from "../../../lib/cn";
 
 const teamflowChip: Record<TeamMember["teamflow"], string> = {
@@ -17,13 +17,6 @@ const countryFlag: Record<string, string> = {
   Thailand: "🇹🇭", Vietnam: "🇻🇳", Singapore: "🇸🇬", Indonesia: "🇮🇩",
   Philippines: "🇵🇭", Malaysia: "🇲🇾", Myanmar: "🇲🇲", Cambodia: "🇰🇭",
 };
-
-const sprints = [
-  { id: 1, name: "Sprint 1 · Discovery" },
-  { id: 2, name: "Sprint 2 · Problem Framing" },
-  { id: 3, name: "Sprint 3 · Prototyping" },
-  { id: 4, name: currentSprint.name },
-];
 
 function MemberCard({ member, isMe }: { member: TeamMember; isMe: boolean }) {
   const flag = countryFlag[member.country] ?? "🌏";
@@ -77,9 +70,7 @@ function MemberCard({ member, isMe }: { member: TeamMember; isMe: boolean }) {
 }
 
 export default function TeamPage() {
-  const [selectedSprintId, setSelectedSprintId] = useState(currentSprint.id);
-  const [sprintOpen, setSprintOpen] = useState(false);
-  const selectedSprint = sprints.find((s) => s.id === selectedSprintId) ?? sprints[sprints.length - 1];
+  const { selectedSprint } = useOutletContext<FellowOutletContext>();
   const nationalities = new Set(teamMembers.map((m) => m.country)).size;
   const hasFinisher = teamMembers.some((m) => m.teamflow === "Finisher");
 
@@ -89,26 +80,6 @@ export default function TeamPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">My Team</h1>
           <p className="mt-1 text-sm text-slate-500">{currentFellow.cohort} · {currentFellow.team}</p>
-        </div>
-        <div className="relative w-full sm:w-auto">
-          <button type="button" onClick={() => setSprintOpen((o) => !o)}
-            className="flex w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 sm:w-auto">
-            <span className="truncate">{selectedSprint.name}</span>
-            <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", sprintOpen && "rotate-180")} />
-          </button>
-          {sprintOpen && (
-            <div className="absolute inset-x-0 z-10 mt-1 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg sm:left-auto sm:w-56">
-              {sprints.map((s) => (
-                <button key={s.id} type="button" onClick={() => { setSelectedSprintId(s.id); setSprintOpen(false); }}
-                  className={cn("flex w-full items-center px-4 py-2.5 text-left text-sm transition hover:bg-slate-50",
-                    s.id === selectedSprintId ? "font-semibold text-brand-600" : "font-medium text-slate-700"
-                  )}>
-                  {s.name}
-                  {s.id === currentSprint.id && <span className="ml-auto rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-600">Current</span>}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
