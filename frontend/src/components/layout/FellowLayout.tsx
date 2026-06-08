@@ -352,7 +352,7 @@ function Topbar({
     user?.role === "fellow" ? user.initials : currentFellow.avatarInitials;
 
   return (
-    <header className="sticky top-0 z-20 flex min-h-14 flex-wrap items-center gap-3 border-b border-slate-200 bg-white/90 px-4 py-2 backdrop-blur lg:min-h-16 lg:px-8">
+    <header className="fixed top-0 right-0 left-0 z-20 flex min-h-14 flex-wrap items-center gap-3 border-b border-slate-200 bg-white/90 px-4 py-2 backdrop-blur lg:left-64 lg:min-h-16 lg:px-8">
       <div className="min-w-0 lg:hidden">
         <p className="truncate text-sm font-bold tracking-tight text-slate-900">
           <span className="text-brand-600">1967</span> Fellowship
@@ -534,7 +534,7 @@ export default function FellowLayout() {
     setSprintIndex((i) => Math.min(i + 1, sprints.length - 1));
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50">
+    <div className="min-h-screen overflow-x-clip bg-slate-50">
       <Sidebar />
       <div className="min-w-0 lg:pl-64">
         <Topbar
@@ -543,7 +543,7 @@ export default function FellowLayout() {
           onPreviousSprint={goPreviousSprint}
           onNextSprint={goNextSprint}
         />
-        <main className="mx-auto max-w-6xl px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:py-8">
+        <main className="mx-auto max-w-6xl px-4 pb-28 pt-20 sm:px-6 lg:px-8 lg:pt-24">
           <Outlet context={{ selectedSprint } satisfies FellowOutletContext} />
         </main>
       </div>

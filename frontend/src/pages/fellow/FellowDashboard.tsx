@@ -324,13 +324,15 @@ export default function FellowDashboard() {
                   </div>
                 </div>
 
-                <Link
-                  to="/fellow/assignments"
+                <a
+                  href={currentSprintCase.briefUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-brand-700 ring-1 ring-brand-200 transition hover:bg-brand-50 sm:w-auto"
                 >
-                  View case
+                  Case docs brief
                   <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+                </a>
               </div>
             </Card>
           ) : null}

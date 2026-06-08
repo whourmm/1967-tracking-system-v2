@@ -1,5 +1,5 @@
 import { Link, useOutletContext } from "react-router-dom";
-import { ChevronRight, Flag, Globe, GraduationCap, Pin, Shield, Users } from "lucide-react";
+import { ChevronRight, GraduationCap, Pin } from "lucide-react";
 import { Card, CardHeader } from "../../../components/ui/Card";
 import { allFellows, currentFellow, teamMembers } from "../../../data/mock";
 import type { TeamMember } from "../../../types";
@@ -72,7 +72,6 @@ function MemberCard({ member, isMe }: { member: TeamMember; isMe: boolean }) {
 export default function TeamPage() {
   const { selectedSprint } = useOutletContext<FellowOutletContext>();
   const nationalities = new Set(teamMembers.map((m) => m.country)).size;
-  const hasFinisher = teamMembers.some((m) => m.teamflow === "Finisher");
 
   return (
     <div className="space-y-6">
@@ -83,25 +82,6 @@ export default function TeamPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { icon: Users, label: "Members", value: teamMembers.length, color: "text-brand-600 bg-brand-50" },
-          { icon: Globe, label: "Nationalities", value: nationalities, color: "text-sky-600 bg-sky-50" },
-          { icon: Shield, label: "Has Finisher", value: hasFinisher ? "Yes" : "No", color: hasFinisher ? "text-emerald-600 bg-emerald-50" : "text-amber-600 bg-amber-50" },
-          { icon: Flag, label: "Sprint", value: `#${selectedSprint.id}`, color: "text-violet-600 bg-violet-50" },
-        ].map(({ icon: Icon, label, value, color }) => (
-          <Card key={label} className="p-4">
-            <div className="flex items-center gap-3">
-              <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-md", color)}><Icon className="h-5 w-5" /></span>
-              <div>
-                <p className="text-xs font-medium text-slate-500">{label}</p>
-                <p className="text-base font-bold text-slate-900">{value}</p>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
       <Card>
         <CardHeader title={currentFellow.team} subtitle={`${teamMembers.length} fellows · ${nationalities} nationalities · ${selectedSprint.name}`} />
         <div className="flex gap-4 overflow-x-auto p-5">
@@ -110,27 +90,6 @@ export default function TeamPage() {
             ...teamMembers.filter((m) => m.name !== currentFellow.name),
           ].map((member) => (
             <MemberCard key={member.name} member={member} isMe={member.name === currentFellow.name} />
-          ))}
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader title="Team Composition Rules" subtitle="Validated for this sprint" />
-        <div className="divide-y divide-slate-100">
-          {[
-            { rule: "Minimum 4 members", met: teamMembers.length >= 4, detail: `${teamMembers.length} members` },
-            { rule: "At least 3 nationalities", met: nationalities >= 3, detail: `${nationalities} nationalities` },
-            { rule: "At least 1 Finisher", met: hasFinisher, detail: hasFinisher ? teamMembers.find((m) => m.teamflow === "Finisher")?.name : "Missing Finisher" },
-          ].map(({ rule, met, detail }) => (
-            <div key={rule} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <div className="flex items-center gap-3">
-                <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold",
-                  met ? "bg-emerald-100 text-emerald-600" : "bg-brand-100 text-brand-600"
-                )}>{met ? "✓" : "✗"}</span>
-                <p className="text-sm font-medium text-slate-800">{rule}</p>
-              </div>
-              <span className={cn("break-words pl-8 text-xs font-medium sm:pl-0 sm:text-right", met ? "text-emerald-600" : "text-brand-600")}>{detail}</span>
-            </div>
           ))}
         </div>
       </Card>
