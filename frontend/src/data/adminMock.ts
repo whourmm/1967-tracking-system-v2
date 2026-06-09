@@ -1,7 +1,7 @@
 // Seed data for the [Anda]-owned admin pages. Reuses the cohort's fellows from
 // mock.ts so the admin views and fellow views describe the same people.
 import type { AdminAssignment, AdminEvent } from "../types";
-import { allFellows } from "./mock";
+import { allFellows, caseAssignments } from "./mock";
 
 // Cohorts shown in the top-bar selector (mock only — switching is cosmetic).
 export const COHORTS = ["Cohort 2026", "Cohort 2025", "Cohort 2024"];
@@ -123,3 +123,27 @@ export const adminAssignments: AdminAssignment[] = [
     submittedIds: ids.slice(),
   },
 ];
+
+export const resourceReadIds: Record<string, number[]> = {
+  "pitch-deck": ids.filter((id) => id <= 17),
+  "team-agreement": ids.filter((id) => id % 4 !== 0),
+  "scoping-recording": ids.filter((id) => id % 3 !== 0),
+  "standup-playbook": ids.filter((id) => id <= 12),
+};
+
+export const learningReadIds: Record<string, number[]> = {
+  "learning:special:0:0": ids.filter((id) => id <= 15),
+  "learning:special:0:1": ids.filter((id) => id <= 9),
+  "learning:block:A:video:0": ids.filter((id) => id % 5 !== 0),
+  "learning:block:A:video:1": ids.filter((id) => id <= 16),
+  "learning:block:A:article:0": ids.filter((id) => id <= 14),
+  "learning:block:B:video:0": ids.filter((id) => id % 3 !== 1),
+  "learning:block:C:article:0": ids.filter((id) => id <= 11),
+  "learning:block:C:article:1": ids.filter((id) => id % 2 === 0),
+  "learning:block:D:video:0": ids.filter((id) => id <= 8),
+  "learning:block:D:article:0": ids.filter((id) => id % 4 !== 2),
+};
+
+export const caseSubmissionStatus = Object.fromEntries(
+  caseAssignments.map((assignment) => [assignment.id, assignment.status])
+);

@@ -20,13 +20,10 @@ import { SPRINTS } from "../../data/adminMock";
 import { useSuspended } from "../../data/cohortStore";
 import { flagFor, teamflowChip } from "../../lib/cohort";
 import { cn } from "../../lib/cn";
+import { numberedTeamName, renumberTeamName, teamNameMap } from "../../lib/teams";
 import type { FellowRecord } from "../../types";
 
-// River names used when spinning up new teams, after the seeded ones.
-const TEAM_NAMES = [
-  "Mekong", "Irrawaddy", "Chao Phraya", "Salween", "Ayeyarwady",
-  "Mae Klong", "Pasak", "Ping", "Nan", "Yom", "Wang", "Kok",
-];
+const seededTeamNameMap = teamNameMap(allFellows.map((f) => f.team));
 
 interface Team {
   id: number;
@@ -69,7 +66,7 @@ function seedBoards(): Record<string, SprintBoard> {
     const teams = names.map((name) => {
       const id = nextTeamId();
       byName.set(name, id);
-      return { id, name };
+      return { id, name: renumberTeamName(name, seededTeamNameMap) };
     });
     const assignment: Record<number, number | null> = {};
     allFellows.forEach((f) => {
@@ -132,7 +129,7 @@ export default function TeamBuilder() {
   function addTeam() {
     updateBoard((b) => ({
       ...b,
-      teams: [...b.teams, { id: nextTeamId(), name: "Team " + (TEAM_NAMES[b.teams.length] ?? b.teams.length + 1) }],
+      teams: [...b.teams, { id: nextTeamId(), name: numberedTeamName(b.teams.length) }],
     }));
   }
 
@@ -170,7 +167,7 @@ export default function TeamBuilder() {
 
     const work = teams.slice();
     while (work.length < needed) {
-      work.push({ id: nextTeamId(), name: "Team " + (TEAM_NAMES[work.length] ?? work.length + 1) });
+      work.push({ id: nextTeamId(), name: numberedTeamName(work.length) });
     }
     const buckets = work.slice(0, needed).map((t) => ({ t, list: [] as FellowRecord[] }));
 

@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   ExternalLink,
+  FileText,
   Pencil,
   Plus,
   RefreshCw,
@@ -15,14 +16,16 @@ import {
 import { Card, CardHeader } from "../../components/ui/Card";
 import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
-import { adminAssignments, sbieId, SPRINTS } from "../../data/adminMock";
-import { allFellows } from "../../data/mock";
+import { adminAssignments, caseSubmissionStatus, sbieId, SPRINTS } from "../../data/adminMock";
+import { allFellows, caseAssignments } from "../../data/mock";
 import { formatShortDate } from "../../lib/format";
 import { cn } from "../../lib/cn";
+import { renumberTeamName, teamNameMap } from "../../lib/teams";
 import type { AdminAssignment } from "../../types";
 
 const TOTAL = allFellows.length;
 const httpUrl = (u: string) => (!u ? "#" : /^https?:\/\//i.test(u) ? u : "https://" + u);
+const seededTeamNameMap = teamNameMap(allFellows.map((f) => f.team));
 
 const emptyForm = {
   title: "",
@@ -47,6 +50,8 @@ function stats(a: AdminAssignment) {
   const pct = TOTAL ? Math.round((done / TOTAL) * 100) : 0;
   return { done, pct, complete: TOTAL > 0 && done === TOTAL };
 }
+
+const caseDone = (status: string) => status === "submitted" || status === "reviewed";
 
 // "X ago" relative label, recomputed against a ticking `now`.
 function ago(ts: number | undefined, now: number): string {
@@ -141,6 +146,16 @@ export default function FormTracker() {
     if (tasks.length === 0) return 0;
     return Math.round(tasks.reduce((sum, t) => sum + stats(t).pct, 0) / tasks.length);
   }, [tasks]);
+  const caseRows = useMemo(
+    () =>
+      caseAssignments.map((assignment) => ({
+        ...assignment,
+        status: caseSubmissionStatus[assignment.id] ?? assignment.status,
+        assignedTeam: renumberTeamName(assignment.assignedTeam, seededTeamNameMap),
+      })),
+    []
+  );
+  const submittedCases = caseRows.filter((assignment) => caseDone(assignment.status)).length;
   const anyBusy = syncing.size > 0;
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
@@ -343,6 +358,86 @@ export default function FormTracker() {
           <span>Last sync {ago(lastSyncAll ?? undefined, now)}</span>
         </div>
       </div>
+
+      <Card>
+        <CardHeader
+          title="Case submissions"
+          subtitle={`${submittedCases} of ${caseRows.length} case${caseRows.length === 1 ? "" : "s"} submitted or reviewed`}
+          action={
+            <span className={cn(
+              "rounded-full px-2.5 py-1 text-xs font-semibold",
+              submittedCases === caseRows.length && caseRows.length > 0
+                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20"
+                : "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20"
+            )}>
+              {submittedCases} / {caseRows.length} done
+            </span>
+          }
+        />
+
+        {caseRows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+              <FileText className="h-6 w-6" />
+            </div>
+            <p className="mt-3 text-sm font-medium text-slate-700">No case assignments yet</p>
+            <p className="text-xs text-slate-400">Assigned sprint cases will appear here.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {caseRows.map((assignment) => {
+              const done = caseDone(assignment.status);
+              return (
+                <div key={assignment.id} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-sky-50 text-sky-600">
+                    <FileText className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-900">{assignment.caseTitle}</p>
+                      <span className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1",
+                        done
+                          ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+                          : "bg-amber-50 text-amber-700 ring-amber-600/20"
+                      )}>
+                        {assignment.status === "reviewed" ? "Reviewed" : assignment.status === "submitted" ? "Submitted" : "Pending"}
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{assignment.sprint}</span>
+                    </div>
+                    <p className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-400">
+                      <span>{assignment.company}</span>
+                      <span>{assignment.assignedTeam}</span>
+                      <span>Due {formatShortDate(assignment.deadline)}</span>
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">{assignment.deliverable}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <a
+                      href={httpUrl(assignment.briefUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-300 hover:text-brand-600"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Brief
+                    </a>
+                    <a
+                      href={httpUrl(assignment.submissionUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 rounded-md bg-brand-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-500"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Submit form
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
 
       {/* List */}
       <Card>

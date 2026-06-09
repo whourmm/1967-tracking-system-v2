@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileText, UploadCloud, X } from "lucide-react";
+import { FileText, Upload, X } from "lucide-react";
 import type { CaseItem, CaseStatus } from "./contentTypes";
 
 export interface CaseFormValues {
@@ -91,8 +91,8 @@ export default function CaseFormDialog({
           <div className="field full">
             <label>Case document <small>- upload the full write-up instead of typing it</small></label>
             <div className="dropzone">
-              <div>
-                <span className="dropzone-icon"><UploadCloud size={18} /></span>
+              <div className="dropzone-content">
+                <span className="dropzone-upload-icon"><Upload size={20} /></span>
                 <strong>{document || "Click to upload a document"}</strong>
                 <span>PDF, DOC, DOCX, MD or TXT - up to 10MB</span>
               </div>

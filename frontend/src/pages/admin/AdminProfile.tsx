@@ -6,14 +6,17 @@ import {
   EyeOff,
   Globe,
   Lock,
+  LogOut,
   Mail,
   MessageCircle,
   Pencil,
   Save,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { adminInitials, adminProfile } from "../../data/adminMock";
 import { cn } from "../../lib/cn";
+import { logout } from "../../lib/auth";
 
 type Visibility = "public" | "private";
 
@@ -33,9 +36,6 @@ const defaultContacts: ContactField[] = [
   { key: "instagram", label: "Instagram", icon: Globe, placeholder: "@handle", value: adminProfile.instagram, visibility: "private" },
 ];
 
-const availabilityDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const defaultAvailability: Record<string, boolean> = { Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: false, Sun: false };
-
 function VisibilityToggle({ visibility, onChange }: { visibility: Visibility; onChange: (v: Visibility) => void }) {
   return (
     <button
@@ -54,6 +54,7 @@ function VisibilityToggle({ visibility, onChange }: { visibility: Visibility; on
 }
 
 export default function AdminProfile() {
+  const navigate = useNavigate();
   const [editingInfo, setEditingInfo] = useState(false);
   const [saved, setSaved] = useState(false);
   const [displayName, setDisplayName] = useState(adminProfile.name);
@@ -61,7 +62,6 @@ export default function AdminProfile() {
   const [role, setRole] = useState(adminProfile.role);
   const [department, setDepartment] = useState(adminProfile.department);
   const [contacts, setContacts] = useState<ContactField[]>(defaultContacts);
-  const [availability, setAvailability] = useState(defaultAvailability);
 
   function handleVisibilityChange(key: string, v: Visibility) {
     setContacts((prev) => prev.map((c) => (c.key === key ? { ...c, visibility: v } : c)));
@@ -74,6 +74,10 @@ export default function AdminProfile() {
     setEditingInfo(false);
     setTimeout(() => setSaved(false), 2500);
   }
+  function handleSignOut() {
+    logout();
+    navigate("/login", { replace: true });
+  }
 
   const initials = displayName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || adminInitials;
 
@@ -81,7 +85,7 @@ export default function AdminProfile() {
     <div className="page space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Profile</h1>
-        <p className="mt-1 text-sm text-slate-500">Manage your account information, contacts, and availability.</p>
+        <p className="mt-1 text-sm text-slate-500">Manage your account information and contacts.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -101,24 +105,14 @@ export default function AdminProfile() {
                 <p className="text-sm text-slate-500">{role}</p>
                 <span className="mt-2 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">{adminProfile.organization}</span>
               </div>
-            </div>
-          </Card>
-
-          <Card>
-            <CardHeader title="Availability" subtitle="When you're around for fellows" />
-            <div className="p-4">
-              <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">Available days</p>
-              <div className="grid grid-cols-7 gap-1">
-                {availabilityDays.map((day) => (
-                  <button key={day} type="button"
-                    onClick={() => setAvailability((prev) => ({ ...prev, [day]: !prev[day] }))}
-                    className={cn("flex flex-col items-center rounded-md py-2 text-[11px] font-semibold transition-colors",
-                      availability[day] ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
-                    )}
-                  >{day}</button>
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-slate-400">{Object.values(availability).filter(Boolean).length} days / week available</p>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-brand-200 bg-white px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-50"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
             </div>
           </Card>
         </div>

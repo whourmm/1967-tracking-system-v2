@@ -4,12 +4,14 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Clock,
+  FileText,
   Globe,
   GraduationCap,
   Plus,
   RotateCcw,
   Search,
   Trash2,
+  Upload,
   Users,
   X,
 } from "lucide-react";
@@ -20,10 +22,12 @@ import { useSuspended, toggleSuspended } from "../../data/cohortStore";
 import { allFellows } from "../../data/mock";
 import { countryFlag, flagFor, teamflowChip } from "../../lib/cohort";
 import { cn } from "../../lib/cn";
+import { renumberTeamName, sortTeamNames, teamNameMap } from "../../lib/teams";
 import type { FellowRecord } from "../../types";
 
 const UNASSIGNED = "Unassigned";
 const countryOptions = Object.keys(countryFlag);
+const seededTeamNameMap = teamNameMap(allFellows.map((f) => f.team));
 
 let tmpId = 1000; // ids for fellows added in-session
 const nextId = () => ++tmpId;
@@ -58,23 +62,46 @@ function lastActiveLabel(ts: number): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
-// Match a pasted country string to a known country, else keep it as typed.
+// Match an imported country string to a known country, else keep it as typed.
 function resolveCountry(raw: string): string {
   if (!raw) return countryOptions[0];
   return countryOptions.find((c) => c.toLowerCase() === raw.toLowerCase()) ?? raw;
 }
 
-// Parse pasted spreadsheet rows: one fellow per line, columns Name / Country /
-// University, tab- (Google Sheets) or comma-separated.
-function parseRows(text: string) {
+function parseCsvLine(line: string) {
+  const cols: string[] = [];
+  let value = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"' && next === '"') {
+      value += '"';
+      i += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      cols.push(value.trim());
+      value = "";
+    } else {
+      value += char;
+    }
+  }
+
+  cols.push(value.trim());
+  return cols;
+}
+
+// CSV import columns: Name, Country, University. A header row is ignored.
+function parseCsv(text: string) {
   return text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => {
-      const cols = (line.includes("\t") ? line.split("\t") : line.split(/\s{2,}|,/)).map((c) => c.trim());
-      return { name: cols[0] ?? "", country: cols[1] ?? "", university: cols[2] ?? "" };
-    })
+    .map(parseCsvLine)
+    .map((cols) => ({ name: cols[0] ?? "", country: cols[1] ?? "", university: cols[2] ?? "" }))
     .filter((r) => r.name && r.name.toLowerCase() !== "name");
 }
 
@@ -104,6 +131,7 @@ export default function FellowManagement() {
     const now = Date.now();
     return allFellows.map((f) => ({
       ...f,
+      team: renumberTeamName(f.team, seededTeamNameMap),
       teamflowSubmitted: !TEAMFLOW_PENDING_IDS.has(f.id),
       lastActiveAt: f.status === "Confirmed" ? now - ACTIVITY_OFFSETS[f.id % ACTIVITY_OFFSETS.length] : null,
     }));
@@ -112,12 +140,15 @@ export default function FellowManagement() {
   const suspended = useSuspended();
 
   // Add-fellow form
-  const [addMode, setAddMode] = useState<"single" | "paste">("single");
+  const [addMode, setAddMode] = useState<"single" | "csv">("single");
   const [name, setName] = useState("");
   const [country, setCountry] = useState(countryOptions[0]);
   const [university, setUniversity] = useState("");
-  const [pasteText, setPasteText] = useState("");
-  const parsedCount = useMemo(() => parseRows(pasteText).length, [pasteText]);
+  const [csvText, setCsvText] = useState("");
+  const [csvFileName, setCsvFileName] = useState("");
+  const [csvError, setCsvError] = useState("");
+  const [csvInputKey, setCsvInputKey] = useState(0);
+  const parsedCount = useMemo(() => parseCsv(csvText).length, [csvText]);
 
   // Filters
   const [query, setQuery] = useState("");
@@ -126,7 +157,7 @@ export default function FellowManagement() {
   const [activityFilter, setActivityFilter] = useState<"" | "in" | "out">("");
 
   const teams = useMemo(
-    () => [...new Set(fellows.map((f) => f.team).filter((t) => t && t !== UNASSIGNED))].sort(),
+    () => sortTeamNames([...new Set(fellows.map((f) => f.team).filter((t) => t && t !== UNASSIGNED))]),
     [fellows]
   );
 
@@ -160,15 +191,55 @@ export default function FellowManagement() {
     showToast(`Added ${trimmed}`);
   }
 
+  function handleCsvUpload(file: File | undefined) {
+    setCsvError("");
+
+    if (!file) {
+      setCsvText("");
+      setCsvFileName("");
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith(".csv") && file.type !== "text/csv") {
+      setCsvText("");
+      setCsvFileName("");
+      setCsvError("Upload a .csv file");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === "string" ? reader.result : "";
+      setCsvText(text);
+      setCsvFileName(file.name);
+      if (parseCsv(text).length === 0) {
+        setCsvError("No valid fellows found. Use columns: Name, Country, University.");
+      }
+    };
+    reader.onerror = () => {
+      setCsvText("");
+      setCsvFileName("");
+      setCsvError("Could not read the CSV file");
+    };
+    reader.readAsText(file);
+  }
+
+  function clearCsv() {
+    setCsvText("");
+    setCsvFileName("");
+    setCsvError("");
+    setCsvInputKey((key) => key + 1);
+  }
+
   function addBulk() {
-    const rows = parseRows(pasteText);
+    const rows = parseCsv(csvText);
     if (rows.length === 0) {
-      showToast("Paste some rows first");
+      showToast("Upload a CSV with at least one fellow");
       return;
     }
     const created = rows.map((r) => makeFellow(r.name, resolveCountry(r.country), r.university));
     setFellows((prev) => [...created, ...prev]);
-    setPasteText("");
+    clearCsv();
     showToast(`Added ${created.length} fellow${created.length === 1 ? "" : "s"}`);
   }
 
@@ -216,10 +287,10 @@ export default function FellowManagement() {
       <Card>
         <CardHeader
           title="Add a fellow"
-          subtitle={addMode === "single" ? "They land unassigned, awaiting sign-in and the Teamflow form." : "Paste rows from Google Sheets — one fellow per line."}
+          subtitle={addMode === "single" ? "They land unassigned, awaiting sign-in and the Teamflow form." : "Upload a CSV with one fellow per row."}
           action={
             <div className="flex gap-1 rounded-md bg-slate-100 p-0.5">
-              {(["single", "paste"] as const).map((m) => (
+              {(["single", "csv"] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
@@ -229,7 +300,7 @@ export default function FellowManagement() {
                     addMode === m ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
                   )}
                 >
-                  {m === "single" ? "Single" : "Paste from sheet"}
+                  {m === "single" ? "Single" : "Upload CSV"}
                 </button>
               ))}
             </div>
@@ -271,13 +342,32 @@ export default function FellowManagement() {
           </div>
         ) : (
           <div className="space-y-3 p-5">
-            <textarea
-              value={pasteText}
-              onChange={(e) => setPasteText(e.target.value)}
-              rows={6}
-              placeholder={"Paste straight from Google Sheets — one fellow per row:\nName\tCountry\tUniversity\nSirikit Wong\tThailand\tChulalongkorn University\nMinh Le\tVietnam\tVNU University of Science"}
-              className={cn(inputCls, "resize-y font-mono text-xs leading-relaxed")}
-            />
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center transition hover:border-brand-300 hover:bg-brand-50/40">
+              <span className="flex h-11 w-11 items-center justify-center rounded-md bg-white text-brand-600 shadow-sm">
+                <Upload className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-slate-800">Choose a CSV file</span>
+                <span className="mt-1 block text-xs text-slate-500">Columns: Name, Country, University. A header row is ignored.</span>
+              </span>
+              <input
+                key={csvInputKey}
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(e) => handleCsvUpload(e.target.files?.[0])}
+                className="sr-only"
+              />
+            </label>
+
+            {(csvFileName || csvError) && (
+              <div className={cn("flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm", csvError ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-white text-slate-600")}>
+                <span className="inline-flex min-w-0 items-center gap-2">
+                  <FileText className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{csvError || csvFileName}</span>
+                </span>
+                {!csvError && <span className="text-xs text-slate-400">{parsedCount} valid row{parsedCount === 1 ? "" : "s"}</span>}
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
@@ -288,7 +378,11 @@ export default function FellowManagement() {
                 <Plus className="h-4 w-4" />
                 Add {parsedCount > 0 ? parsedCount : ""} fellow{parsedCount === 1 ? "" : "s"}
               </button>
-              <span className="text-xs text-slate-400">Columns: Name · Country · University — tab or comma separated. A header row is ignored.</span>
+              {csvText && (
+                <button type="button" onClick={clearCsv} className="text-xs font-semibold text-slate-500 transition hover:text-slate-700">
+                  Clear file
+                </button>
+              )}
             </div>
           </div>
         )}

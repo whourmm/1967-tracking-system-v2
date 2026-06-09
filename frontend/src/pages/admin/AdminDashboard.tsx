@@ -1,40 +1,14 @@
 import { CalendarDays } from "lucide-react";
-
-const submissionSeries = [
-  { label: "Apr 29", submissions: 4 },
-  { label: "Apr 30", submissions: 5 },
-  { label: "May 1", submissions: 5 },
-  { label: "May 2", submissions: 6 },
-  { label: "May 3", submissions: 7 },
-  { label: "May 4", submissions: 8 },
-  { label: "May 5", submissions: 5 },
-  { label: "May 6", submissions: 7 },
-  { label: "May 7", submissions: 6 },
-  { label: "May 8", submissions: 4 },
-  { label: "May 9", submissions: 5 },
-  { label: "May 10", submissions: 5 },
-  { label: "May 11", submissions: 4 },
-  { label: "May 12", submissions: 6 },
-  { label: "May 13", submissions: 7 },
-  { label: "May 14", submissions: 5 },
-  { label: "May 15", submissions: 5 },
-  { label: "May 16", submissions: 7 },
-  { label: "May 17", submissions: 6 },
-  { label: "May 18", submissions: 4 },
-  { label: "May 19", submissions: 4 },
-  { label: "May 20", submissions: 5 },
-  { label: "May 21", submissions: 6 },
-  { label: "May 22", submissions: 7 },
-  { label: "May 23", submissions: 7 },
-  { label: "May 24", submissions: 8 },
-  { label: "May 25", submissions: 8 },
-  { label: "May 26", submissions: 9 },
-  { label: "May 27", submissions: 9 },
-  { label: "May 29", submissions: 10 },
-];
+import { Link } from "react-router-dom";
+import { adminAssignments, adminEvents, caseSubmissionStatus, learningReadIds, resourceReadIds } from "../../data/adminMock";
+import { allFellows, caseAssignments } from "../../data/mock";
+import { formatShortDate } from "../../lib/format";
+import { renumberTeamName, sortTeamNames, teamNameMap } from "../../lib/teams";
 
 const chartWidth = 630;
 const chartHeight = 210;
+const teamSize = 4;
+const seededTeamNameMap = teamNameMap(allFellows.map((fellow) => fellow.team));
 
 function getNiceAxisMax(value: number) {
   if (value <= 0) return 10;
@@ -47,7 +21,7 @@ function getNiceAxisMax(value: number) {
   return niceNormalized * magnitude * 4;
 }
 
-function getSubmissionChartData(series: typeof submissionSeries) {
+function getSubmissionChartData(series: { label: string; submissions: number }[]) {
   const maxDaily = Math.max(...series.map((item) => item.submissions), 1);
   const meanDaily = series.reduce((sum, item) => sum + item.submissions, 0) / Math.max(series.length, 1);
   const axisMax = getNiceAxisMax(Math.max(maxDaily, meanDaily));
@@ -63,51 +37,122 @@ function getSubmissionChartData(series: typeof submissionSeries) {
   return { axisMax, linePoints, meanDaily, points: series, yTicks };
 }
 
-const teams = [
-  ["Team Delta", "Waiting on Maria, Paolo", "2/4", 55, true],
-  ["Team Aurora", "Waiting on Ploy", "3/4", 72, false],
-  ["Team Banyan", "Waiting on Minh", "3/4", 74, false],
-  ["Team Coral", "Waiting on Budi", "3/4", 75, false],
-  ["Team Ember", "Waiting on Mei", "3/4", 74, false],
-  ["Team Frangipani", "Waiting on Hafiz", "3/4", 76, false],
-];
+function pct(done: number, total: number) {
+  return total ? Math.round((done / total) * 100) : 0;
+}
 
-const events = [
-  ["2", "JUN", "Mentor office hours", "10:00-12:00 - Online - Meet"],
-  ["5", "JUN", "Sprint 3 submission deadline", "All day"],
-  ["6", "JUN", "Sprint 3 Demo Day", "14:00-16:00 - Online - Zoom"],
-];
+function plural(value: number, singular: string, pluralValue = `${singular}s`) {
+  return `${value} ${value === 1 ? singular : pluralValue}`;
+}
+
+function shortTitle(title: string) {
+  return title.length > 24 ? `${title.slice(0, 22)}...` : title;
+}
+
+const teams = sortTeamNames([...new Set(allFellows.map((fellow) => renumberTeamName(fellow.team, seededTeamNameMap)))])
+  .map((teamName) => {
+    const members = allFellows.filter((fellow) => renumberTeamName(fellow.team, seededTeamNameMap) === teamName);
+    const hasFinisher = members.some((member) => member.teamflow === "Finisher");
+    const complete = members.length >= teamSize && hasFinisher;
+    const missingMembers = Math.max(teamSize - members.length, 0);
+    const meta = !hasFinisher
+      ? "Needs a Finisher"
+      : missingMembers > 0
+        ? `Needs ${plural(missingMembers, "member")}`
+        : `${members.length} members ready`;
+
+    return {
+      complete,
+      count: `${members.length}/${teamSize}`,
+      meta,
+      name: teamName,
+      progress: pct(Math.min(members.length, teamSize), teamSize),
+      urgent: !hasFinisher || missingMembers > 0,
+    };
+  });
+
+const caseRows = caseAssignments.map((assignment) => ({
+  ...assignment,
+  assignedTeam: renumberTeamName(assignment.assignedTeam, seededTeamNameMap),
+  status: caseSubmissionStatus[assignment.id] ?? assignment.status,
+}));
+
+const caseSubmitted = caseRows.filter((assignment) => assignment.status === "submitted" || assignment.status === "reviewed").length;
+const completeTeams = teams.filter((team) => team.complete).length;
+const completeAssignments = adminAssignments.filter((assignment) => assignment.submittedIds.length === allFellows.length).length;
+const averageAssignmentPct = pct(
+  adminAssignments.reduce((sum, assignment) => sum + assignment.submittedIds.length, 0),
+  adminAssignments.length * allFellows.length
+);
+const trackedReadIds = [...Object.values(resourceReadIds), ...Object.values(learningReadIds)];
+const averageReadRate = pct(
+  trackedReadIds.reduce((sum, ids) => sum + ids.length, 0),
+  trackedReadIds.length * allFellows.length
+);
+const fellowsNeedingReadFollowup = trackedReadIds.length
+  ? allFellows.filter((fellow) => trackedReadIds.some((readIds) => !readIds.includes(fellow.id))).length
+  : 0;
+
+const chartSeries = adminAssignments.map((assignment) => ({
+  label: shortTitle(assignment.title),
+  submissions: assignment.submittedIds.length,
+}));
+
+const upcomingEvents = [...adminEvents]
+  .sort((a, b) => a.date.localeCompare(b.date))
+  .slice(0, 3)
+  .map((event) => {
+    const date = new Date(`${event.date}T00:00:00`);
+    return {
+      day: date.toLocaleDateString("en-US", { day: "numeric" }),
+      meta: event.allDay ? "All day" : `${event.start}-${event.end} - ${event.location || "TBA"}`,
+      month: date.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+      title: event.title,
+    };
+  });
+
+const assignmentRows = [...adminAssignments]
+  .sort((a, b) => pct(a.submittedIds.length, allFellows.length) - pct(b.submittedIds.length, allFellows.length))
+  .slice(0, 3);
 
 export default function AdminDashboard() {
-  const submissionChart = getSubmissionChartData(submissionSeries);
+  const submissionChart = getSubmissionChartData(chartSeries);
+  const incompleteTeams = teams.filter((team) => !team.complete);
+  const overdueAssignments = adminAssignments.filter((assignment) => assignment.submittedIds.length < allFellows.length);
 
   return (
     <div className="page">
       <header className="page-header">
         <h1 className="page-title">Overview</h1>
-        <p className="page-subtitle">Spring 2026 - submissions, teams, events and assignments at a glance.</p>
+        <p className="page-subtitle">Cohort 2026 - operational health across members, teams, submissions, and learning.</p>
       </header>
 
       <section className="stats-grid" aria-label="Program metrics">
         <article className="card stat-card">
           <p className="eyebrow">Participants</p>
-          <p className="stat-value">24</p>
-          <p className="stat-note">across 6 countries</p>
+          <p className="stat-value">{allFellows.length}</p>
+          <p className="stat-note">across {new Set(allFellows.map((fellow) => fellow.country)).size} countries</p>
         </article>
         <article className="card stat-card">
-          <p className="eyebrow">Submissions all-time</p>
-          <p className="stat-value">543</p>
-          <p className="stat-note positive">+66 this week</p>
+          <p className="eyebrow">Assignments</p>
+          <p className="stat-value">{averageAssignmentPct}%</p>
+          <p className={overdueAssignments.length ? "stat-note warning" : "stat-note positive"}>
+            {completeAssignments}/{adminAssignments.length} complete
+          </p>
         </article>
         <article className="card stat-card">
-          <p className="eyebrow">Teams complete</p>
-          <p className="stat-value">0<span style={{ color: "#9aa3b5" }}> /6</span></p>
-          <p className="stat-note warning">6 need follow-up</p>
+          <p className="eyebrow">Case submissions</p>
+          <p className="stat-value">{caseSubmitted}<span style={{ color: "#9aa3b5" }}> /{caseRows.length}</span></p>
+          <p className={caseSubmitted === caseRows.length ? "stat-note positive" : "stat-note warning"}>
+            {caseRows.length - caseSubmitted} pending
+          </p>
         </article>
         <article className="card stat-card">
-          <p className="eyebrow">Assignments done</p>
-          <p className="stat-value">0<span style={{ color: "#9aa3b5" }}> /2</span></p>
-          <p className="stat-note warning">2 in progress</p>
+          <p className="eyebrow">Learning read rate</p>
+          <p className="stat-value">{averageReadRate}%</p>
+          <p className={fellowsNeedingReadFollowup ? "stat-note warning" : "stat-note positive"}>
+            {fellowsNeedingReadFollowup} need follow-up
+          </p>
         </article>
       </section>
 
@@ -115,15 +160,10 @@ export default function AdminDashboard() {
         <article className="card panel chart-card">
           <div className="panel-header">
             <div>
-              <h2 className="panel-title">Submissions over time</h2>
-              <p className="panel-subtitle">Mean line - bars show daily intake</p>
+              <h2 className="panel-title">Assignment submission snapshot</h2>
+              <p className="panel-subtitle">Bars show submitted fellows per active form</p>
             </div>
-            <div className="segmented" aria-label="Chart range">
-              <button type="button">7d</button>
-              <button className="selected" type="button">30d</button>
-              <button type="button">90d</button>
-              <button type="button">All</button>
-            </div>
+            <Link className="button" to="/admin/assignments">View all</Link>
           </div>
           <div className="chart-body">
             <div className="chart-area">
@@ -132,7 +172,7 @@ export default function AdminDashboard() {
                   <span key={tick}>{tick}</span>
                 ))}
               </div>
-              <div className="chart" aria-label={`Submission chart, ${submissionChart.axisMax} maximum axis value`}>
+              <div className="chart" aria-label={`Assignment chart, ${submissionChart.axisMax} maximum axis value`}>
                 <div className="bar-row">
                   {submissionChart.points.map((item) => (
                     <span
@@ -154,16 +194,13 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="chart-labels">
-              <span>Apr 29</span>
-              <span>May 5</span>
-              <span>May 12</span>
-              <span>May 19</span>
-              <span>May 26</span>
-              <span>May 29</span>
+              {submissionChart.points.map((item) => (
+                <span key={item.label}>{item.label}</span>
+              ))}
             </div>
             <div className="legend">
-              <span><i className="dot-square" /> Mean per day ({submissionChart.meanDaily.toFixed(1)})</span>
-              <span><i className="dot-square soft" /> New per day</span>
+              <span><i className="dot-square" /> Mean submitted ({submissionChart.meanDaily.toFixed(1)})</span>
+              <span><i className="dot-square soft" /> Form submissions</span>
             </div>
           </div>
         </article>
@@ -171,26 +208,50 @@ export default function AdminDashboard() {
         <article className="card panel">
           <div className="panel-header">
             <div>
-              <h2 className="panel-title">Teams not yet complete</h2>
-              <p className="panel-subtitle">Sorted by who is furthest behind</p>
+              <h2 className="panel-title">Needs attention</h2>
+              <p className="panel-subtitle">Highest-signal admin follow-ups</p>
             </div>
           </div>
           <div className="team-list">
-            {teams.map(([name, meta, count, progress, urgent]) => (
-              <div className="team-row" key={name as string}>
-                <div>
-                  <div className="team-name">
-                    <span className={`status-dot${urgent ? " red" : ""}`} />
-                    {name}
-                  </div>
-                  <p className="team-meta">{meta}</p>
+            <div className="team-row">
+              <div>
+                <div className="team-name">
+                  <span className={`status-dot${incompleteTeams.length ? " red" : ""}`} />
+                  Teams incomplete
                 </div>
-                <div className="mini-progress">
-                  <span className="progress-fill" style={{ width: `${progress}%` }} />
-                </div>
-                <div className="team-count">{count}</div>
+                <p className="team-meta">{incompleteTeams.length ? `${incompleteTeams.length} teams need composition review` : "All teams are complete"}</p>
               </div>
-            ))}
+              <div className="mini-progress">
+                <span className="progress-fill" style={{ width: `${pct(completeTeams, teams.length)}%` }} />
+              </div>
+              <div className="team-count">{completeTeams}/{teams.length}</div>
+            </div>
+            <div className="team-row">
+              <div>
+                <div className="team-name">
+                  <span className={`status-dot${caseSubmitted < caseRows.length ? " red" : ""}`} />
+                  Case submissions
+                </div>
+                <p className="team-meta">{caseRows.length - caseSubmitted} case submissions still pending</p>
+              </div>
+              <div className="mini-progress">
+                <span className="progress-fill" style={{ width: `${pct(caseSubmitted, caseRows.length)}%` }} />
+              </div>
+              <div className="team-count">{caseSubmitted}/{caseRows.length}</div>
+            </div>
+            <div className="team-row">
+              <div>
+                <div className="team-name">
+                  <span className={`status-dot${fellowsNeedingReadFollowup ? " red" : ""}`} />
+                  Learning engagement
+                </div>
+                <p className="team-meta">{fellowsNeedingReadFollowup} fellows have unread materials</p>
+              </div>
+              <div className="mini-progress">
+                <span className="progress-fill" style={{ width: `${averageReadRate}%` }} />
+              </div>
+              <div className="team-count">{averageReadRate}%</div>
+            </div>
           </div>
         </article>
       </section>
@@ -200,21 +261,21 @@ export default function AdminDashboard() {
           <div className="panel-header">
             <div>
               <h2 className="panel-title">Upcoming events</h2>
-              <p className="panel-subtitle">Add any to Google Calendar in one click</p>
+              <p className="panel-subtitle">Published schedule for the cohort</p>
             </div>
-            <button className="button" type="button">View all</button>
+            <Link className="button" to="/admin/events">View all</Link>
           </div>
           <div className="event-list">
-            {events.map(([day, month, title, meta]) => (
-              <div className="event-item" key={title}>
+            {upcomingEvents.map((event) => (
+              <div className="event-item" key={event.title}>
                 <div className="date-badge">
-                  <div>{day}<span>{month}</span></div>
+                  <div>{event.day}<span>{event.month}</span></div>
                 </div>
                 <div>
-                  <p className="event-title">{title}</p>
-                  <p className="event-meta">{meta}</p>
+                  <p className="event-title">{event.title}</p>
+                  <p className="event-meta">{event.meta}</p>
                 </div>
-                <button className="icon-button" type="button" aria-label={`Add ${title} to calendar`}>
+                <button className="icon-button" type="button" aria-label={`Add ${event.title} to calendar`}>
                   <CalendarDays size={15} />
                 </button>
               </div>
@@ -225,30 +286,85 @@ export default function AdminDashboard() {
         <article className="card panel">
           <div className="panel-header">
             <div>
-              <h2 className="panel-title">Assignment progress</h2>
-              <p className="panel-subtitle">Auto-updated as attendees submit the form</p>
+              <h2 className="panel-title">Active assignment progress</h2>
+              <p className="panel-subtitle">Forms with the lowest completion first</p>
             </div>
-            <button className="button" type="button">View all</button>
+            <Link className="button" to="/admin/assignments">View all</Link>
           </div>
           <div className="assignment-list">
-            <div className="assignment-row">
-              <div className="assignment-line">
-                <span>Sprint 3 retrospective form</span>
-                <span style={{ color: "#8a93a8" }}>16/24</span>
-              </div>
-              <div className="progress-track">
-                <span className="progress-fill" style={{ width: "67%" }} />
-              </div>
+            {assignmentRows.map((assignment) => {
+              const submitted = assignment.submittedIds.length;
+              return (
+                <div className="assignment-row" key={assignment.id}>
+                  <div className="assignment-line">
+                    <span>{assignment.title}</span>
+                    <span style={{ color: "#8a93a8" }}>{submitted}/{allFellows.length}</span>
+                  </div>
+                  <p className="resource-meta">Due {assignment.due ? formatShortDate(assignment.due) : "not set"}</p>
+                  <div className="progress-track">
+                    <span className="progress-fill" style={{ width: `${pct(submitted, allFellows.length)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+      </section>
+
+      <section className="bottom-grid">
+        <article className="card panel">
+          <div className="panel-header">
+            <div>
+              <h2 className="panel-title">Teams not yet complete</h2>
+              <p className="panel-subtitle">Numbered teams match the team builder</p>
             </div>
-            <div className="assignment-row">
-              <div className="assignment-line">
-                <span>Weekly check-in</span>
-                <span style={{ color: "#8a93a8" }}>12/24</span>
+            <Link className="button" to="/admin/teams">View all</Link>
+          </div>
+          <div className="team-list">
+            {(incompleteTeams.length ? incompleteTeams : teams).slice(0, 5).map((team) => (
+              <div className="team-row" key={team.name}>
+                <div>
+                  <div className="team-name">
+                    <span className={`status-dot${team.urgent ? " red" : ""}`} />
+                    {team.name}
+                  </div>
+                  <p className="team-meta">{team.meta}</p>
+                </div>
+                <div className="mini-progress">
+                  <span className="progress-fill" style={{ width: `${team.progress}%` }} />
+                </div>
+                <div className="team-count">{team.count}</div>
               </div>
-              <div className="progress-track">
-                <span className="progress-fill" style={{ width: "50%" }} />
-              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="card panel">
+          <div className="panel-header">
+            <div>
+              <h2 className="panel-title">Case submissions</h2>
+              <p className="panel-subtitle">Submitted and reviewed count as done</p>
             </div>
+            <Link className="button" to="/admin/assignments">View all</Link>
+          </div>
+          <div className="assignment-list">
+            {caseRows.map((assignment) => {
+              const done = assignment.status === "submitted" || assignment.status === "reviewed";
+              return (
+                <div className="assignment-row" key={assignment.id}>
+                  <div className="assignment-line">
+                    <span>{assignment.caseTitle}</span>
+                    <span style={{ color: done ? "#16a34a" : "#dc2626" }}>{done ? "Done" : "Pending"}</span>
+                  </div>
+                  <p className="resource-meta">
+                    {assignment.assignedTeam} - due {formatShortDate(assignment.deadline)}
+                  </p>
+                  <div className="progress-track">
+                    <span className="progress-fill" style={{ width: done ? "100%" : "10%" }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </article>
       </section>

@@ -473,8 +473,8 @@
     @apply grid min-h-[154px] place-items-center rounded-lg border border-dashed border-[#cbd3e7] bg-[#f5f7ff] text-center;
   }
 
-  .dropzone-icon {
-    @apply mb-3 inline-grid h-[38px] w-[38px] place-items-center rounded-full bg-admin-red-soft text-admin-red;
+  .dropzone-content {
+    @apply flex flex-col items-center justify-center gap-2;
   }
 
   .dropzone strong {
@@ -483,6 +483,10 @@
 
   .dropzone span {
     @apply mt-[5px] block text-[11px] text-admin-muted;
+  }
+
+  .dropzone .dropzone-upload-icon {
+    @apply m-0 flex h-11 w-11 items-center justify-center rounded-md bg-white text-admin-red shadow-sm;
   }
 
   .round-button {

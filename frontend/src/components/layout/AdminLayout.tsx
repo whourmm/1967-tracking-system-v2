@@ -9,13 +9,12 @@ import {
   FileText,
   FolderOpen,
   Grid2X2,
-  LogOut,
   Plus,
   Users,
 } from "lucide-react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { adminInitials, COHORTS } from "../../data/adminMock";
-import { getCurrentUser, logout } from "../../lib/auth";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { adminInitials, adminProfile, COHORTS } from "../../data/adminMock";
+import { getCurrentUser } from "../../lib/auth";
 
 const navGroups = [
   {
@@ -31,6 +30,7 @@ const navGroups = [
     items: [
       { label: "Cases", to: "/admin/cases", icon: FileText, count: 3 },
       { label: "Resources", to: "/admin/resources", icon: BookOpen, count: 4 },
+      { label: "Assignments", to: "/admin/assignments", icon: FolderOpen, count: 2 },
     ],
   },
   {
@@ -38,7 +38,6 @@ const navGroups = [
     items: [
       { label: "Sprints", to: "/admin/sprints", icon: CalendarDays, count: 3 },
       { label: "Upcoming Events", to: "/admin/events", icon: CalendarClock, count: 4 },
-      { label: "Assignments", to: "/admin/assignments", icon: FolderOpen, count: 2 },
     ],
   },
 ];
@@ -57,9 +56,9 @@ const routeLabels: Record<string, string> = {
 
 export default function AdminLayout() {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
   const user = getCurrentUser();
   const avatarInitials = user?.role === "admin" ? user.initials : adminInitials;
+  const displayName = user?.role === "admin" ? user.name : adminProfile.name;
   const pageLabel = routeLabels[pathname]
     ?? (pathname.startsWith("/admin/cases/") ? "Edit case" : undefined)
     ?? (pathname.startsWith("/admin/resources/") ? "Edit resource" : undefined)
@@ -77,11 +76,6 @@ export default function AdminLayout() {
       setCohorts((prev) => (prev.includes(trimmed) ? prev : [trimmed, ...prev]));
       setCohort(trimmed);
     }
-  }
-
-  function handleSignOut() {
-    logout();
-    navigate("/login", { replace: true });
   }
 
   return (
@@ -162,22 +156,22 @@ export default function AdminLayout() {
               <Plus size={14} />
               New cohort
             </button>
-            <button className="button" type="button" onClick={handleSignOut}>
-              <LogOut size={14} />
-              Sign out
-            </button>
-    
             <NavLink
               to="/admin/profile"
               aria-label="My profile"
               title="My profile"
               className={({ isActive }) =>
-                `flex h-9 w-9 items-center justify-center rounded-full bg-admin-red text-xs font-bold text-white transition ${
-                  isActive ? "ring-2 ring-admin-red/40 ring-offset-1" : "hover:opacity-90"
+                `flex h-9 items-center gap-2 rounded-full border px-1.5 pr-3 transition ${
+                  isActive ? "border-admin-red bg-admin-red-soft" : "border-admin-border bg-white hover:bg-admin-red-soft/50"
                 }`
               }
             >
-              {avatarInitials}
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-admin-red text-[11px] font-bold text-white">
+                {avatarInitials}
+              </span>
+              <span className="hidden text-xs font-bold text-admin-text sm:block">
+                {displayName}
+              </span>
             </NavLink>
           </div>
         </header>
