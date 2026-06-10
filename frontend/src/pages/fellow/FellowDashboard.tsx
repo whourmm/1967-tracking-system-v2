@@ -330,7 +330,7 @@ export default function FellowDashboard() {
                   rel="noopener noreferrer"
                   className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-brand-700 ring-1 ring-brand-200 transition hover:bg-brand-50 sm:w-auto"
                 >
-                  Case docs brief
+                  Case brief
                   <ArrowRight className="h-3.5 w-3.5" />
                 </a>
               </div>

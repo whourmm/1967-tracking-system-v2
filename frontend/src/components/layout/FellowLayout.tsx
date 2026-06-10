@@ -283,7 +283,7 @@ function SprintSwitcher({
 
   return (
     <div
-      className="order-3 flex min-h-10 w-full items-center justify-start gap-2 md:order-none md:w-auto"
+      className="flex min-h-10 min-w-0 items-center justify-center gap-1 justify-self-center sm:gap-2 lg:justify-self-auto"
       title={selectedSprint.name}
     >
       <button
@@ -295,8 +295,8 @@ function SprintSwitcher({
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
-      <div className="min-w-0 px-1 text-center md:px-2">
-        <p className="min-w-16 truncate text-sm font-semibold leading-tight text-slate-900">
+      <div className="min-w-0 px-0.5 text-center sm:px-2">
+        <p className="w-16 truncate text-sm font-semibold leading-tight text-slate-900 sm:w-20">
           {sprintLabel}
         </p>
         <div className="mt-1 flex items-center justify-center gap-1">
@@ -344,12 +344,12 @@ function Topbar({
     user?.role === "fellow" ? user.initials : currentFellow.avatarInitials;
 
   return (
-    <header className="fixed top-0 right-0 left-0 z-20 flex min-h-14 flex-wrap items-center gap-3 border-b border-slate-200 bg-white/90 px-4 py-2 backdrop-blur lg:left-64 lg:min-h-16 lg:px-8">
+    <header className="fixed top-0 right-0 left-0 z-20 grid min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur sm:px-4 lg:left-64 lg:flex lg:min-h-16 lg:px-8">
       <div className="min-w-0 lg:hidden">
         <p className="truncate text-sm font-bold tracking-tight text-slate-900">
           <span className="text-brand-600">1967</span> Fellowship
         </p>
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-slate-400 min-[380px]:block">
           Fellow Portal
         </p>
       </div>
@@ -359,10 +359,10 @@ function Topbar({
         onPrevious={onPreviousSprint}
         onNext={onNextSprint}
       />
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
         <button
           type="button"
-          className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          className="hidden rounded-md p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 min-[380px]:inline-flex"
           aria-label="Search"
           title="Search"
         >

@@ -169,26 +169,6 @@ function SecuritySection() {
           </div>
         </div>
       </Card>
-      <Card>
-        <CardHeader title="Login Activity" subtitle="Recent sign-ins to your account" />
-        <div className="divide-y divide-slate-100">
-          {[
-            { device: "Chrome · macOS", location: "Bangkok, TH", time: "Now · current session", current: true },
-            { device: "Safari · iPhone", location: "Bangkok, TH", time: "Yesterday at 14:32", current: false },
-          ].map(({ device, location, time, current }) => (
-            <div key={device} className="flex items-center gap-4 px-5 py-3.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100"><Smartphone className="h-4 w-4 text-slate-500" /></span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-slate-900">{device}</p>
-                  {current && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Current</span>}
-                </div>
-                <p className="text-xs text-slate-500">{location} · {time}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
     </div>
   );
 }
