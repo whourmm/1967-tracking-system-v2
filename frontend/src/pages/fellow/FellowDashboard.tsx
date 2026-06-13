@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
-  PartyPopper,
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -75,30 +74,6 @@ const teamflowChip: Record<TeamMember["teamflow"], string> = {
   Finisher: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
 };
 
-// Unified "what's due" row shown on the home page.
-type DueItem = {
-  id: string;
-  title: string;
-  sub: string;
-  deadline: string;
-  kind: "assignment" | "case" | "sprint";
-  href: string;
-};
-
-// Urgency tier from days-remaining. Drives the dot color so the most pressing
-// items stand out at a glance.
-function urgency(d: number): "overdue" | "soon" | "upcoming" {
-  if (d < 0) return "overdue";
-  if (d <= 3) return "soon";
-  return "upcoming";
-}
-
-const urgencyDot: Record<ReturnType<typeof urgency>, string> = {
-  overdue: "bg-brand-600",
-  soon: "bg-amber-500",
-  upcoming: "bg-slate-300",
-};
-
 function dateKey(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -154,50 +129,6 @@ export default function FellowDashboard() {
   const currentSprintCase = caseAssignments.find(
     (assignment) => assignment.sprint === selectedSprint.name
   );
-
-  // "What's due" combines everything on the fellow's plate for the next 14 days:
-  // pending/overdue learning-block assignments, the current sprint's case brief
-  // deadline, and the sprint submission deadline itself. Sorted by date and
-  // capped at 4 items so the card stays glanceable.
-  const dueItems: DueItem[] = [
-    ...assignments
-      .filter((a) => a.status === "pending" || a.status === "overdue")
-      .map<DueItem>((a) => ({
-        id: `a-${a.id}`,
-        title: a.title,
-        sub: `Block ${a.block}`,
-        deadline: a.deadline,
-        kind: "assignment",
-        href: "/fellow/assignments",
-      })),
-    ...(currentSprintCase && currentSprintCase.status !== "reviewed"
-      ? [
-          {
-            id: `c-${currentSprintCase.id}`,
-            title: currentSprintCase.caseTitle,
-            sub: currentSprintCase.company,
-            deadline: currentSprintCase.deadline,
-            kind: "case" as const,
-            href: "/fellow/assignments",
-          },
-        ]
-      : []),
-    ...(daysUntil(selectedSprint.deadline) >= 0
-      ? [
-          {
-            id: `s-${selectedSprint.id}`,
-            title: `${selectedSprint.name} submission`,
-            sub: "Sprint deadline",
-            deadline: selectedSprint.deadline,
-            kind: "sprint" as const,
-            href: "/fellow",
-          },
-        ]
-      : []),
-  ]
-    .filter((item) => daysUntil(item.deadline) <= 14)
-    .sort((a, b) => daysUntil(a.deadline) - daysUntil(b.deadline))
-    .slice(0, 4);
 
   // A block is "done" once all its Google Forms are submitted. There is no
   // percentage of a course — progress is tracked by form submissions per block.
@@ -562,78 +493,6 @@ export default function FellowDashboard() {
                 </div>
               ))}
             </div>
-          </Card>
-
-          {/* What's due */}
-          <Card>
-            <CardHeader
-              title="What's due"
-              subtitle="Next 14 days"
-              action={
-                <Link
-                  to="/fellow/assignments"
-                  className="text-xs font-semibold text-brand-600 hover:text-brand-700"
-                >
-                  See all
-                </Link>
-              }
-            />
-            {dueItems.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-5 py-8 text-center">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                  <PartyPopper className="h-5 w-5" />
-                </span>
-                <p className="text-sm font-semibold text-slate-800">
-                  You're all clear
-                </p>
-                <p className="text-xs text-slate-500">
-                  Nothing due in the next two weeks.
-                </p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-slate-100">
-                {dueItems.map((item) => {
-                  const d = daysUntil(item.deadline);
-                  const tier = urgency(d);
-                  return (
-                    <li key={item.id}>
-                      <Link
-                        to={item.href}
-                        className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50 sm:px-5"
-                      >
-                        <span
-                          aria-hidden
-                          className={cn(
-                            "h-2.5 w-2.5 shrink-0 rounded-full",
-                            urgencyDot[tier]
-                          )}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-slate-900">
-                            {item.title}
-                          </p>
-                          <p className="truncate text-xs text-slate-500">
-                            {item.sub}
-                          </p>
-                        </div>
-                        <p
-                          className={cn(
-                            "shrink-0 text-xs font-semibold",
-                            tier === "overdue"
-                              ? "text-brand-600"
-                              : tier === "soon"
-                                ? "text-amber-600"
-                                : "text-slate-500"
-                          )}
-                        >
-                          {deadlineLabel(item.deadline)}
-                        </p>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
           </Card>
         </div>
       </div>

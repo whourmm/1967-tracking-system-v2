@@ -50,33 +50,27 @@ type QueueItem =
       raw: CaseAssignment;
     };
 
-type QueueFilter =
-  | "all"
-  | "upcoming"
-  | "overdue"
-  | "pending"
-  | "submitted"
-  | "completed";
+type QueueFilter = "pending" | "submitted" | "overdue";
 
 const queueFilters: { key: QueueFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "upcoming", label: "Upcoming" },
-  { key: "overdue", label: "Overdue" },
   { key: "pending", label: "Pending" },
   { key: "submitted", label: "Submitted" },
-  { key: "completed", label: "Graded/Reviewed" },
+  { key: "overdue", label: "Overdue" },
 ];
 
-function assignmentPriority(item: QueueItem) {
+function displayStatus(item: QueueItem): AssignmentStatus {
   if (item.kind === "learning") {
-    if (item.status === "overdue") return 0;
-    if (item.status === "pending") return 1;
-    return 3;
+    return item.status === "graded" ? "submitted" : item.status;
   }
 
-  if (item.status === "pending") return 1;
-  if (item.status === "submitted") return 2;
-  return 3;
+  return item.status === "reviewed" ? "submitted" : item.status;
+}
+
+function assignmentPriority(item: QueueItem) {
+  const status = displayStatus(item);
+  if (status === "overdue") return 0;
+  if (status === "pending") return 1;
+  return 2;
 }
 
 function sortByActionDate(a: QueueItem, b: QueueItem) {
@@ -87,27 +81,11 @@ function sortByActionDate(a: QueueItem, b: QueueItem) {
 }
 
 function matchesFilter(item: QueueItem, filter: QueueFilter) {
-  if (filter === "all") return true;
-  if (filter === "upcoming") return item.status === "pending";
-  if (filter === "overdue") {
-    return item.kind === "learning" && item.status === "overdue";
-  }
-  if (filter === "pending") return item.status === "pending";
-  if (filter === "submitted") return item.status === "submitted";
-  return (
-    (item.kind === "learning" && item.status === "graded") ||
-    (item.kind === "case" && item.status === "reviewed")
-  );
+  return displayStatus(item) === filter;
 }
 
 function filterCount(items: QueueItem[], filter: QueueFilter) {
   return items.filter((item) => matchesFilter(item, filter)).length;
-}
-
-function displayStatus(item: QueueItem): AssignmentStatus {
-  if (item.kind === "learning") return item.status;
-  if (item.status === "reviewed") return "graded";
-  return item.status;
 }
 
 function CurrentSprintCaseCard({
@@ -184,8 +162,8 @@ function QueueRow({ item }: { item: QueueItem }) {
     (!isLearning && item.status === "pending");
 
   return (
-    <div className="flex flex-col gap-3 px-4 py-4 transition hover:bg-slate-50 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
-      <div className="flex min-w-0 items-start gap-3 sm:flex-1">
+    <div className="grid gap-4 px-4 py-4 transition hover:bg-slate-50 sm:px-5 lg:grid-cols-[minmax(0,1fr)_10.5rem_7rem_9rem] lg:items-center">
+      <div className="flex min-w-0 items-start gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600">
           {isLearning ? (
             <ClipboardList className="h-5 w-5" />
@@ -203,13 +181,13 @@ function QueueRow({ item }: { item: QueueItem }) {
             </span>
           </div>
           <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-          <p className="mt-0.5 line-clamp-2 text-xs text-slate-500 sm:line-clamp-1">
+          <p className="mt-0.5 line-clamp-3 text-xs text-slate-500 lg:line-clamp-1">
             {item.description}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 text-xs text-slate-500 sm:w-44">
+      <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 lg:bg-transparent lg:px-0 lg:py-0">
         <CalendarDays className="h-4 w-4 text-slate-400" />
         <div>
           <p
@@ -224,21 +202,24 @@ function QueueRow({ item }: { item: QueueItem }) {
         </div>
       </div>
 
-      <div className="sm:w-28">
+      <div className="flex items-center justify-between gap-3 sm:justify-start">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
+          Status
+        </span>
         <StatusBadge status={displayStatus(item)} />
       </div>
 
-      <div className="flex w-full gap-2 sm:w-40 sm:justify-end">
+      <div className="flex w-full gap-2 lg:justify-end">
         {actionable ? (
           <a
             href={item.actionUrl}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-500 sm:w-auto"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-500 lg:w-auto"
           >
             Submit
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         ) : (
-          <span className="inline-flex w-full items-center justify-center rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500 sm:w-auto">
+          <span className="inline-flex w-full items-center justify-center rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500 lg:w-auto">
             Done
           </span>
         )}
@@ -250,7 +231,7 @@ function QueueRow({ item }: { item: QueueItem }) {
 export default function AssignmentsPage() {
   const { selectedSprint } = useOutletContext<FellowOutletContext>();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<QueueFilter>("all");
+  const [filter, setFilter] = useState<QueueFilter>("pending");
   const currentSprintCase = caseAssignments.find(
     (assignment) => assignment.sprint === selectedSprint.name
   );
@@ -304,7 +285,7 @@ export default function AssignmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
             Assignments
@@ -315,7 +296,7 @@ export default function AssignmentsPage() {
           </p>
         </div>
 
-        <div className="relative sm:w-72">
+        <div className="relative lg:w-80">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             value={query}

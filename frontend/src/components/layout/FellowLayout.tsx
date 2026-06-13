@@ -12,8 +12,7 @@ import {
   GraduationCap,
   Home,
   Megaphone,
-  MoreHorizontal,
-  Search,
+  Menu,
   Settings,
   User,
   Users,
@@ -332,11 +331,15 @@ function Topbar({
   sprintIndex,
   onPreviousSprint,
   onNextSprint,
+  mobileMenuOpen,
+  onOpenMobileMenu,
 }: {
   selectedSprint: Sprint;
   sprintIndex: number;
   onPreviousSprint: () => void;
   onNextSprint: () => void;
+  mobileMenuOpen: boolean;
+  onOpenMobileMenu: () => void;
 }) {
   const user = getCurrentUser();
   const displayName = user?.role === "fellow" ? user.name : currentFellow.name;
@@ -345,13 +348,11 @@ function Topbar({
 
   return (
     <header className="fixed top-0 right-0 left-0 z-20 grid min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur sm:px-4 lg:left-64 lg:flex lg:min-h-16 lg:px-8">
-      <div className="min-w-0 lg:hidden">
-        <p className="truncate text-sm font-bold tracking-tight text-slate-900">
-          <span className="text-brand-600">1967</span> Fellowship
-        </p>
-        <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-slate-400 min-[380px]:block">
-          Fellow Portal
-        </p>
+      <div className="flex min-w-0 items-center lg:hidden">
+        <MobileFellowMenuButton
+          open={mobileMenuOpen}
+          onOpen={onOpenMobileMenu}
+        />
       </div>
       <SprintSwitcher
         selectedSprint={selectedSprint}
@@ -360,20 +361,12 @@ function Topbar({
         onNext={onNextSprint}
       />
       <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
-        <button
-          type="button"
-          className="hidden rounded-md p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 min-[380px]:inline-flex"
-          aria-label="Search"
-          title="Search"
-        >
-          <Search className="h-5 w-5" />
-        </button>
         <NotificationBell />
         <NavLink
           to="/fellow/profile"
           className={({ isActive }) =>
             cn(
-              "flex items-center gap-2.5 rounded-md border py-1.5 pl-1.5 pr-3 transition-colors",
+              "hidden items-center gap-2.5 rounded-md border py-1.5 pl-1.5 pr-3 transition-colors lg:flex",
               isActive
                 ? "border-brand-300 bg-brand-50"
                 : "border-slate-200 hover:border-brand-200 hover:bg-brand-50/50"
@@ -392,131 +385,138 @@ function Topbar({
   );
 }
 
-function MobileFellowNav() {
-  const [moreOpen, setMoreOpen] = useState(false);
-  const location = useLocation();
-  const moreActive =
-    location.pathname.startsWith("/fellow/profile") ||
-    location.pathname.startsWith("/fellow/settings");
+function MobileFellowMenuButton({
+  open,
+  onOpen,
+}: {
+  open: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex h-10 w-10 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 lg:hidden"
+      aria-label="Open menu"
+      aria-expanded={open}
+      aria-haspopup="dialog"
+    >
+      <Menu className="h-5 w-5" />
+    </button>
+  );
+}
+
+function MobileFellowDrawer({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const menuItems = [
+    ...mainNav,
+    { to: "/fellow/profile", label: "Profile", mobileLabel: "Profile", icon: User },
+    { to: "/fellow/settings", label: "Settings", mobileLabel: "Settings", icon: Settings },
+  ];
 
   useEffect(() => {
-    setMoreOpen(false);
-  }, [location.pathname]);
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
 
   return (
     <>
-      {moreOpen && (
-        <>
+      <button
+        type="button"
+        aria-label="Close menu"
+        className="fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-[1px] lg:hidden"
+        onClick={onClose}
+      />
+      <aside
+        className="fixed bottom-0 left-0 top-0 z-50 flex w-[min(20rem,calc(100vw-2rem))] flex-col border-r border-slate-200 bg-white shadow-2xl lg:hidden"
+        aria-label="Fellow menu"
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+          <div>
+            <p className="text-sm font-bold tracking-tight text-slate-900">
+              <span className="text-brand-600">1967</span> Fellowship
+            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Fellow Portal
+            </p>
+          </div>
           <button
             type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
             aria-label="Close menu"
-            className="fixed inset-0 z-30 bg-slate-950/20 lg:hidden"
-            onClick={() => setMoreOpen(false)}
-          />
-          <div className="fixed inset-x-3 bottom-[4.75rem] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl lg:hidden">
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-              <p className="text-sm font-semibold text-slate-900">More</p>
-              <button
-                type="button"
-                onClick={() => setMoreOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
-                aria-label="Close menu"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-2">
-              {[
-                { to: "/fellow/profile", label: "Profile", icon: User },
-                { to: "/fellow/settings", label: "Settings", icon: Settings },
-              ].map(({ to, label, icon: Icon }) => (
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto p-3" aria-label="Fellow navigation">
+          <p className="px-3 pb-2 pt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Menu
+          </p>
+          <ul className="space-y-1">
+            {menuItems.map((item) => (
+              <li key={item.to}>
                 <NavLink
-                  key={to}
-                  to={to}
+                  to={item.to}
+                  end={item.end}
                   className={({ isActive }) =>
                     cn(
-                      "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                      "flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
                       isActive
                         ? "bg-brand-50 text-brand-700"
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     )
                   }
                 >
-                  <Icon className="h-5 w-5 shrink-0" />
-                  {label}
-                </NavLink>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      <nav
-        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-6 border-t border-slate-200 bg-white/95 px-1 pb-[max(env(safe-area-inset-bottom),0.25rem)] pt-1 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
-        aria-label="Fellow mobile navigation"
-      >
-        {mainNav.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              cn(
-                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold leading-none transition-colors",
-                isActive
-                  ? "bg-brand-50 text-brand-700"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <item.icon
-                  className={cn(
-                    "h-5 w-5",
-                    isActive ? "text-brand-600" : "text-slate-400"
+                  {({ isActive }) => (
+                    <>
+                      <item.icon
+                        className={cn(
+                          "h-5 w-5 shrink-0",
+                          isActive ? "text-brand-600" : "text-slate-400"
+                        )}
+                      />
+                      {item.label}
+                    </>
                   )}
-                />
-                <span className="max-w-full truncate">{item.mobileLabel}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
-        <button
-          type="button"
-          onClick={() => setMoreOpen((open) => !open)}
-          className={cn(
-            "flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-semibold leading-none transition-colors",
-            moreOpen || moreActive
-              ? "bg-brand-50 text-brand-700"
-              : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-          )}
-          aria-expanded={moreOpen}
-          aria-haspopup="menu"
-        >
-          <MoreHorizontal
-            className={cn(
-              "h-5 w-5",
-              moreOpen || moreActive ? "text-brand-600" : "text-slate-400"
-            )}
-          />
-          <span>More</span>
-        </button>
-      </nav>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </aside>
     </>
   );
 }
 
 export default function FellowLayout() {
+  const location = useLocation();
   const currentIndex = Math.max(
     sprints.findIndex((s) => s.isCurrent),
     0
   );
   const [sprintIndex, setSprintIndex] = useState(currentIndex);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const selectedSprint = sprints[sprintIndex];
   const goPreviousSprint = () => setSprintIndex((i) => Math.max(i - 1, 0));
   const goNextSprint = () =>
     setSprintIndex((i) => Math.min(i + 1, sprints.length - 1));
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen overflow-x-clip bg-slate-50">
@@ -527,12 +527,17 @@ export default function FellowLayout() {
           sprintIndex={sprintIndex}
           onPreviousSprint={goPreviousSprint}
           onNextSprint={goNextSprint}
+          mobileMenuOpen={mobileMenuOpen}
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
         />
-        <main className="mx-auto max-w-6xl px-4 pb-28 pt-20 sm:px-6 lg:px-8 lg:pt-24">
+        <main className="mx-auto max-w-6xl px-4 pb-10 pt-20 sm:px-6 lg:px-8 lg:pt-24">
           <Outlet context={{ selectedSprint } satisfies FellowOutletContext} />
         </main>
       </div>
-      <MobileFellowNav />
+      <MobileFellowDrawer
+        open={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+      />
     </div>
   );
 }
