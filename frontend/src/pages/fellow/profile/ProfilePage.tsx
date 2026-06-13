@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Camera,
   Check,
@@ -15,6 +15,11 @@ import {
 import { Card, CardHeader } from "../../../components/ui/Card";
 import { currentFellow } from "../../../data/mock";
 import { cn } from "../../../lib/cn";
+import {
+  loadMyAvailability,
+  saveMyAvailability,
+  weekDays,
+} from "../../../lib/availability";
 
 type Visibility = "public" | "private";
 type ProfileVisibilityKey = "availability";
@@ -35,8 +40,7 @@ const defaultContacts: ContactField[] = [
   { key: "instagram", label: "Instagram", icon: Globe, placeholder: "@handle", value: "@sirada.w", visibility: "private" },
 ];
 
-const availabilityDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const defaultAvailability: Record<string, boolean> = { Mon: true, Tue: true, Wed: false, Thu: true, Fri: true, Sat: false, Sun: false };
+const availabilityDays = weekDays;
 const defaultProfileVisibility: Record<ProfileVisibilityKey, Visibility> = {
   availability: "private",
 };
@@ -66,7 +70,12 @@ export default function ProfilePage() {
   const [university, setUniversity] = useState(currentFellow.university);
   const [major, setMajor] = useState("Commerce & Accountancy");
   const [contacts, setContacts] = useState<ContactField[]>(defaultContacts);
-  const [availability, setAvailability] = useState(defaultAvailability);
+  const [availability, setAvailability] = useState(loadMyAvailability);
+
+  // Keep the Team page's availability map in sync with what's picked here.
+  useEffect(() => {
+    saveMyAvailability(availability);
+  }, [availability]);
   const [profileVisibility, setProfileVisibility] = useState(defaultProfileVisibility);
 
   function handleVisibilityChange(key: string, v: Visibility) {

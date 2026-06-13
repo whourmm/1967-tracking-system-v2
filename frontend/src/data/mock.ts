@@ -430,6 +430,7 @@ export const teamMembers: TeamMember[] = [
     country: "Thailand",
     university: "Chulalongkorn University",
     teamflow: "Initiator",
+    availability: ["Mon", "Tue", "Thu", "Fri"],
   },
   {
     name: "Naphat Tan",
@@ -437,6 +438,7 @@ export const teamMembers: TeamMember[] = [
     country: "Vietnam",
     university: "VNU University of Science",
     teamflow: "Sharper",
+    availability: ["Mon", "Tue", "Wed", "Thu", "Sat"],
   },
   {
     name: "Mali Chen",
@@ -444,6 +446,7 @@ export const teamMembers: TeamMember[] = [
     country: "Singapore",
     university: "National University of Singapore",
     teamflow: "Translator",
+    availability: ["Tue", "Wed", "Thu", "Fri"],
   },
   {
     name: "Arthit Kul",
@@ -451,6 +454,7 @@ export const teamMembers: TeamMember[] = [
     country: "Indonesia",
     university: "Universitas Indonesia",
     teamflow: "Finisher",
+    availability: ["Mon", "Tue", "Thu", "Sun"],
   },
 ];
 

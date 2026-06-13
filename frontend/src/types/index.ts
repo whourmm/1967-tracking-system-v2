@@ -110,6 +110,9 @@ export interface TeamMember {
   country: string;
   university: string;
   teamflow: TeamFlow;
+  // Days of the week ("Mon".."Sun") this member can meet, as picked on their
+  // profile. The current fellow's own selection is overridden by localStorage.
+  availability: string[];
 }
 
 export type FellowStatus = "Confirmed" | "Pending";

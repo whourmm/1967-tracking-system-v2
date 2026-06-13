@@ -162,9 +162,9 @@ function QueueRow({ item }: { item: QueueItem }) {
     (!isLearning && item.status === "pending");
 
   return (
-    <div className="grid gap-4 px-4 py-4 transition hover:bg-slate-50 sm:px-5 lg:grid-cols-[minmax(0,1fr)_10.5rem_7rem_9rem] lg:items-center">
+    <div className="flex flex-col gap-3 px-4 py-4 transition hover:bg-slate-50 sm:px-5 lg:grid lg:grid-cols-[minmax(0,1fr)_10.5rem_7rem_9rem] lg:items-center lg:gap-4">
       <div className="flex min-w-0 items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600">
+        <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600 sm:flex">
           {isLearning ? (
             <ClipboardList className="h-5 w-5" />
           ) : (
@@ -173,56 +173,58 @@ function QueueRow({ item }: { item: QueueItem }) {
         </span>
 
         <div className="min-w-0 flex-1">
-          <div className="mb-1.5 flex flex-wrap items-center gap-2">
+          <div className="mb-1.5 flex items-center gap-2">
             <span
               className="rounded-md bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-600"
             >
               {isLearning ? item.meta : "Case"}
             </span>
+            <span className="ml-auto lg:hidden">
+              <StatusBadge status={displayStatus(item)} />
+            </span>
           </div>
           <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-          <p className="mt-0.5 line-clamp-3 text-xs text-slate-500 lg:line-clamp-1">
+          <p className="mt-0.5 line-clamp-2 text-xs text-slate-500 lg:line-clamp-1">
             {item.description}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 lg:bg-transparent lg:px-0 lg:py-0">
-        <CalendarDays className="h-4 w-4 text-slate-400" />
-        <div>
-          <p
-            className={cn(
-              "font-semibold",
-              actionable ? "text-brand-600" : "text-slate-700"
-            )}
-          >
-            {deadlineLabel(item.deadline)}
-          </p>
-          <p className="text-slate-400">{formatDate(item.deadline)}</p>
+      <div className="flex items-center justify-between gap-3 lg:contents">
+        <div className="flex min-w-0 items-center gap-2 text-xs text-slate-500">
+          <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
+          <div className="min-w-0">
+            <p
+              className={cn(
+                "truncate font-semibold",
+                actionable ? "text-brand-600" : "text-slate-700"
+              )}
+            >
+              {deadlineLabel(item.deadline)}
+            </p>
+            <p className="truncate text-slate-400">{formatDate(item.deadline)}</p>
+          </div>
         </div>
-      </div>
 
-      <div className="flex items-center justify-between gap-3 sm:justify-start">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 lg:hidden">
-          Status
-        </span>
-        <StatusBadge status={displayStatus(item)} />
-      </div>
+        <div className="hidden lg:flex lg:items-center">
+          <StatusBadge status={displayStatus(item)} />
+        </div>
 
-      <div className="flex w-full gap-2 lg:justify-end">
-        {actionable ? (
-          <a
-            href={item.actionUrl}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-500 lg:w-auto"
-          >
-            Submit
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        ) : (
-          <span className="inline-flex w-full items-center justify-center rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500 lg:w-auto">
-            Done
-          </span>
-        )}
+        <div className="shrink-0 lg:flex lg:justify-end">
+          {actionable ? (
+            <a
+              href={item.actionUrl}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-brand-500"
+            >
+              Submit
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          ) : (
+            <span className="inline-flex items-center justify-center rounded-lg bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-500">
+              Done
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
