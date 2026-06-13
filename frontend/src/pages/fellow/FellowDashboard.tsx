@@ -55,7 +55,7 @@ const stats = [
       assignments.length,
     sub: "across all blocks",
     icon: BookOpen,
-    color: "text-brand-600 bg-brand-50",
+    color: "text-sky-600 bg-sky-50",
   },
   {
     label: "Overdue",
@@ -229,7 +229,7 @@ export default function FellowDashboard() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left column */}
-        <div className="space-y-6 lg:col-span-2">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           {currentSprintCase ? (
             <Card className="p-4 sm:p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -346,7 +346,7 @@ export default function FellowDashboard() {
                 </Link>
               }
             />
-            <ul className="flex gap-2 overflow-x-auto p-4">
+            <ul className="flex gap-2 overflow-x-auto p-4 lg:grid lg:grid-cols-4 lg:overflow-visible">
               {[...teamMembers]
                 .sort((a, b) => {
                   if (a.name === currentFellow.name) return -1;
@@ -359,7 +359,7 @@ export default function FellowDashboard() {
                     <li
                       key={m.name}
                       className={cn(
-                        "flex w-40 shrink-0 flex-col items-center gap-2 rounded-lg p-3 text-center transition",
+                        "flex w-40 shrink-0 flex-col items-center gap-2 rounded-lg p-3 text-center transition lg:w-auto lg:min-w-0",
                         isMe ? "bg-brand-50/60 ring-1 ring-brand-100" : "hover:bg-slate-50"
                       )}
                     >
@@ -403,63 +403,10 @@ export default function FellowDashboard() {
             </ul>
           </Card>
 
-          {/* Learning blocks */}
-          <Card>
-            <CardHeader
-              title="Learning blocks"
-              subtitle="Watch, read, then submit each block’s forms"
-              action={
-                <Link
-                  to="/fellow/learning"
-                  className="text-xs font-semibold text-brand-600 hover:text-brand-700"
-                >
-                  Open
-                </Link>
-              }
-            />
-            <div className="grid gap-2 p-4">
-              {blockProgress.map(({ block, submitted, total }) => {
-                const done = total > 0 && submitted === total;
-                return (
-                  <Link
-                    key={block.id}
-                    to="/fellow/learning"
-                    className="flex items-center gap-3 rounded-md border border-slate-100 p-3 transition hover:border-brand-200 hover:bg-brand-50/40"
-                  >
-                    <span
-                      className={cn(
-                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-bold",
-                        done
-                          ? "bg-emerald-50 text-emerald-600"
-                          : "bg-brand-600 text-white"
-                      )}
-                    >
-                      {block.id}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-slate-900">
-                        {block.title}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {total === 0
-                          ? "No forms"
-                          : `${submitted}/${total} forms submitted`}
-                      </p>
-                    </div>
-                    {done ? (
-                      <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
-                    ) : (
-                      <ArrowRight className="h-4 w-4 shrink-0 text-slate-300" />
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          </Card>
         </div>
 
         {/* Right column */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* At a glance */}
           <Card>
             <CardHeader title="At a glance" />
@@ -492,6 +439,60 @@ export default function FellowDashboard() {
                   </p>
                 </div>
               ))}
+            </div>
+          </Card>
+
+          {/* Learning blocks */}
+          <Card>
+            <CardHeader
+              title="Learning blocks"
+              subtitle="Watch, read, then submit each block’s forms"
+              action={
+                <Link
+                  to="/fellow/learning"
+                  className="text-xs font-semibold text-brand-600 hover:text-brand-700"
+                >
+                  Open
+                </Link>
+              }
+            />
+            <div className="grid gap-2 p-4">
+              {blockProgress.map(({ block, submitted, total }) => {
+                const done = total > 0 && submitted === total;
+                return (
+                  <Link
+                    key={block.id}
+                    to="/fellow/learning"
+                    className="flex min-w-0 items-center gap-3 rounded-md border border-slate-100 p-3 transition hover:border-brand-200 hover:bg-brand-50/40"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-bold",
+                        done
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-brand-600 text-white"
+                      )}
+                    >
+                      {block.id}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {block.title}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {total === 0
+                          ? "No forms"
+                          : `${submitted}/${total} forms submitted`}
+                      </p>
+                    </div>
+                    {done ? (
+                      <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
+                    ) : (
+                      <ArrowRight className="h-4 w-4 shrink-0 text-slate-300" />
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           </Card>
         </div>

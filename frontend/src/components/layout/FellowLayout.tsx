@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CheckCheck,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -270,11 +271,13 @@ function SprintSwitcher({
   sprintIndex,
   onPrevious,
   onNext,
+  onSelect,
 }: {
   selectedSprint: Sprint;
   sprintIndex: number;
   onPrevious: () => void;
   onNext: () => void;
+  onSelect: (index: number) => void;
 }) {
   const atStart = sprintIndex === 0;
   const atEnd = sprintIndex === sprints.length - 1;
@@ -282,46 +285,74 @@ function SprintSwitcher({
 
   return (
     <div
-      className="flex min-h-10 min-w-0 items-center justify-center gap-1 justify-self-center sm:gap-2 lg:justify-self-auto"
+      className="min-w-0 justify-self-center lg:justify-self-auto"
       title={selectedSprint.name}
     >
-      <button
-        type="button"
-        onClick={onPrevious}
-        disabled={atStart}
-        aria-label="Previous sprint"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-25"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </button>
-      <div className="min-w-0 px-0.5 text-center sm:px-2">
-        <p className="w-16 truncate text-sm font-semibold leading-tight text-slate-900 sm:w-20">
-          {sprintLabel}
-        </p>
-        <div className="mt-1 flex items-center justify-center gap-1">
-          {sprints.map((s, i) => (
-            <span
-              key={s.id}
-              className={cn(
-                "h-1.5 rounded-full transition-all",
-                i === sprintIndex ? "w-5 ring-1 ring-offset-1" : "w-1.5",
-                s.isCurrent
-                  ? "bg-brand-500 ring-brand-200"
-                  : "bg-slate-300 ring-slate-200"
-              )}
-            />
-          ))}
+      {/* Hamburger sizes: arrows are fiddly without a pointer, so the same
+          label + dots becomes a transparent trigger that opens the native
+          picker and jumps straight to any sprint. */}
+      <div className="relative rounded-md px-2 py-1 transition hover:bg-slate-100/70 lg:hidden">
+        <div className="flex min-h-10 items-center justify-center gap-1">
+          <p className="truncate text-sm font-semibold leading-tight text-slate-900">
+            {sprintLabel}
+          </p>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
         </div>
+        <select
+          value={sprintIndex}
+          onChange={(e) => onSelect(Number(e.target.value))}
+          aria-label="Select sprint"
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        >
+          {sprints.map((s, i) => (
+            <option key={s.id} value={i}>
+              {s.name}
+              {s.isCurrent ? " (current)" : ""}
+            </option>
+          ))}
+        </select>
       </div>
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={atEnd}
-        aria-label="Next sprint"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-25"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </button>
+
+      {/* Desktop (sidebar visible): previous/next arrows with progress dots */}
+      <div className="hidden min-h-10 items-center justify-center gap-2 lg:flex">
+        <button
+          type="button"
+          onClick={onPrevious}
+          disabled={atStart}
+          aria-label="Previous sprint"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-25"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div className="min-w-0 px-2 text-center">
+          <p className="w-20 truncate text-sm font-semibold leading-tight text-slate-900">
+            {sprintLabel}
+          </p>
+          <div className="mt-1 flex items-center justify-center gap-1">
+            {sprints.map((s, i) => (
+              <span
+                key={s.id}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  i === sprintIndex ? "w-5 ring-1 ring-offset-1" : "w-1.5",
+                  s.isCurrent
+                    ? "bg-brand-500 ring-brand-200"
+                    : "bg-slate-300 ring-slate-200"
+                )}
+              />
+            ))}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={atEnd}
+          aria-label="Next sprint"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-25"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -331,6 +362,7 @@ function Topbar({
   sprintIndex,
   onPreviousSprint,
   onNextSprint,
+  onSelectSprint,
   mobileMenuOpen,
   onOpenMobileMenu,
 }: {
@@ -338,6 +370,7 @@ function Topbar({
   sprintIndex: number;
   onPreviousSprint: () => void;
   onNextSprint: () => void;
+  onSelectSprint: (index: number) => void;
   mobileMenuOpen: boolean;
   onOpenMobileMenu: () => void;
 }) {
@@ -359,6 +392,7 @@ function Topbar({
         sprintIndex={sprintIndex}
         onPrevious={onPreviousSprint}
         onNext={onNextSprint}
+        onSelect={onSelectSprint}
       />
       <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
         <NotificationBell />
@@ -527,6 +561,7 @@ export default function FellowLayout() {
           sprintIndex={sprintIndex}
           onPreviousSprint={goPreviousSprint}
           onNextSprint={goNextSprint}
+          onSelectSprint={setSprintIndex}
           mobileMenuOpen={mobileMenuOpen}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
         />
