@@ -13,6 +13,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { Card } from "../../components/ui/Card";
+import { FellowAvatar, FellowNameLink } from "../../components/admin/FellowProfileLink";
 import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
 import { allFellows } from "../../data/mock";
@@ -347,9 +348,9 @@ export default function TeamBuilder() {
                 )}
                 {ms.map((m) => (
                   <div key={m.id} className="flex items-center gap-2.5 rounded-md bg-slate-50 px-2.5 py-2">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white">{m.initials}</div>
+                    <FellowAvatar fellow={m} size="md" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-slate-900">{m.name}</p>
+                      <FellowNameLink fellow={m} className="block truncate text-xs" />
                       <p className="flex items-center gap-1 text-[11px] text-slate-500">
                         <span>{flagFor(m.country)}</span>
                         <span className={cn("rounded px-1.5 py-px text-[10px] font-medium", teamflowChip[m.teamflow])}>{m.teamflow}</span>
@@ -418,8 +419,8 @@ export default function TeamBuilder() {
                     sus ? "border-slate-200 bg-slate-100 text-slate-400" : "border-slate-200 bg-slate-50"
                   )}
                 >
-                  <span className={cn("flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white", sus ? "bg-slate-400" : "bg-brand-600")}>{m.initials}</span>
-                  <span className={cn("font-semibold", sus ? "text-slate-500" : "text-slate-800")}>{m.name}</span>
+                  <FellowAvatar fellow={m} size="sm" tone={sus ? "slate" : "brand"} />
+                  <FellowNameLink fellow={m} className={cn(sus ? "text-slate-500" : "text-slate-800")} />
                   {sus ? (
                     <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">suspended</span>
                   ) : (

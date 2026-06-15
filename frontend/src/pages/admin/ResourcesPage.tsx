@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { BookOpen, CheckCircle2, ChevronDown, Edit3, FileText, GraduationCap, Plus, Trash2, UserX, Video } from "lucide-react";
 import { motion } from "framer-motion";
+import { FellowAvatar, FellowNameLink } from "../../components/admin/FellowProfileLink";
 import ResourceFormDialog, { type ResourceFormValues } from "../../components/admin/ResourceFormDialog";
 import { StatCard } from "../../components/ui/StatCard";
 import { learningReadIds, resourceReadIds } from "../../data/adminMock";
@@ -100,10 +101,8 @@ function ReaderBreakdown({ readIds }: { readIds: number[] }) {
           : "border-slate-200 bg-white text-slate-500"
       )}
     >
-      <span className={cn("flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold text-white", tone === "read" ? "bg-emerald-600" : "bg-slate-400")}>
-        {fellow.initials}
-      </span>
-      {fellow.name}
+      <FellowAvatar fellow={fellow} size="sm" tone={tone === "read" ? "emerald" : "slate"} />
+      <FellowNameLink fellow={fellow} className={cn("text-xs", tone === "read" ? "text-slate-900" : "text-slate-500")} />
     </span>
   );
 

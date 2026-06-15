@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
+import { FellowAvatar, FellowNameLink } from "../../components/admin/FellowProfileLink";
 import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
 import { useSuspended, toggleSuspended } from "../../data/cohortStore";
@@ -467,10 +468,10 @@ export default function FellowManagement() {
                   <tr key={f.id} className={cn("transition hover:bg-slate-50", sus && "opacity-60")}>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">{f.initials}</div>
+                        <FellowAvatar fellow={f} size="lg" tone={sus ? "slate" : "brand"} />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <p className="truncate text-sm font-semibold text-slate-900">{f.name}</p>
+                            <FellowNameLink fellow={f} className="truncate text-sm" />
                             {sus && <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">Suspended</span>}
                           </div>
                           <p className="flex items-center gap-1 truncate text-xs text-slate-400">

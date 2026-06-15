@@ -1,4 +1,4 @@
-import type { AssignmentStatus } from "../types";
+import type { AssignmentStatus, AssignmentSubmissionStatusName, AssignmentSubmitStatus } from "../types";
 
 export function formatDate(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleDateString("en-US", {
@@ -32,6 +32,17 @@ export function deadlineLabel(iso: string): string {
   if (d > 1) return `Due in ${d} days`;
   if (d === -1) return "1 day overdue";
   return `${Math.abs(d)} days overdue`;
+}
+
+export function assignmentSubmissionStatusName(
+  submitStatus: AssignmentSubmitStatus,
+  deadlineIso: string,
+  now = TODAY
+): AssignmentSubmissionStatusName {
+  if (submitStatus === 1) return "submitted";
+
+  const deadline = new Date(`${deadlineIso}T23:59:59`);
+  return deadline.getTime() < now.getTime() ? "overdue" : "pending";
 }
 
 // Status pills follow DESIGN.md: success = green (#10B981), warning = amber

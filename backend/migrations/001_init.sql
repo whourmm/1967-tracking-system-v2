@@ -138,7 +138,8 @@ CREATE TABLE IF NOT EXISTS assignment (
 CREATE TABLE IF NOT EXISTS assignment_submission (
   assignment_id INTEGER,
   member_id INTEGER,
-  submitted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  submit_status INTEGER NOT NULL DEFAULT 0 CHECK (submit_status IN (0, 1)),
+  submitted_at TEXT,
   PRIMARY KEY (assignment_id, member_id),
   FOREIGN KEY (assignment_id) REFERENCES assignment(id) ON DELETE CASCADE,
   FOREIGN KEY (member_id) REFERENCES "user"(id) ON DELETE CASCADE
@@ -153,6 +154,15 @@ CREATE TABLE IF NOT EXISTS resource (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by INTEGER,
   FOREIGN KEY (created_by) REFERENCES "user"(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS resource_read (
+  resource_id INTEGER,
+  member_id INTEGER,
+  read_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (resource_id, member_id),
+  FOREIGN KEY (resource_id) REFERENCES resource(id) ON DELETE CASCADE,
+  FOREIGN KEY (member_id) REFERENCES "user"(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS api (
@@ -190,6 +200,7 @@ CREATE INDEX IF NOT EXISTS idx_case_sprint_id ON "case"(sprint_id);
 CREATE INDEX IF NOT EXISTS idx_assignment_cohort_id ON assignment(cohort_id);
 CREATE INDEX IF NOT EXISTS idx_assignment_sprint_id ON assignment(sprint_id);
 CREATE INDEX IF NOT EXISTS idx_resource_created_by ON resource(created_by);
+CREATE INDEX IF NOT EXISTS idx_resource_read_member_id ON resource_read(member_id);
 CREATE INDEX IF NOT EXISTS idx_api_assignment_id ON api(assignment_id);
 CREATE INDEX IF NOT EXISTS idx_events_cohort_id ON events(cohort_id);
 CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id);

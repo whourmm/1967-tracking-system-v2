@@ -10,6 +10,7 @@ import TeamBuilder from "../pages/admin/TeamBuilder";
 import EventManagement from "../pages/admin/EventManagement";
 import FormTracker from "../pages/admin/FormTracker";
 import AdminProfile from "../pages/admin/AdminProfile";
+import AdminFellowProfile from "../pages/admin/AdminFellowProfile";
 
 export default function AdminRoutes() {
   return (
@@ -20,6 +21,7 @@ export default function AdminRoutes() {
         <Route path="resources" element={<ResourcesPage />} />
         <Route path="teams" element={<TeamBuilder />} />
         <Route path="fellows" element={<FellowManagement />} />
+        <Route path="fellows/:fellowId" element={<AdminFellowProfile />} />
         <Route path="sprints" element={<SprintManagement />} />
         <Route path="events" element={<EventManagement />} />
         <Route path="assignments" element={<FormTracker />} />

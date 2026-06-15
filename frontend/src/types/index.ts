@@ -3,6 +3,8 @@
 // mock data can later be swapped for real API responses with minimal change.
 
 export type AssignmentStatus = "pending" | "submitted" | "overdue" | "graded";
+export type AssignmentSubmitStatus = 0 | 1;
+export type AssignmentSubmissionStatusName = "pending" | "submitted" | "overdue";
 
 // An assignment IS the Google Form submission that belongs to a learning
 // block. `block` ties it back to the block (A, B, C, …) it was assigned in.
@@ -16,6 +18,13 @@ export interface Assignment {
   formUrl: string; // Google Form to submit
   submittedAt?: string;
   grade?: string;
+}
+
+export interface AssignmentSubmission {
+  assignmentId: number;
+  memberId: number;
+  submitStatus: AssignmentSubmitStatus;
+  submittedAt: string | null;
 }
 
 export type CaseAssignmentStatus = "pending" | "submitted" | "reviewed";
@@ -55,6 +64,12 @@ export interface Resource {
 // submit afterwards. Nothing here is fixed: a block may have only videos, only
 // articles, or only assignments. Some curriculum (e.g. a book) lives outside
 // any block and is surfaced as a "special" item.
+
+export interface ResourceRead {
+  resourceId: number;
+  memberId: number;
+  readAt: string;
+}
 
 export type LearningLinkKind = "video" | "article" | "form" | "pdf" | "external";
 

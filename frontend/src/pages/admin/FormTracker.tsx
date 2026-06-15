@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
+import { FellowAvatar, FellowNameLink } from "../../components/admin/FellowProfileLink";
 import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
 import { adminAssignments, caseSubmissionStatus, sbieId, SPRINTS } from "../../data/adminMock";
@@ -615,9 +616,11 @@ export default function FormTracker() {
                                   : "border-slate-200 bg-white text-slate-500"
                               )}
                             >
-                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[9px] font-bold text-white">{f.initials}</span>
+                              <FellowAvatar fellow={f} size="sm" />
                               <span className="flex flex-col leading-tight">
-                                <span className="font-semibold">{f.name.split(" ")[0]}</span>
+                                <FellowNameLink fellow={f} className="inline-block max-w-24 truncate text-xs">
+                                  {f.name.split(" ")[0]}
+                                </FellowNameLink>
                                 <span className="font-mono text-[10px] text-slate-400">{sbieId(f.id)}</span>
                               </span>
                               <span className={cn("flex h-4 w-4 items-center justify-center rounded-full", done ? "bg-emerald-500 text-white" : "border border-slate-300 text-transparent")}>

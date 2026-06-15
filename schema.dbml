@@ -122,7 +122,8 @@ Table assignment {
 Table assignment_submission {
   assignment_id int       [ref: > assignment.id]
   member_id     int       [ref: > user.id, note: 'the fellow (= user.id) who submitted']
-  submitted_at  timestamp
+  submit_status int       [note: '0 = pending, 1 = submitted; overdue is derived when 0 and assignment.deadline has passed']
+  submitted_at  timestamp [null, note: 'set when submit_status = 1']
   indexes {
     (assignment_id, member_id) [pk]
   }
@@ -136,6 +137,16 @@ Table resource {
   created_at  timestamp
   updated_at  timestamp
   created_by  int       [note: '-> user.id']
+}
+
+// Tracks whether a fellow has read/opened/completed a resource.
+Table resource_read {
+  resource_id int       [ref: > resource.id]
+  member_id   int       [ref: > user.id, note: 'the fellow (= user.id) who read the resource']
+  read_at     timestamp
+  indexes {
+    (resource_id, member_id) [pk]
+  }
 }
 
 // API sync table: records pushes to Google Sheet for submissions
