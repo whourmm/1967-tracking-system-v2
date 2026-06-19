@@ -14,7 +14,7 @@ The current default route redirects to the Fellow portal.
 
 - Frontend: Vite, React, TypeScript, Tailwind CSS
 - Backend: Go
-- Database: SQLite
+- Database: PostgreSQL
 - Local full-stack option: Docker Compose
 
 ## Current Routes
@@ -104,8 +104,8 @@ Services:
 
 - Frontend: `http://localhost:5173`
 - Backend API: `http://localhost:8080`
-- SQLite database path inside container: `/app/data/asean_tracker.db`
-- SQLite database path on host: `backend/data/asean_tracker.db`
+- PostgreSQL: `localhost:5432`
+- Database name: `asean_tracker`
 
 ## Environment Variables
 
@@ -120,13 +120,15 @@ Backend:
 ```txt
 APP_ENV=development
 PORT=8080
-DATABASE_PATH=/app/data/asean_tracker.db
+DATABASE_URL=postgres://postgres:postgres@db:5432/asean_tracker?sslmode=disable
+MIGRATIONS_PATH=/app/migrations
 ```
 
-For non-Docker local backend runs, use a host path such as:
+For non-Docker local backend runs, use a localhost PostgreSQL URL such as:
 
 ```txt
-DATABASE_PATH=./data/asean_tracker.db
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/asean_tracker?sslmode=disable
+MIGRATIONS_PATH=backend/migrations
 ```
 
 ## Backend API
@@ -138,10 +140,16 @@ GET /api/health
 GET /api/fellows
 ```
 
-The backend currently creates a small local SQLite schema and seeds demo fellow data on startup. The fuller base schema lives in:
+The backend connects to PostgreSQL, applies SQL migrations on startup, and seeds demo fellow data when the database is empty. The base schema lives in:
 
 ```txt
 backend/migrations/001_init.sql
+```
+
+API documentation:
+
+```txt
+docs/API.md
 ```
 
 ## Verification
@@ -163,7 +171,7 @@ go test ./...
 ## Notes
 
 - Do not commit real `.env` files.
-- Do not commit real production SQLite data.
+- Do not commit real production database credentials or dumps.
 - Use `AGENTS.md` for project-specific Codex instructions.
 - The Fellow portal currently has real dashboard, assignments, learning-system, and placeholder teams pages.
 - The Admin portal currently has dashboard, cases, resources, and sprint screens plus placeholders for some future sections.

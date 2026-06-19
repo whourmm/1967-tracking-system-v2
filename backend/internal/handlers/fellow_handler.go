@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/tracking-system-v2/backend/internal/models"
 )
@@ -15,7 +16,12 @@ type FellowHandler struct {
 
 // List returns all fellows as JSON.
 func (h *FellowHandler) List(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.DB.Query(`SELECT id, name, email, status, created_at FROM fellows ORDER BY id`)
+	rows, err := h.DB.Query(`
+		SELECT u.id, COALESCE(u.name, ''), COALESCE(u.gmail, ''), COALESCE(f.status, ''), u.created_at
+		FROM fellow f
+		JOIN "user" u ON u.id = f.user_id
+		ORDER BY u.id
+	`)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -25,10 +31,12 @@ func (h *FellowHandler) List(w http.ResponseWriter, r *http.Request) {
 	fellows := []models.Fellow{}
 	for rows.Next() {
 		var f models.Fellow
-		if err := rows.Scan(&f.ID, &f.Name, &f.Email, &f.Status, &f.CreatedAt); err != nil {
+		var createdAt time.Time
+		if err := rows.Scan(&f.ID, &f.Name, &f.Email, &f.Status, &createdAt); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		f.CreatedAt = createdAt.Format(time.RFC3339)
 		fellows = append(fellows, f)
 	}
 

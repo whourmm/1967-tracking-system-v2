@@ -1,8 +1,5 @@
-PRAGMA foreign_keys = ON;
-
 BEGIN;
 
--- Track the most recent successful login per user.
-ALTER TABLE "user" ADD COLUMN last_login_at TEXT;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
 
 COMMIT;

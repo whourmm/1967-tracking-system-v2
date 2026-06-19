@@ -1,4 +1,22 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: tracking-system-db
+    environment:
+      POSTGRES_DB: asean_tracker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d asean_tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -6,10 +24,14 @@ services:
     container_name: tracking-system-backend
     env_file:
       - ./backend/.env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/asean_tracker?sslmode=disable
+      MIGRATIONS_PATH: /app/migrations
     ports:
       - "8080:8080"
-    volumes:
-      - ./backend/data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -24,3 +46,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  postgres_data:

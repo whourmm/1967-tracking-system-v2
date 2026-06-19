@@ -16,7 +16,7 @@ Current planned stack:
 
 - Frontend: Vite + React
 - Backend: Golang
-- Database: SQLite
+- Database: PostgreSQL
 - Local/Server Environment: Docker VM
 - Main Deployment Target: Azure
 - Backup Deployment Target: Vercel
@@ -255,7 +255,7 @@ Preferred backend approach:
 - Keep database code separate from HTTP handlers.
 - Keep route registration separate from handler implementation.
 - Keep middleware separate from handlers.
-- Use SQLite as the database.
+- Use PostgreSQL as the database.
 
 Suggested backend folders:
 
@@ -398,21 +398,21 @@ These can be adjusted if a better auth structure is needed later.
 
 ---
 
-## SQLite Guidance
+## PostgreSQL Guidance
 
-SQLite is the planned database.
+PostgreSQL is the planned database.
 
-Default local database path:
+Default local connection URL:
 
 ```txt
-backend/data/asean_tracker.db
+postgres://postgres:postgres@localhost:5432/asean_tracker?sslmode=disable
 ```
 
 Rules:
 
 - Use parameterized queries.
 - Do not build SQL using raw user input.
-- Do not commit real production data.
+- Do not commit real production data, database dumps, or credentials.
 - Keep local demo data clearly marked as demo data.
 - If schema changes become complex, add migrations.
 - If migrations are added, document how to run them.
@@ -448,7 +448,7 @@ backend/Dockerfile
 Rules:
 
 - Keep Docker setup simple.
-- Use volumes for SQLite data when persistence is needed.
+- Use a named volume for PostgreSQL data when persistence is needed.
 - Do not store important database data only inside a temporary container.
 - Make local development easy to run.
 
@@ -497,7 +497,8 @@ Possible backend variables:
 
 ```txt
 PORT=8080
-DATABASE_PATH=./data/asean_tracker.db
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/asean_tracker?sslmode=disable
+MIGRATIONS_PATH=backend/migrations
 AUTH0_DOMAIN=
 AUTH0_AUDIENCE=
 ```

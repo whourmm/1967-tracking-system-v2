@@ -11,18 +11,19 @@ import (
 
 func main() {
 	port := getenv("PORT", "8080")
-	dbPath := getenv("DATABASE_PATH", "./data/asean_tracker.db")
+	databaseURL := getenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/asean_tracker?sslmode=disable")
+	migrationsPath := getenv("MIGRATIONS_PATH", "migrations")
 
-	db, err := database.Open(dbPath)
+	db, err := database.Open(databaseURL, migrationsPath)
 	if err != nil {
-		log.Fatalf("failed to open database at %s: %v", dbPath, err)
+		log.Fatalf("failed to open database: %v", err)
 	}
 	defer db.Close()
 
 	handler := routes.New(db)
 
 	addr := ":" + port
-	log.Printf("backend listening on %s (db: %s)", addr, dbPath)
+	log.Printf("backend listening on %s", addr)
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatal(err)
 	}

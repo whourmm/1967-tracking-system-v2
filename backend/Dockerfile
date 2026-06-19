@@ -18,6 +18,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/bin/api /app/api
+COPY --from=builder /app/migrations /app/migrations
 
 EXPOSE 8080
 
