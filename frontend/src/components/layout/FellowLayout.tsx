@@ -59,17 +59,31 @@ const mainNav = [
   },
 ];
 
+function FellowshipBrand() {
+  return (
+    <div className="flex min-w-0 items-center gap-2.5" aria-label="SEA Bridge | 1967 Fellowship">
+      <span className="block h-8 w-[5.5rem] shrink-0 overflow-hidden" aria-hidden="true">
+        <img
+          src="/nextgen_logo.svg"
+          alt=""
+          className="h-8 max-w-none"
+        />
+      </span>
+      <span className="h-7 w-px shrink-0 bg-slate-300" aria-hidden="true" />
+      <p className="flex shrink-0 flex-col whitespace-nowrap text-[11px] font-extrabold uppercase leading-[0.9rem] tracking-tight text-slate-900">
+        <span className="text-brand-600">1967</span>
+        <span>Fellowship</span>
+      </p>
+    </div>
+  );
+}
+
 function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
       {/* Brand */}
-      <div className="flex h-16 flex-col justify-center border-b border-slate-100 px-6">
-        <p className="text-base font-bold tracking-tight text-slate-900">
-          <span className="text-brand-600">1967</span> Fellowship
-        </p>
-        <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
-          Fellow Portal
-        </p>
+      <div className="flex h-16 items-center border-b border-slate-100 px-5">
+        <FellowshipBrand />
       </div>
 
       {/* Navigation */}
@@ -477,14 +491,7 @@ function MobileFellowDrawer({
         aria-label="Fellow menu"
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-          <div>
-            <p className="text-sm font-bold tracking-tight text-slate-900">
-              <span className="text-brand-600">1967</span> Fellowship
-            </p>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Fellow Portal
-            </p>
-          </div>
+          <FellowshipBrand />
           <button
             type="button"
             onClick={onClose}
