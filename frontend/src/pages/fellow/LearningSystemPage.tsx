@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   BookOpen,
   CheckCircle2,
+  ChevronDown,
   Circle,
   ClipboardList,
   ExternalLink,
@@ -14,9 +15,10 @@ import {
   X,
 } from "lucide-react";
 import { Card } from "../../components/ui/Card";
-import { assignments, learningBlocks, specialCurriculum } from "../../data/mock";
+import { learningBlocks, specialCurriculum } from "../../data/mock";
 import { cn } from "../../lib/cn";
-import type { LearningLink } from "../../types";
+import { useFellowAssignments } from "../../lib/assignmentStore";
+import type { Assignment, LearningLink } from "../../types";
 
 // A single checkable item in the Learning System. `id` is a stable key used to
 // persist completion; `defaultDone` seeds completion from existing data (e.g. a
@@ -69,7 +71,7 @@ function useCompletion() {
 // Build the "Submit" items for a block from the shared assignments list, so the
 // Learning System and Assignments pages stay in sync. A form starts complete if
 // it has already been submitted/graded.
-function assignmentItems(blockId: string): Item[] {
+function assignmentItems(blockId: string, assignments: Assignment[]): Item[] {
   return assignments
     .filter((a) => a.block === blockId)
     .map((a) => ({
@@ -101,16 +103,6 @@ const kindLabels: Record<LearningLink["kind"], string> = {
 
 // Item kinds that actually appear in the data, so the Type filter only offers
 // meaningful options.
-const allKinds = [
-  ...new Set<LearningLink["kind"]>([
-    ...specialCurriculum.flatMap((c) => (c.links ?? []).map((l) => l.kind)),
-    ...learningBlocks.flatMap((b) =>
-      [...(b.videos ?? []), ...(b.articles ?? [])].map((l) => l.kind)
-    ),
-    ...(assignments.length > 0 ? (["form"] as const) : []),
-  ]),
-];
-
 const kindMeta: Record<
   LearningLink["kind"],
   { icon: typeof FileText; classes: string }
@@ -258,12 +250,23 @@ function LinkGroup({
 type StatusFilter = "" | "todo" | "done";
 
 export default function LearningSystemPage() {
+  const assignments = useFellowAssignments();
   const { isDone, toggle } = useCompletion();
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("");
   const [status, setStatus] = useState<StatusFilter>("");
   const [blockFilter, setBlockFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
+  const allKinds = [
+    ...new Set<LearningLink["kind"]>([
+      ...specialCurriculum.flatMap((c) => (c.links ?? []).map((l) => l.kind)),
+      ...learningBlocks.flatMap((b) =>
+        [...(b.videos ?? []), ...(b.articles ?? [])].map((l) => l.kind)
+      ),
+      ...(assignments.length > 0 ? (["form"] as const) : []),
+    ]),
+  ];
 
   const matches = (item: Item) => {
     const q = query.toLowerCase().trim();
@@ -296,7 +299,7 @@ export default function LearningSystemPage() {
       const videos = toItems(`block:${block.id}:v`, block.videos);
       const articles = toItems(`block:${block.id}:a`, block.articles);
       const resources = [...videos, ...articles];
-      const forms = assignmentItems(block.id);
+      const forms = assignmentItems(block.id, assignments);
       return {
         block,
         all: [...resources, ...forms],
@@ -313,6 +316,18 @@ export default function LearningSystemPage() {
     setKind("");
     setStatus("");
     setBlockFilter("");
+  };
+
+  const toggleBlock = (blockId: string) => {
+    setExpandedBlocks((prev) => {
+      const next = new Set(prev);
+      if (next.has(blockId)) {
+        next.delete(blockId);
+      } else {
+        next.add(blockId);
+      }
+      return next;
+    });
   };
 
   const activeFilters = [
@@ -568,26 +583,35 @@ export default function LearningSystemPage() {
         {blockSections.map(({ block, all, resources, forms }) => {
           const completed = all.filter(isDone).length;
           const allDone = all.length > 0 && completed === all.length;
+          const isExpanded = expandedBlocks.has(block.id);
 
           return (
             <Card key={block.id} className="overflow-hidden">
-              <div className="flex items-start gap-3 border-b border-slate-100 px-4 py-4 sm:gap-4 sm:px-5">
+              <button
+                type="button"
+                onClick={() => toggleBlock(block.id)}
+                aria-expanded={isExpanded}
+                aria-label={isExpanded ? `Collapse block ${block.id}` : `Expand block ${block.id}`}
+                className="flex w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-slate-50 sm:gap-4 sm:px-5"
+              >
                 <span
                   className={cn(
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg font-bold",
-                    allDone
-                      ? "bg-emerald-50 text-emerald-600"
-                      : "bg-brand-600 text-white"
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition",
+                    allDone ? "text-emerald-600" : "text-brand-600"
                   )}
                 >
-                  {block.id}
+                  <ChevronDown
+                    className={cn(
+                      "h-5 w-5 transition-transform duration-200",
+                      isExpanded && "rotate-180"
+                    )}
+                  />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                     <span className="text-xs font-semibold uppercase tracking-wider text-brand-600">
                       Block {block.id}
                     </span>
-                    {/* Per-block progress */}
                     <span
                       className={cn(
                         "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -609,24 +633,26 @@ export default function LearningSystemPage() {
                     </p>
                   )}
                 </div>
-              </div>
+              </button>
 
-              <div className="space-y-5 p-5">
-                <LinkGroup
-                  label="Resources"
-                  icon={BookOpen}
-                  items={resources}
-                  isDone={isDone}
-                  toggle={toggle}
-                />
-                <LinkGroup
-                  label="Submit"
-                  icon={ClipboardList}
-                  items={forms}
-                  isDone={isDone}
-                  toggle={toggle}
-                />
-              </div>
+              {isExpanded && (
+                <div className="space-y-5 border-t border-slate-100 p-5">
+                  <LinkGroup
+                    label="Resources"
+                    icon={BookOpen}
+                    items={resources}
+                    isDone={isDone}
+                    toggle={toggle}
+                  />
+                  <LinkGroup
+                    label="Submit"
+                    icon={ClipboardList}
+                    items={forms}
+                    isDone={isDone}
+                    toggle={toggle}
+                  />
+                </div>
+              )}
             </Card>
           );
         })}

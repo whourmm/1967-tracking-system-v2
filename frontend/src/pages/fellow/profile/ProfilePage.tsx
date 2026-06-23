@@ -62,7 +62,17 @@ function VisibilityToggle({ visibility, onChange }: { visibility: Visibility; on
   );
 }
 
-export default function ProfilePage() {
+interface ProfilePageProps {
+  title?: string;
+  description?: string;
+  showHeader?: boolean;
+}
+
+export default function ProfilePage({
+  title = "My Profile",
+  description = "Manage your personal information, contacts, and availability.",
+  showHeader = true,
+}: ProfilePageProps) {
   const [editingInfo, setEditingInfo] = useState(false);
   const [saved, setSaved] = useState(false);
   const [displayName, setDisplayName] = useState(currentFellow.name);
@@ -97,10 +107,12 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">My Profile</h1>
-        <p className="mt-1 text-sm text-slate-500">Manage your personal information, contacts, and availability.</p>
-      </div>
+      {showHeader && (
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{title}</h1>
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4">

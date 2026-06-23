@@ -14,8 +14,9 @@ import {
   Home,
   Megaphone,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
-  User,
   Users,
   X,
 } from "lucide-react";
@@ -59,24 +60,82 @@ const mainNav = [
   },
 ];
 
-function Sidebar() {
+function FellowshipBrand() {
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
+    <div className="flex min-w-0 items-center gap-2.5" aria-label="SEA Bridge | 1967 Fellowship">
+      <span className="block h-8 w-[5.5rem] shrink-0 overflow-hidden" aria-hidden="true">
+        <img
+          src="/nextgen_logo.svg"
+          alt=""
+          className="h-8 max-w-none"
+        />
+      </span>
+      <span className="h-7 w-px shrink-0 bg-slate-300" aria-hidden="true" />
+      <p className="flex shrink-0 flex-col whitespace-nowrap text-[11px] font-extrabold uppercase leading-[0.9rem] tracking-tight text-slate-900">
+        <span className="text-brand-600">1967</span>
+        <span>Fellowship</span>
+      </p>
+    </div>
+  );
+}
+
+function Sidebar({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <aside
+      className={cn(
+        "fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-200 bg-white transition-[width] duration-200 ease-out lg:flex",
+        collapsed ? "w-[4.5rem]" : "w-64"
+      )}
+    >
       {/* Brand */}
-      <div className="flex h-16 flex-col justify-center border-b border-slate-100 px-6">
-        <p className="text-base font-bold tracking-tight text-slate-900">
-          <span className="text-brand-600">1967</span> Fellowship
-        </p>
-        <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
-          Fellow Portal
-        </p>
+      <div
+        className={cn(
+          "flex h-16 shrink-0 items-center border-b border-slate-100",
+          collapsed ? "justify-center px-2" : "justify-between gap-2 px-3"
+        )}
+      >
+        {collapsed ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="group relative flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+            aria-label="Expand sidebar"
+            title="Expand sidebar"
+          >
+            <span className="block h-8 w-8 overflow-hidden transition-opacity group-hover:opacity-0" aria-hidden="true">
+              <img src="/nextgen_logo.svg" alt="" className="h-8 max-w-none" />
+            </span>
+            <PanelLeftOpen className="absolute h-5 w-5 opacity-0 transition-opacity group-hover:opacity-100" />
+          </button>
+        ) : (
+          <>
+            <FellowshipBrand />
+            <button
+              type="button"
+              onClick={onToggle}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Collapse sidebar"
+              title="Collapse sidebar"
+            >
+              <PanelLeftClose className="h-5 w-5" />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-5">
-        <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-          Menu
-        </p>
+      <nav className={cn("flex-1 overflow-y-auto py-5", collapsed ? "px-2" : "px-3")}>
+        {!collapsed && (
+          <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Menu
+          </p>
+        )}
         <ul className="space-y-1">
           {mainNav.map((item) => (
             <li key={item.to}>
@@ -85,12 +144,14 @@ function Sidebar() {
                 end={item.end}
                 className={({ isActive }) =>
                   cn(
-                    "group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                    "group flex min-h-11 items-center rounded-md text-sm font-medium transition-colors",
+                    collapsed ? "justify-center px-2" : "gap-3 px-3",
                     isActive
                       ? "bg-brand-50 text-brand-700"
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                   )
                 }
+                title={collapsed ? item.label : undefined}
               >
                 {({ isActive }) => (
                   <>
@@ -102,7 +163,7 @@ function Sidebar() {
                           : "text-slate-400 group-hover:text-slate-600"
                       )}
                     />
-                    {item.label}
+                    {!collapsed && item.label}
                   </>
                 )}
               </NavLink>
@@ -113,17 +174,19 @@ function Sidebar() {
       </nav>
 
       {/* Help + profile */}
-      <div className="border-t border-slate-100 p-3">
+      <div className={cn("border-t border-slate-100", collapsed ? "p-2" : "p-3")}>
         <NavLink
           to="/fellow/settings"
           className={({ isActive }) =>
             cn(
-              "mb-1 flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+              "mb-1 flex min-h-11 items-center rounded-md text-sm font-medium transition-colors",
+              collapsed ? "justify-center px-2" : "gap-3 px-3",
               isActive
                 ? "bg-brand-50 text-brand-700"
                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             )
           }
+          title={collapsed ? "Settings" : undefined}
         >
           {({ isActive }) => (
             <>
@@ -133,7 +196,7 @@ function Sidebar() {
                   isActive ? "text-brand-600" : "text-slate-400"
                 )}
               />
-              Settings
+              {!collapsed && "Settings"}
             </>
           )}
         </NavLink>
@@ -365,6 +428,7 @@ function Topbar({
   onSelectSprint,
   mobileMenuOpen,
   onOpenMobileMenu,
+  sidebarCollapsed,
 }: {
   selectedSprint: Sprint;
   sprintIndex: number;
@@ -373,6 +437,7 @@ function Topbar({
   onSelectSprint: (index: number) => void;
   mobileMenuOpen: boolean;
   onOpenMobileMenu: () => void;
+  sidebarCollapsed: boolean;
 }) {
   const user = getCurrentUser();
   const displayName = user?.role === "fellow" ? user.name : currentFellow.name;
@@ -380,7 +445,12 @@ function Topbar({
     user?.role === "fellow" ? user.initials : currentFellow.avatarInitials;
 
   return (
-    <header className="fixed top-0 right-0 left-0 z-20 grid min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur sm:px-4 lg:left-64 lg:flex lg:min-h-16 lg:px-8">
+    <header
+      className={cn(
+        "fixed top-0 right-0 left-0 z-20 grid min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur transition-[left] duration-200 ease-out sm:px-4 lg:flex lg:min-h-16 lg:px-8",
+        sidebarCollapsed ? "lg:left-[4.5rem]" : "lg:left-64"
+      )}
+    >
       <div className="flex min-w-0 items-center lg:hidden">
         <MobileFellowMenuButton
           open={mobileMenuOpen}
@@ -397,7 +467,7 @@ function Topbar({
       <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
         <NotificationBell />
         <NavLink
-          to="/fellow/profile"
+          to="/fellow/settings"
           className={({ isActive }) =>
             cn(
               "hidden items-center gap-2.5 rounded-md border py-1.5 pl-1.5 pr-3 transition-colors lg:flex",
@@ -449,7 +519,6 @@ function MobileFellowDrawer({
 }) {
   const menuItems = [
     ...mainNav,
-    { to: "/fellow/profile", label: "Profile", mobileLabel: "Profile", icon: User },
     { to: "/fellow/settings", label: "Settings", mobileLabel: "Settings", icon: Settings },
   ];
 
@@ -477,14 +546,7 @@ function MobileFellowDrawer({
         aria-label="Fellow menu"
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-          <div>
-            <p className="text-sm font-bold tracking-tight text-slate-900">
-              <span className="text-brand-600">1967</span> Fellowship
-            </p>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Fellow Portal
-            </p>
-          </div>
+          <FellowshipBrand />
           <button
             type="button"
             onClick={onClose}
@@ -543,6 +605,7 @@ export default function FellowLayout() {
   );
   const [sprintIndex, setSprintIndex] = useState(currentIndex);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const selectedSprint = sprints[sprintIndex];
   const goPreviousSprint = () => setSprintIndex((i) => Math.max(i - 1, 0));
   const goNextSprint = () =>
@@ -554,8 +617,16 @@ export default function FellowLayout() {
 
   return (
     <div className="min-h-screen overflow-x-clip bg-slate-50">
-      <Sidebar />
-      <div className="min-w-0 lg:pl-64">
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed((value) => !value)}
+      />
+      <div
+        className={cn(
+          "min-w-0 transition-[padding] duration-200 ease-out",
+          sidebarCollapsed ? "lg:pl-[4.5rem]" : "lg:pl-64"
+        )}
+      >
         <Topbar
           selectedSprint={selectedSprint}
           sprintIndex={sprintIndex}
@@ -564,6 +635,7 @@ export default function FellowLayout() {
           onSelectSprint={setSprintIndex}
           mobileMenuOpen={mobileMenuOpen}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
+          sidebarCollapsed={sidebarCollapsed}
         />
         <main className="mx-auto max-w-6xl px-4 pb-10 pt-20 sm:px-6 lg:px-8 lg:pt-24">
           <Outlet context={{ selectedSprint } satisfies FellowOutletContext} />
