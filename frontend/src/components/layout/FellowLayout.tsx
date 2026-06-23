@@ -17,7 +17,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
-  User,
   Users,
   X,
 } from "lucide-react";
@@ -468,7 +467,7 @@ function Topbar({
       <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
         <NotificationBell />
         <NavLink
-          to="/fellow/profile"
+          to="/fellow/settings"
           className={({ isActive }) =>
             cn(
               "hidden items-center gap-2.5 rounded-md border py-1.5 pl-1.5 pr-3 transition-colors lg:flex",
@@ -520,7 +519,6 @@ function MobileFellowDrawer({
 }) {
   const menuItems = [
     ...mainNav,
-    { to: "/fellow/profile", label: "Profile", mobileLabel: "Profile", icon: User },
     { to: "/fellow/settings", label: "Settings", mobileLabel: "Settings", icon: Settings },
   ];
 

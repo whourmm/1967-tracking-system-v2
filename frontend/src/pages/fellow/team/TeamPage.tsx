@@ -25,7 +25,7 @@ const countryFlag: Record<string, string> = {
 };
 
 function memberProfileTo(member: TeamMember, isMe: boolean) {
-  if (isMe) return "/fellow/profile";
+  if (isMe) return "/fellow/settings";
   const fellowRecord = allFellows.find((f) => f.name === member.name);
   return fellowRecord ? `/fellow/roster/${fellowRecord.id}` : undefined;
 }
@@ -299,10 +299,10 @@ function TeamAvailability({ members }: { members: TeamMember[] }) {
         <p className="text-xs text-slate-400">
           Update your own days on{" "}
           <Link
-            to="/fellow/profile"
+            to="/fellow/settings"
             className="font-medium text-brand-600 hover:text-brand-700"
           >
-            My Profile
+            Account Settings
           </Link>
           .
         </p>
