@@ -50,6 +50,7 @@ Table fellow {
   status     varchar  [note: 'confirmed, pending, dropped']
   group_id   int      [ref: > group.id]
   teamflow   varchar
+  availability_visible boolean [note: 'whether weekly availability is visible to teammates']
 }
 
 Table sprint {
@@ -87,6 +88,19 @@ Table team {
   created_by int       [note: '-> user.id (audit)']
 }
 
+Table learning_block {
+  id          int       [pk]
+  cohort_id   int       [ref: > cohort.id]
+  code        varchar   [note: 'A, B, C, or a stable special section key']
+  kind        varchar   [note: 'block, special']
+  title       varchar
+  description text
+  sort_order  int
+  created_at  timestamp
+  update_at   timestamp
+  created_by  int       [note: '-> user.id (audit)']
+}
+
 Table case {
   id               int       [pk]
   cohort_id        int       [ref: > cohort.id]
@@ -104,17 +118,31 @@ Table case {
   create_by        int       [note: '-> user.id (audit)']
 }
 
+Table case_submission {
+  case_id        int       [ref: > case.id]
+  team_id        int       [ref: > team.id]
+  status         varchar   [note: 'pending, submitted, reviewed']
+  submission_url varchar
+  submitted_at   timestamp [null]
+  reviewed_at    timestamp [null]
+  updated_at     timestamp
+  indexes {
+    (case_id, team_id) [pk]
+  }
+}
+
 Table assignment {
-  id          int       [pk]
-  cohort_id   int       [ref: > cohort.id]
-  sprint_id   int       [ref: > sprint.id]
-  title       varchar
-  form_url    varchar
-  deadline    timestamp
-  description text
-  created_at  timestamp
-  update_at   timestamp
-  created_by  int       [note: '-> user.id (audit)']
+  id                int       [pk]
+  cohort_id         int       [ref: > cohort.id]
+  sprint_id         int       [ref: > sprint.id]
+  learning_block_id int       [ref: > learning_block.id, null]
+  title             varchar
+  form_url          varchar
+  deadline          timestamp
+  description       text
+  created_at        timestamp
+  update_at         timestamp
+  created_by        int       [note: '-> user.id (audit)']
 }
 
 // This IS the junction table for the fellow <-> assignment N:N.
@@ -124,19 +152,26 @@ Table assignment_submission {
   member_id     int       [ref: > user.id, note: 'the fellow (= user.id) who submitted']
   submit_status int       [note: '0 = pending, 1 = submitted; overdue is derived when 0 and assignment.deadline has passed']
   submitted_at  timestamp [null, note: 'set when submit_status = 1']
+  grade         varchar   [null, note: 'optional display grade for graded submissions']
   indexes {
     (assignment_id, member_id) [pk]
   }
 }
 
 Table resource {
-  id          int       [pk]
-  type        varchar   [note: 'CASE, LECTURE, ARTICLE']
-  name        varchar
-  description text
-  created_at  timestamp
-  updated_at  timestamp
-  created_by  int       [note: '-> user.id']
+  id                int       [pk]
+  type              varchar   [note: 'CASE, LECTURE, ARTICLE, GUIDE, TEMPLATE, VIDEO, PDF, EXTERNAL']
+  name              varchar
+  description       text
+  url               varchar
+  duration          varchar
+  author            varchar
+  tag               varchar
+  learning_block_id int       [ref: > learning_block.id, null]
+  sort_order        int
+  created_at        timestamp
+  updated_at        timestamp
+  created_by        int       [note: '-> user.id']
 }
 
 // Tracks whether a fellow has read/opened/completed a resource.
@@ -162,8 +197,24 @@ Table events {
   cohort_id   int       [ref: > cohort.id]
   name        varchar
   description text
+  event_date  date
+  all_day     boolean
+  start_time  varchar
+  end_time    varchar
+  timezone    varchar
+  location    varchar
   user_id     int       [ref: > user.id, note: 'owner']
   created_at  timestamp
   updated_at  timestamp
   create_by   int       [note: '-> user.id (audit)']
+}
+
+Table fellow_availability {
+  member_id   int       [ref: > user.id, note: 'the fellow (= user.id)']
+  day_of_week varchar   [note: 'Mon, Tue, Wed, Thu, Fri, Sat, Sun']
+  available   boolean
+  updated_at  timestamp
+  indexes {
+    (member_id, day_of_week) [pk]
+  }
 }

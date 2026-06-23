@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -36,11 +35,6 @@ func Open(databaseURL, migrationsPath string) (*sql.DB, error) {
 }
 
 func migrate(db *sql.DB, migrationsPath string) error {
-	dir, err := resolveMigrationsDir(migrationsPath)
-	if err != nil {
-		return err
-	}
-
 	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version TEXT PRIMARY KEY,
@@ -50,7 +44,7 @@ func migrate(db *sql.DB, migrationsPath string) error {
 		return err
 	}
 
-	entries, err := os.ReadDir(dir)
+	entries, err := os.ReadDir(migrationsPath)
 	if err != nil {
 		return err
 	}
@@ -72,7 +66,7 @@ func migrate(db *sql.DB, migrationsPath string) error {
 			continue
 		}
 
-		path := filepath.Join(dir, file)
+		path := filepath.Join(migrationsPath, file)
 		sqlBytes, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -87,22 +81,6 @@ func migrate(db *sql.DB, migrationsPath string) error {
 	}
 
 	return nil
-}
-
-func resolveMigrationsDir(configured string) (string, error) {
-	candidates := []string{}
-	if configured != "" {
-		candidates = append(candidates, configured)
-	}
-	candidates = append(candidates, "migrations", "backend/migrations", "../migrations")
-
-	for _, candidate := range candidates {
-		info, err := os.Stat(candidate)
-		if err == nil && info.IsDir() {
-			return candidate, nil
-		}
-	}
-	return "", errors.New("migrations directory not found")
 }
 
 func seed(db *sql.DB) error {

@@ -94,10 +94,29 @@ http://localhost:5173
 
 ## Docker Development
 
+Start the backend stack in the background:
+
+```powershell
+docker compose up -d db backend
+```
+
+Rebuild and start the backend stack:
+
+```powershell
+docker compose up -d --build db backend
+```
+
 Start the full stack:
 
-```bash
-docker compose up --build
+```powershell
+docker compose up -d --build
+```
+
+Reset the local PostgreSQL volume after schema changes:
+
+```powershell
+docker compose down -v
+docker compose up -d --build db backend
 ```
 
 Services:
@@ -106,6 +125,12 @@ Services:
 - Backend API: `http://localhost:8080`
 - PostgreSQL: `localhost:5432`
 - Database name: `asean_tracker`
+
+Backend logs:
+
+```powershell
+docker compose logs -f backend
+```
 
 ## Environment Variables
 
@@ -133,11 +158,20 @@ MIGRATIONS_PATH=backend/migrations
 
 ## Backend API
 
-Current minimal endpoints:
+Implemented endpoints:
 
 ```txt
 GET /api/health
 GET /api/fellows
+```
+
+Planned API paths are registered as skeleton routes and return `501 Not Implemented`:
+
+```json
+{
+  "data": null,
+  "error": "not implemented"
+}
 ```
 
 The backend connects to PostgreSQL, applies SQL migrations on startup, and seeds demo fellow data when the database is empty. The base schema lives in:
@@ -156,16 +190,38 @@ docs/API.md
 
 Frontend:
 
-```bash
+```powershell
 cd frontend
 npm run build
 ```
 
 Backend:
 
-```bash
+```powershell
 cd backend
 go test ./...
+```
+
+Run Go commands from `backend`, not the repo root.
+
+API smoke test:
+
+```powershell
+curl http://localhost:8080/api/health
+curl http://localhost:8080/api/fellows
+curl http://localhost:8080/api/me
+```
+
+Database migration check:
+
+```powershell
+docker compose exec db psql -U postgres -d asean_tracker -c "select version from schema_migrations;"
+```
+
+Expected migration version:
+
+```txt
+001_init.sql
 ```
 
 ## Notes

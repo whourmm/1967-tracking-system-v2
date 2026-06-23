@@ -5,8 +5,9 @@ Backend API reference and implementation roadmap for the ASEAN 1967 Fellowship t
 This document is intentionally split between:
 
 - **Implemented**: registered today in `backend/internal/routes/routes.go`.
-- **Planned**: contract expected by the app and backed by the current PostgreSQL schema, but not routed yet.
+- **Planned**: contract expected by the app and backed by the current PostgreSQL schema; skeleton routes may return `501 Not Implemented`.
 - **Schema gap**: frontend behavior exists or is expected, but the current schema does not yet fully support the contract.
+- **Frontend-only**: intentionally kept in the web app for now.
 
 ## Base API
 
@@ -48,7 +49,6 @@ Source-of-truth data model:
 ```txt
 schema.dbml
 backend/migrations/001_init.sql
-backend/migrations/003_add_resource_reads_and_submit_status.sql
 ```
 
 ## CORS
@@ -118,7 +118,7 @@ Use snake_case response fields for backend contracts.
 | `PATCH` | `/api/admin/resources/{resourceId}` | Planned | Admin resources |
 | `DELETE` | `/api/admin/resources/{resourceId}` | Planned | Admin resources |
 | `GET` | `/api/admin/resources/read-status` | Planned | Admin read tracking |
-| `GET` | `/api/fellow/learning` | Schema gap | Fellow learning system |
+| `GET` | `/api/fellow/learning` | Planned | Fellow learning system |
 | `GET` | `/api/cases` | Planned | Fellow assignments, admin cases |
 | `POST` | `/api/admin/cases` | Planned | Admin case management |
 | `PATCH` | `/api/admin/cases/{caseId}` | Planned | Admin case management |
@@ -126,11 +126,13 @@ Use snake_case response fields for backend contracts.
 | `GET` | `/api/teams` | Planned | Team builder, roster |
 | `GET` | `/api/fellow/team` | Planned | Fellow team page |
 | `POST` | `/api/admin/teams/assignments` | Planned | Admin team builder |
+| `GET` | `/api/progress` | Planned | Shared cohort progress |
+| `GET` | `/api/progress/fellows/{fellowId}` | Planned | Shared fellow progress detail |
 | `GET` | `/api/events` | Planned | Fellow/admin calendar |
-| `POST` | `/api/admin/events` | Schema gap | Admin event management |
-| `PATCH` | `/api/admin/events/{eventId}` | Schema gap | Admin event management |
+| `POST` | `/api/admin/events` | Planned | Admin event management |
+| `PATCH` | `/api/admin/events/{eventId}` | Planned | Admin event management |
 | `DELETE` | `/api/admin/events/{eventId}` | Planned | Admin event management |
-| `GET` | `/api/fellow/notifications` | Schema gap | Fellow notifications |
+| n/a | Web app notifications | Frontend-only | Fellow notifications |
 | `PATCH` | `/api/fellow/profile` | Schema gap | Fellow profile/settings |
 
 ## Implemented Endpoints
@@ -550,13 +552,15 @@ Response target `200`:
       "id": 1,
       "cohort_id": 1,
       "sprint_id": 4,
+      "learning_block_id": 3,
       "title": "Sprint reflection",
       "form_url": "https://forms.gle/example",
       "deadline": "2026-06-21T16:00:00Z",
       "description": "Submit your reflection.",
       "submit_status": 0,
       "status_name": "pending",
-      "submitted_at": null
+      "submitted_at": null,
+      "grade": null
     }
   ],
   "error": null
@@ -613,6 +617,7 @@ Response target `200`:
       "id": 1,
       "cohort_id": 1,
       "sprint_id": 4,
+      "learning_block_id": 3,
       "title": "Sprint reflection",
       "form_url": "https://forms.gle/example",
       "deadline": "2026-06-21T16:00:00Z",
@@ -643,6 +648,7 @@ Request target:
 {
   "cohort_id": 1,
   "sprint_id": 4,
+  "learning_block_id": 3,
   "title": "Sprint reflection",
   "form_url": "https://forms.gle/example",
   "deadline": "2026-06-21T16:00:00Z",
@@ -767,6 +773,12 @@ Response target `200`:
       "type": "ARTICLE",
       "name": "Customer interview guide",
       "description": "How to run useful discovery interviews.",
+      "url": "https://seabridge.example.com/articles/interviews",
+      "duration": "12 min read",
+      "author": "The Mom Test",
+      "tag": "Research",
+      "learning_block_id": 2,
+      "sort_order": 1,
       "created_at": "2026-06-18T12:00:00Z",
       "updated_at": "2026-06-18T12:00:00Z",
       "created_by": 10,
@@ -826,6 +838,12 @@ Response target `200`:
       "type": "ARTICLE",
       "name": "Customer interview guide",
       "description": "How to run useful discovery interviews.",
+      "url": "https://seabridge.example.com/articles/interviews",
+      "duration": "12 min read",
+      "author": "The Mom Test",
+      "tag": "Research",
+      "learning_block_id": 2,
+      "sort_order": 1,
       "read_count": 18,
       "total_fellows": 24,
       "created_at": "2026-06-18T12:00:00Z",
@@ -853,7 +871,13 @@ Request target:
 {
   "type": "ARTICLE",
   "name": "Customer interview guide",
-  "description": "How to run useful discovery interviews."
+  "description": "How to run useful discovery interviews.",
+  "url": "https://seabridge.example.com/articles/interviews",
+  "duration": "12 min read",
+  "author": "The Mom Test",
+  "tag": "Research",
+  "learning_block_id": 2,
+  "sort_order": 1
 }
 ```
 
@@ -920,15 +944,22 @@ Response target `200`:
 
 ### Fellow Learning System
 
-**Status:** Schema gap
+**Status:** Planned
 
 ```http
 GET /api/fellow/learning
 ```
 
-The frontend learning system expects blocks, special curriculum, external links, and form items grouped together. The current schema has `resource` and `assignment`, but no table for learning blocks, special curriculum sections, link ordering, external URLs, durations, authors, or tags.
+Returns blocks, special curriculum sections, resources, and assignment form items grouped for the fellow learning page.
 
-No stable response contract should be implemented until the schema is extended or the product accepts deriving this screen only from `resource` plus `assignment`.
+Schema support:
+
+| Need | Table/field |
+| --- | --- |
+| Blocks and special sections | `learning_block` |
+| External links and resources | `resource.url`, `resource.learning_block_id`, `resource.sort_order` |
+| Form assignments under a block | `assignment.learning_block_id` |
+| Fellow read progress | `resource_read` |
 
 ## Cases
 
@@ -1151,6 +1182,12 @@ Response target `200`:
       "cohort_id": 1,
       "name": "Sprint 4 Demo Day",
       "description": "Each team presents a 5-minute demo.",
+      "event_date": "2026-06-12",
+      "all_day": false,
+      "start_time": "14:00",
+      "end_time": "16:00",
+      "timezone": "Asia/Bangkok",
+      "location": "Online - Zoom",
       "user_id": 10,
       "created_at": "2026-06-18T12:00:00Z",
       "updated_at": "2026-06-18T12:00:00Z",
@@ -1163,25 +1200,25 @@ Response target `200`:
 
 ### Admin Create Event
 
-**Status:** Schema gap
+**Status:** Planned
 
 ```http
 POST /api/admin/events
 ```
 
-The admin event UI expects date, all-day flag, start time, end time, timezone, location, and calendar-link behavior. The current `events` table only stores `name`, `description`, `user_id`, audit fields, and cohort ownership.
+Creates an `events` row with the calendar fields needed by the admin event UI.
 
-Request target after schema support:
+Request target:
 
 ```json
 {
   "cohort_id": 1,
   "name": "Sprint 4 Demo Day",
   "description": "Each team presents a 5-minute demo.",
-  "date": "2026-06-12",
+  "event_date": "2026-06-12",
   "all_day": false,
-  "start": "14:00",
-  "end": "16:00",
+  "start_time": "14:00",
+  "end_time": "16:00",
   "timezone": "Asia/Bangkok",
   "location": "Online - Zoom"
 }
@@ -1189,13 +1226,13 @@ Request target after schema support:
 
 ### Admin Update Event
 
-**Status:** Schema gap
+**Status:** Planned
 
 ```http
 PATCH /api/admin/events/{eventId}
 ```
 
-Same schema gap as create event.
+Updates event metadata and calendar fields.
 
 ### Admin Delete Event
 
@@ -1209,17 +1246,45 @@ Deletes an `events` row.
 
 Response target `204`: no body.
 
+## Shared Progress Tracking
+
+Shared progress is derived from existing work tables. Do not store a separate progress row.
+
+### Cohort Progress Overview
+
+**Status:** Planned
+
+```http
+GET /api/progress
+```
+
+Returns a cohort-wide progress board visible to authenticated users.
+
+Progress sources:
+
+| Progress area | Source |
+| --- | --- |
+| Assignment progress | `assignment` plus `assignment_submission` |
+| Resource progress | `resource` plus `resource_read` |
+| Case/team progress | `case_submission` |
+
+### Fellow Progress Detail
+
+**Status:** Planned
+
+```http
+GET /api/progress/fellows/{fellowId}
+```
+
+Returns one fellow's assignment, resource, and case progress. Keep private account/settings fields out of this response.
+
 ## Frontend-Local Or Schema-Gap Features
 
 ### Fellow Notifications
 
-**Status:** Schema gap
+**Status:** Frontend-only
 
-```http
-GET /api/fellow/notifications
-```
-
-Notifications are currently mocked in the frontend. The database has no notification or announcement table.
+Notifications are intentionally web-app only for now. Do not add a notification table until notifications need server persistence, cross-device read state, or admin-authored announcements.
 
 ### Fellow Profile And Settings
 
@@ -1229,24 +1294,24 @@ Notifications are currently mocked in the frontend. The database has no notifica
 PATCH /api/fellow/profile
 ```
 
-The frontend profile/settings pages include display name, university, availability, profile visibility, notification preferences, and account settings. The current schema supports some user/fellow fields but not availability, field-level visibility, or settings preferences.
+The frontend profile/settings pages include display name, university, availability, profile visibility, notification preferences, and account settings. The schema now supports weekly availability and availability visibility, but notification preferences and general account settings remain frontend-local.
 
 ## Schema Alignment Notes
 
 | Frontend concept | Current support | Gap |
 | --- | --- | --- |
-| Learning blocks | No dedicated table | `learningBlocks` and `specialCurriculum` are frontend mocks. |
-| Learning links | Partial via `resource` | Missing URL, duration, author, tag, link ordering, block assignment, and link kind. |
-| Admin resource kinds | Partial via `resource.type` | Frontend uses `Guide`, `Template`, `Video`; schema allows `CASE`, `LECTURE`, `ARTICLE`. |
+| Learning blocks | Supported | `learning_block` stores regular blocks and special sections. |
+| Learning links | Supported | `resource` stores URL, duration, author, tag, order, and block assignment. |
+| Admin resource kinds | Supported | `resource.type` supports current and frontend-needed kinds. |
 | Resource read tracking | Supported | `resource_read(resource_id, member_id, read_at)` exists. |
 | Assignments | Supported | `assignment` and `assignment_submission` exist. |
 | Google Form sync audit | Partial | `api` table stores assignment sync timestamps, but not source response IDs or sync errors. |
-| Cases | Supported | `"case"` table exists with sprint/cohort relation and Drive link. |
+| Cases | Supported | `"case"` plus `case_submission` cover case metadata and team submission status. |
 | Team builder | Partial | `team`, `group`, and `fellow.team_id` exist; sprint-specific team assignment history is not modeled. |
-| Events | Partial | Missing event date/time/timezone/location fields expected by the UI. |
-| Notifications | Not supported | No notification table. |
-| Profile visibility | Not supported | No per-field visibility table or columns. |
-| Availability | Not supported | Currently frontend-local storage only. |
+| Events | Supported | `events` includes date, time, timezone, and location fields. |
+| Notifications | Frontend-only | No notification table by design for now. |
+| Profile visibility | Partial | `fellow.availability_visible` exists; no generic per-field visibility table. |
+| Availability | Supported | `fellow_availability(member_id, day_of_week)` stores weekly availability. |
 | Auth/session | Planned | Auth0 middleware stubs exist, but frontend auth is mock local state. |
 
 ## Status Codes
@@ -1269,6 +1334,9 @@ The frontend profile/settings pages include display name, university, availabili
 - New endpoints should use the response envelope.
 - `resource_read` uses `(resource_id, member_id)` as the natural primary key.
 - `assignment_submission` uses `(assignment_id, member_id)` as the natural primary key.
+- `case_submission` uses `(case_id, team_id)` as the natural primary key.
+- Shared progress should be aggregated from submission/read tables, not stored in a `progress` table.
 - `overdue` is not stored directly. It is derived from `submit_status = 0` plus the assignment deadline.
+- Notifications remain frontend-only until server persistence is actually needed.
 - Admin endpoints require server-side authorization once Auth0 is wired.
 - Schema changes should update both `schema.dbml` and SQL migrations.
