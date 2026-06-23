@@ -11,12 +11,12 @@ import {
 import { Card, CardHeader } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import {
-  assignments,
   caseAssignments,
   currentFellow,
   learningBlocks,
   teamMembers,
 } from "../../data/mock";
+import { useFellowAssignments } from "../../lib/assignmentStore";
 import {
   daysUntil,
   deadlineLabel,
@@ -27,44 +27,6 @@ import { cn } from "../../lib/cn";
 import { flagFor } from "../../lib/cohort";
 import type { TeamMember } from "../../types";
 import type { FellowOutletContext } from "../../components/layout/FellowLayout";
-
-const stats = [
-  {
-    label: "Assignments due",
-    value: assignments.filter((a) => a.status === "pending").length,
-    sub: "this sprint",
-    icon: ClipboardList,
-    color: "text-amber-600 bg-amber-50",
-  },
-  {
-    label: "Completed",
-    value: assignments.filter(
-      (a) => a.status === "graded" || a.status === "submitted"
-    ).length,
-    sub: "all time",
-    icon: CheckCircle2,
-    color: "text-emerald-600 bg-emerald-50",
-  },
-  {
-    label: "Forms submitted",
-    value:
-      assignments.filter(
-        (a) => a.status === "graded" || a.status === "submitted"
-      ).length +
-      " / " +
-      assignments.length,
-    sub: "across all blocks",
-    icon: BookOpen,
-    color: "text-sky-600 bg-sky-50",
-  },
-  {
-    label: "Overdue",
-    value: assignments.filter((a) => a.status === "overdue").length,
-    sub: "needs attention",
-    icon: Clock,
-    color: "text-brand-600 bg-brand-50",
-  },
-];
 
 // TeamFlow archetype chip colors.
 const teamflowChip: Record<TeamMember["teamflow"], string> = {
@@ -103,6 +65,40 @@ function formatSprintDate(date: Date) {
 
 export default function FellowDashboard() {
   const { selectedSprint } = useOutletContext<FellowOutletContext>();
+  const assignments = useFellowAssignments();
+  const completedAssignments = assignments.filter(
+    (assignment) => assignment.status === "graded" || assignment.status === "submitted"
+  ).length;
+  const stats = [
+    {
+      label: "Assignments due",
+      value: assignments.filter((a) => a.status === "pending").length,
+      sub: "this sprint",
+      icon: ClipboardList,
+      color: "text-amber-600 bg-amber-50",
+    },
+    {
+      label: "Completed",
+      value: completedAssignments,
+      sub: "all time",
+      icon: CheckCircle2,
+      color: "text-emerald-600 bg-emerald-50",
+    },
+    {
+      label: "Forms submitted",
+      value: `${completedAssignments} / ${assignments.length}`,
+      sub: "across all blocks",
+      icon: BookOpen,
+      color: "text-sky-600 bg-sky-50",
+    },
+    {
+      label: "Overdue",
+      value: assignments.filter((a) => a.status === "overdue").length,
+      sub: "needs attention",
+      icon: Clock,
+      color: "text-brand-600 bg-brand-50",
+    },
+  ];
 
   const sprintDates = getSprintDates(
     selectedSprint.startsOn,

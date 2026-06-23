@@ -22,6 +22,7 @@ import { allFellows, caseAssignments } from "../../data/mock";
 import { formatShortDate } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import { renumberTeamName, teamNameMap } from "../../lib/teams";
+import { loadAdminAssignments, saveAdminAssignments } from "../../lib/assignmentStore";
 import type { AdminAssignment } from "../../types";
 
 const TOTAL = allFellows.length;
@@ -85,9 +86,7 @@ function fetchSheetSubmissions(task: AdminAssignment): number[] {
 const SYNC_MS = 750; // simulated Apps Script round-trip
 
 export default function FormTracker() {
-  const [tasks, setTasks] = useState<AdminAssignment[]>(() =>
-    adminAssignments.map((a) => ({ ...a, submittedIds: [...a.submittedIds] }))
-  );
+  const [tasks, setTasks] = useState<AdminAssignment[]>(loadAdminAssignments);
   const [filter, setFilter] = useState<TaskFilter>("all");
   const [sprintFilter, setSprintFilter] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -113,6 +112,10 @@ export default function FormTracker() {
   const [syncing, setSyncing] = useState<Set<number>>(new Set());
 
   const { showToast, toast } = useToast();
+
+  useEffect(() => {
+    saveAdminAssignments(tasks);
+  }, [tasks]);
 
   // Keep the "X ago" labels fresh without per-second churn.
   useEffect(() => {

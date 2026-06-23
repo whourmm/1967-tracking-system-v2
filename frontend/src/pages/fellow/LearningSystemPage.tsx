@@ -15,9 +15,10 @@ import {
   X,
 } from "lucide-react";
 import { Card } from "../../components/ui/Card";
-import { assignments, learningBlocks, specialCurriculum } from "../../data/mock";
+import { learningBlocks, specialCurriculum } from "../../data/mock";
 import { cn } from "../../lib/cn";
-import type { LearningLink } from "../../types";
+import { useFellowAssignments } from "../../lib/assignmentStore";
+import type { Assignment, LearningLink } from "../../types";
 
 // A single checkable item in the Learning System. `id` is a stable key used to
 // persist completion; `defaultDone` seeds completion from existing data (e.g. a
@@ -70,7 +71,7 @@ function useCompletion() {
 // Build the "Submit" items for a block from the shared assignments list, so the
 // Learning System and Assignments pages stay in sync. A form starts complete if
 // it has already been submitted/graded.
-function assignmentItems(blockId: string): Item[] {
+function assignmentItems(blockId: string, assignments: Assignment[]): Item[] {
   return assignments
     .filter((a) => a.block === blockId)
     .map((a) => ({
@@ -102,16 +103,6 @@ const kindLabels: Record<LearningLink["kind"], string> = {
 
 // Item kinds that actually appear in the data, so the Type filter only offers
 // meaningful options.
-const allKinds = [
-  ...new Set<LearningLink["kind"]>([
-    ...specialCurriculum.flatMap((c) => (c.links ?? []).map((l) => l.kind)),
-    ...learningBlocks.flatMap((b) =>
-      [...(b.videos ?? []), ...(b.articles ?? [])].map((l) => l.kind)
-    ),
-    ...(assignments.length > 0 ? (["form"] as const) : []),
-  ]),
-];
-
 const kindMeta: Record<
   LearningLink["kind"],
   { icon: typeof FileText; classes: string }
@@ -259,6 +250,7 @@ function LinkGroup({
 type StatusFilter = "" | "todo" | "done";
 
 export default function LearningSystemPage() {
+  const assignments = useFellowAssignments();
   const { isDone, toggle } = useCompletion();
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("");
@@ -266,6 +258,15 @@ export default function LearningSystemPage() {
   const [blockFilter, setBlockFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
+  const allKinds = [
+    ...new Set<LearningLink["kind"]>([
+      ...specialCurriculum.flatMap((c) => (c.links ?? []).map((l) => l.kind)),
+      ...learningBlocks.flatMap((b) =>
+        [...(b.videos ?? []), ...(b.articles ?? [])].map((l) => l.kind)
+      ),
+      ...(assignments.length > 0 ? (["form"] as const) : []),
+    ]),
+  ];
 
   const matches = (item: Item) => {
     const q = query.toLowerCase().trim();
@@ -298,7 +299,7 @@ export default function LearningSystemPage() {
       const videos = toItems(`block:${block.id}:v`, block.videos);
       const articles = toItems(`block:${block.id}:a`, block.articles);
       const resources = [...videos, ...articles];
-      const forms = assignmentItems(block.id);
+      const forms = assignmentItems(block.id, assignments);
       return {
         block,
         all: [...resources, ...forms],

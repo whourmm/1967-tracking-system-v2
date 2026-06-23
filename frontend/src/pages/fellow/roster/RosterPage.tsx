@@ -2,9 +2,9 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart3, ChevronRight, Filter, GraduationCap, Search, TrendingUp, Users, X } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
-import { adminAssignments } from "../../../data/adminMock";
 import { allFellows, currentFellow } from "../../../data/mock";
-import type { FellowRecord, FellowStatus, TeamFlow } from "../../../types";
+import { useAdminAssignments } from "../../../lib/assignmentStore";
+import type { AdminAssignment, FellowRecord, FellowStatus, TeamFlow } from "../../../types";
 import { cn } from "../../../lib/cn";
 
 const teamflowChip: Record<TeamFlow, string> = {
@@ -22,21 +22,20 @@ const countryFlag: Record<string, string> = {
 const allCountries = [...new Set(allFellows.map((f) => f.country))].sort();
 const allTeamflows: TeamFlow[] = ["Initiator", "Translator", "Sharper", "Finisher"];
 const allTeams = [...new Set(allFellows.map((f) => f.team))].sort();
-const assignmentTotal = adminAssignments.length;
 const currentFellowRecord = allFellows.find((f) => f.name === currentFellow.name) ?? allFellows[0];
 
 function pct(done: number, total: number) {
   return total ? Math.round((done / total) * 100) : 0;
 }
 
-function fellowProgress(fellowId: number) {
-  const completed = adminAssignments.filter((assignment) =>
+function fellowProgress(fellowId: number, assignmentTasks: AdminAssignment[]) {
+  const completed = assignmentTasks.filter((assignment) =>
     assignment.submittedIds.includes(fellowId)
   ).length;
   return {
     completed,
-    total: assignmentTotal,
-    percent: pct(completed, assignmentTotal),
+    total: assignmentTasks.length,
+    percent: pct(completed, assignmentTasks.length),
   };
 }
 
@@ -52,6 +51,7 @@ function StatusPill({ status }: { status: FellowStatus }) {
 }
 
 export default function RosterPage() {
+  const assignmentTasks = useAdminAssignments();
   const [query, setQuery] = useState("");
   const [country, setCountry] = useState("");
   const [teamflow, setTeamflow] = useState<TeamFlow | "">("");
@@ -70,15 +70,15 @@ export default function RosterPage() {
   }, [query, country, teamflow, team]);
 
   const countryCount = new Set(allFellows.map((f) => f.country)).size;
-  const myProgress = fellowProgress(currentFellowRecord.id);
+  const myProgress = fellowProgress(currentFellowRecord.id, assignmentTasks);
   const otherFellows = allFellows.filter((f) => f.id !== currentFellowRecord.id);
   const fellowsAtOrBelowMe = otherFellows.filter(
-    (f) => fellowProgress(f.id).percent <= myProgress.percent
+    (f) => fellowProgress(f.id, assignmentTasks).percent <= myProgress.percent
   ).length;
   const relativeStanding = pct(fellowsAtOrBelowMe, otherFellows.length);
-  const averageCompleted = allFellows.reduce((sum, fellow) => sum + fellowProgress(fellow.id).completed, 0) / allFellows.length;
-  const averageProgress = pct(averageCompleted, assignmentTotal);
-  const topProgress = Math.max(...allFellows.map((fellow) => fellowProgress(fellow.id).percent));
+  const averageCompleted = allFellows.reduce((sum, fellow) => sum + fellowProgress(fellow.id, assignmentTasks).completed, 0) / allFellows.length;
+  const averageProgress = pct(averageCompleted, assignmentTasks.length);
+  const topProgress = Math.max(0, ...allFellows.map((fellow) => fellowProgress(fellow.id, assignmentTasks).percent));
   const activeFilters = [
     country && { label: `Country: ${country}`, clear: () => setCountry("") },
     teamflow && { label: `Archetype: ${teamflow}`, clear: () => setTeamflow("") },
@@ -194,7 +194,7 @@ export default function RosterPage() {
         ) : (
           <ul className="divide-y divide-slate-100">
             {filtered.map((fellow) => {
-              const progress = fellowProgress(fellow.id);
+              const progress = fellowProgress(fellow.id, assignmentTasks);
               const isMe = fellow.id === currentFellowRecord.id;
 
               return (

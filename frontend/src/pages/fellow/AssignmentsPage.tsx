@@ -10,9 +10,10 @@ import {
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { assignments, caseAssignments } from "../../data/mock";
+import { caseAssignments } from "../../data/mock";
 import { deadlineLabel, formatDate, formatShortDate } from "../../lib/format";
 import { cn } from "../../lib/cn";
+import { useFellowAssignments } from "../../lib/assignmentStore";
 import type { FellowOutletContext } from "../../components/layout/FellowLayout";
 import type {
   Assignment,
@@ -229,6 +230,7 @@ function QueueRow({ item }: { item: QueueItem }) {
 
 export default function AssignmentsPage() {
   const { selectedSprint } = useOutletContext<FellowOutletContext>();
+  const assignments = useFellowAssignments();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<QueueFilter>("pending");
   const currentSprintCase = caseAssignments.find(
@@ -265,7 +267,7 @@ export default function AssignmentsPage() {
       }));
 
     return [...learningItems, ...otherCaseItems].sort(sortByActionDate);
-  }, [selectedSprint.name]);
+  }, [assignments, selectedSprint.name]);
 
   const visible = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();

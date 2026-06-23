@@ -1,9 +1,10 @@
 import { CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
-import { adminAssignments, adminEvents, caseSubmissionStatus, learningReadIds, resourceReadIds } from "../../data/adminMock";
+import { adminEvents, caseSubmissionStatus, learningReadIds, resourceReadIds } from "../../data/adminMock";
 import { allFellows, caseAssignments } from "../../data/mock";
 import { formatShortDate } from "../../lib/format";
 import { renumberTeamName, sortTeamNames, teamNameMap } from "../../lib/teams";
+import { useAdminAssignments } from "../../lib/assignmentStore";
 
 const chartWidth = 630;
 const chartHeight = 210;
@@ -79,11 +80,6 @@ const caseRows = caseAssignments.map((assignment) => ({
 
 const caseSubmitted = caseRows.filter((assignment) => assignment.status === "submitted" || assignment.status === "reviewed").length;
 const completeTeams = teams.filter((team) => team.complete).length;
-const completeAssignments = adminAssignments.filter((assignment) => assignment.submittedIds.length === allFellows.length).length;
-const averageAssignmentPct = pct(
-  adminAssignments.reduce((sum, assignment) => sum + assignment.submittedIds.length, 0),
-  adminAssignments.length * allFellows.length
-);
 const trackedReadIds = [...Object.values(resourceReadIds), ...Object.values(learningReadIds)];
 const averageReadRate = pct(
   trackedReadIds.reduce((sum, ids) => sum + ids.length, 0),
@@ -92,11 +88,6 @@ const averageReadRate = pct(
 const fellowsNeedingReadFollowup = trackedReadIds.length
   ? allFellows.filter((fellow) => trackedReadIds.some((readIds) => !readIds.includes(fellow.id))).length
   : 0;
-
-const chartSeries = adminAssignments.map((assignment) => ({
-  label: shortTitle(assignment.title),
-  submissions: assignment.submittedIds.length,
-}));
 
 const upcomingEvents = [...adminEvents]
   .sort((a, b) => a.date.localeCompare(b.date))
@@ -111,11 +102,20 @@ const upcomingEvents = [...adminEvents]
     };
   });
 
-const assignmentRows = [...adminAssignments]
-  .sort((a, b) => pct(a.submittedIds.length, allFellows.length) - pct(b.submittedIds.length, allFellows.length))
-  .slice(0, 3);
-
 export default function AdminDashboard() {
+  const adminAssignments = useAdminAssignments();
+  const completeAssignments = adminAssignments.filter((assignment) => assignment.submittedIds.length === allFellows.length).length;
+  const averageAssignmentPct = pct(
+    adminAssignments.reduce((sum, assignment) => sum + assignment.submittedIds.length, 0),
+    adminAssignments.length * allFellows.length
+  );
+  const chartSeries = adminAssignments.map((assignment) => ({
+    label: shortTitle(assignment.title),
+    submissions: assignment.submittedIds.length,
+  }));
+  const assignmentRows = [...adminAssignments]
+    .sort((a, b) => pct(a.submittedIds.length, allFellows.length) - pct(b.submittedIds.length, allFellows.length))
+    .slice(0, 3);
   const submissionChart = getSubmissionChartData(chartSeries);
   const incompleteTeams = teams.filter((team) => !team.complete);
   const overdueAssignments = adminAssignments.filter((assignment) => assignment.submittedIds.length < allFellows.length);
