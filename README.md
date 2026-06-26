@@ -163,6 +163,26 @@ Implemented endpoints:
 ```txt
 GET /api/health
 GET /api/fellows
+GET /api/admin/overview
+GET /api/cases
+GET /api/admin/cases
+GET /api/admin/cases/{caseId}
+POST /api/admin/cases
+PATCH /api/admin/cases/{caseId}
+DELETE /api/admin/cases/{caseId}
+GET /api/cohorts/active/sprints
+GET /api/admin/sprints
+GET /api/admin/sprints/{sprintId}
+POST /api/admin/sprints
+PATCH /api/admin/sprints/{sprintId}
+DELETE /api/admin/sprints/{sprintId}
+GET /api/resources
+GET /api/admin/resources
+GET /api/admin/resources/{resourceId}
+POST /api/admin/resources
+PATCH /api/admin/resources/{resourceId}
+DELETE /api/admin/resources/{resourceId}
+GET /api/admin/resources/read-status
 ```
 
 Planned API paths are registered as skeleton routes and return `501 Not Implemented`:
@@ -207,9 +227,12 @@ Run Go commands from `backend`, not the repo root.
 API smoke test:
 
 ```powershell
-curl http://localhost:8080/api/health
-curl http://localhost:8080/api/fellows
-curl http://localhost:8080/api/me
+curl.exe http://localhost:8080/api/health
+curl.exe http://localhost:8080/api/fellows
+curl.exe http://localhost:8080/api/admin/overview
+curl.exe http://localhost:8080/api/admin/cases
+curl.exe http://localhost:8080/api/admin/sprints
+curl.exe http://localhost:8080/api/admin/resources
 ```
 
 Database migration check:

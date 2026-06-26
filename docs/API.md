@@ -58,16 +58,14 @@ The backend currently applies permissive development CORS:
 | Header | Value |
 | --- | --- |
 | `Access-Control-Allow-Origin` | `*` |
-| `Access-Control-Allow-Methods` | `GET, POST, PUT, DELETE, OPTIONS` |
+| `Access-Control-Allow-Methods` | `GET, POST, PUT, PATCH, DELETE, OPTIONS` |
 | `Access-Control-Allow-Headers` | `Content-Type, Authorization` |
 
 `OPTIONS` requests return `204 No Content`.
 
 ## Response Format
 
-Implemented endpoints currently return raw JSON. These responses are documented exactly as they work now.
-
-Planned endpoints should use the project-standard envelope:
+`GET /api/health` and `GET /api/fellows` currently return raw JSON for compatibility. Admin endpoints use the project-standard envelope:
 
 ```json
 {
@@ -93,17 +91,19 @@ Use snake_case response fields for backend contracts.
 | --- | --- | --- | --- |
 | `GET` | `/api/health` | Implemented | Frontend API connectivity |
 | `GET` | `/api/fellows` | Implemented | Current `frontend/src/lib/api.ts` |
+| `GET` | `/api/admin/overview` | Implemented | Admin overview |
 | `GET` | `/api/me` | Planned | Authenticated layouts and profile |
 | `GET` | `/api/fellows/{fellowId}` | Planned | Fellow roster detail, admin fellow profile |
 | `GET` | `/api/admin/fellows` | Planned | Admin fellow management |
 | `POST` | `/api/admin/fellows` | Planned | Admin fellow management |
 | `PATCH` | `/api/admin/fellows/{fellowId}` | Planned | Admin fellow management |
 | `DELETE` | `/api/admin/fellows/{fellowId}` | Planned | Admin fellow management |
-| `GET` | `/api/cohorts/active/sprints` | Planned | Fellow sprint timeline |
-| `GET` | `/api/admin/sprints` | Planned | Admin sprint management |
-| `POST` | `/api/admin/sprints` | Planned | Admin sprint management |
-| `PATCH` | `/api/admin/sprints/{sprintId}` | Planned | Admin sprint management |
-| `DELETE` | `/api/admin/sprints/{sprintId}` | Planned | Admin sprint management |
+| `GET` | `/api/cohorts/active/sprints` | Implemented | Fellow sprint timeline |
+| `GET` | `/api/admin/sprints` | Implemented | Admin sprint management |
+| `GET` | `/api/admin/sprints/{sprintId}` | Implemented | Admin sprint management |
+| `POST` | `/api/admin/sprints` | Implemented | Admin sprint management |
+| `PATCH` | `/api/admin/sprints/{sprintId}` | Implemented | Admin sprint management |
+| `DELETE` | `/api/admin/sprints/{sprintId}` | Implemented | Admin sprint management |
 | `GET` | `/api/fellow/assignments` | Planned | Fellow dashboard and assignments |
 | `POST` | `/api/fellow/assignments/{assignmentId}/submit` | Planned | Fellow assignment submission |
 | `GET` | `/api/admin/assignments` | Planned | Admin form tracker |
@@ -111,18 +111,21 @@ Use snake_case response fields for backend contracts.
 | `PATCH` | `/api/admin/assignments/{assignmentId}` | Planned | Admin form tracker |
 | `POST` | `/api/admin/assignments/{assignmentId}/sync` | Planned | Google Form response sync |
 | `GET` | `/api/admin/assignments/{assignmentId}/submissions` | Planned | Admin submission matrix |
-| `GET` | `/api/resources` | Planned | Fellow learning/resources |
+| `GET` | `/api/resources` | Implemented | Fellow learning/resources |
 | `POST` | `/api/fellow/resources/{resourceId}/read` | Planned | Fellow resource completion |
-| `GET` | `/api/admin/resources` | Planned | Admin resources |
-| `POST` | `/api/admin/resources` | Planned | Admin resources |
-| `PATCH` | `/api/admin/resources/{resourceId}` | Planned | Admin resources |
-| `DELETE` | `/api/admin/resources/{resourceId}` | Planned | Admin resources |
-| `GET` | `/api/admin/resources/read-status` | Planned | Admin read tracking |
+| `GET` | `/api/admin/resources` | Implemented | Admin resources |
+| `GET` | `/api/admin/resources/{resourceId}` | Implemented | Admin resources |
+| `POST` | `/api/admin/resources` | Implemented | Admin resources |
+| `PATCH` | `/api/admin/resources/{resourceId}` | Implemented | Admin resources |
+| `DELETE` | `/api/admin/resources/{resourceId}` | Implemented | Admin resources |
+| `GET` | `/api/admin/resources/read-status` | Implemented | Admin read tracking |
 | `GET` | `/api/fellow/learning` | Planned | Fellow learning system |
-| `GET` | `/api/cases` | Planned | Fellow assignments, admin cases |
-| `POST` | `/api/admin/cases` | Planned | Admin case management |
-| `PATCH` | `/api/admin/cases/{caseId}` | Planned | Admin case management |
-| `DELETE` | `/api/admin/cases/{caseId}` | Planned | Admin case management |
+| `GET` | `/api/cases` | Implemented | Fellow assignments, admin cases |
+| `GET` | `/api/admin/cases` | Implemented | Admin case management |
+| `GET` | `/api/admin/cases/{caseId}` | Implemented | Admin case management |
+| `POST` | `/api/admin/cases` | Implemented | Admin case management |
+| `PATCH` | `/api/admin/cases/{caseId}` | Implemented | Admin case management |
+| `DELETE` | `/api/admin/cases/{caseId}` | Implemented | Admin case management |
 | `GET` | `/api/teams` | Planned | Team builder, roster |
 | `GET` | `/api/fellow/team` | Planned | Fellow team page |
 | `POST` | `/api/admin/teams/assignments` | Planned | Admin team builder |
@@ -410,7 +413,7 @@ Response target `204`: no body.
 
 ### List Active Cohort Sprints
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/cohorts/active/sprints
@@ -439,7 +442,7 @@ Response target `200`:
 
 ### Admin List Sprints
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/admin/sprints
@@ -469,9 +472,19 @@ Response target `200`:
 }
 ```
 
+### Admin Get Sprint
+
+**Status:** Implemented
+
+```http
+GET /api/admin/sprints/{sprintId}
+```
+
+Returns one sprint by `id`.
+
 ### Admin Create Sprint
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 POST /api/admin/sprints
@@ -505,7 +518,7 @@ Response target `201`:
 
 ### Admin Update Sprint
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 PATCH /api/admin/sprints/{sprintId}
@@ -515,13 +528,22 @@ Updates sprint metadata.
 
 ### Admin Delete Sprint
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 DELETE /api/admin/sprints/{sprintId}
 ```
 
-Response target `204`: no body.
+Response `200`:
+
+```json
+{
+  "data": {
+    "deleted": true
+  },
+  "error": null
+}
+```
 
 ## Assignments And Submissions
 
@@ -755,7 +777,7 @@ Response target `200`:
 
 ### List Resources
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/resources
@@ -820,7 +842,7 @@ Response target `200`:
 
 ### Admin List Resources
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/admin/resources
@@ -855,9 +877,19 @@ Response target `200`:
 }
 ```
 
+### Admin Get Resource
+
+**Status:** Implemented
+
+```http
+GET /api/admin/resources/{resourceId}
+```
+
+Returns one resource by `id`.
+
 ### Admin Create Resource
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 POST /api/admin/resources
@@ -896,7 +928,7 @@ Response target `201`:
 
 ### Admin Update Resource
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 PATCH /api/admin/resources/{resourceId}
@@ -906,17 +938,26 @@ Updates a `resource` row.
 
 ### Admin Delete Resource
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 DELETE /api/admin/resources/{resourceId}
 ```
 
-Response target `204`: no body.
+Response `200`:
+
+```json
+{
+  "data": {
+    "deleted": true
+  },
+  "error": null
+}
+```
 
 ### Admin Resource Read Tracking
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/admin/resources/read-status
@@ -965,7 +1006,7 @@ Schema support:
 
 ### List Cases
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/cases
@@ -999,9 +1040,19 @@ Response target `200`:
 }
 ```
 
+### Admin Get Case
+
+**Status:** Implemented
+
+```http
+GET /api/admin/cases/{caseId}
+```
+
+Returns one case by `id`.
+
 ### Admin Create Case
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 POST /api/admin/cases
@@ -1039,7 +1090,7 @@ Response target `201`:
 
 ### Admin Update Case
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 PATCH /api/admin/cases/{caseId}
@@ -1049,13 +1100,22 @@ Updates a `"case"` row.
 
 ### Admin Delete Case
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 DELETE /api/admin/cases/{caseId}
 ```
 
-Response target `204`: no body.
+Response `200`:
+
+```json
+{
+  "data": {
+    "deleted": true
+  },
+  "error": null
+}
+```
 
 ## Teams
 

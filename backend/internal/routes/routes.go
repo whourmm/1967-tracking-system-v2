@@ -21,6 +21,28 @@ func New(db *sql.DB) http.Handler {
 	fellows := &handlers.FellowHandler{DB: db}
 	mux.HandleFunc("GET /api/fellows", fellows.List)
 
+	admin := &handlers.AdminHandler{DB: db}
+	mux.HandleFunc("GET /api/admin/overview", admin.Overview)
+	mux.HandleFunc("GET /api/cases", admin.ListCases)
+	mux.HandleFunc("GET /api/admin/cases", admin.ListCases)
+	mux.HandleFunc("GET /api/admin/cases/{caseId}", admin.GetCase)
+	mux.HandleFunc("POST /api/admin/cases", admin.CreateCase)
+	mux.HandleFunc("PATCH /api/admin/cases/{caseId}", admin.UpdateCase)
+	mux.HandleFunc("DELETE /api/admin/cases/{caseId}", admin.DeleteCase)
+	mux.HandleFunc("GET /api/cohorts/active/sprints", admin.ListActiveCohortSprints)
+	mux.HandleFunc("GET /api/admin/sprints", admin.ListSprints)
+	mux.HandleFunc("GET /api/admin/sprints/{sprintId}", admin.GetSprint)
+	mux.HandleFunc("POST /api/admin/sprints", admin.CreateSprint)
+	mux.HandleFunc("PATCH /api/admin/sprints/{sprintId}", admin.UpdateSprint)
+	mux.HandleFunc("DELETE /api/admin/sprints/{sprintId}", admin.DeleteSprint)
+	mux.HandleFunc("GET /api/resources", admin.ListResources)
+	mux.HandleFunc("GET /api/admin/resources", admin.ListResources)
+	mux.HandleFunc("GET /api/admin/resources/{resourceId}", admin.GetResource)
+	mux.HandleFunc("POST /api/admin/resources", admin.CreateResource)
+	mux.HandleFunc("PATCH /api/admin/resources/{resourceId}", admin.UpdateResource)
+	mux.HandleFunc("DELETE /api/admin/resources/{resourceId}", admin.DeleteResource)
+	mux.HandleFunc("GET /api/admin/resources/read-status", admin.ResourceReadStatus)
+
 	for _, route := range plannedRoutes {
 		mux.HandleFunc(route, notImplemented)
 	}
@@ -35,11 +57,6 @@ var plannedRoutes = []string{
 	"POST /api/admin/fellows",
 	"PATCH /api/admin/fellows/{fellowId}",
 	"DELETE /api/admin/fellows/{fellowId}",
-	"GET /api/cohorts/active/sprints",
-	"GET /api/admin/sprints",
-	"POST /api/admin/sprints",
-	"PATCH /api/admin/sprints/{sprintId}",
-	"DELETE /api/admin/sprints/{sprintId}",
 	"GET /api/fellow/assignments",
 	"POST /api/fellow/assignments/{assignmentId}/submit",
 	"GET /api/admin/assignments",
@@ -47,18 +64,8 @@ var plannedRoutes = []string{
 	"PATCH /api/admin/assignments/{assignmentId}",
 	"POST /api/admin/assignments/{assignmentId}/sync",
 	"GET /api/admin/assignments/{assignmentId}/submissions",
-	"GET /api/resources",
 	"POST /api/fellow/resources/{resourceId}/read",
-	"GET /api/admin/resources",
-	"POST /api/admin/resources",
-	"PATCH /api/admin/resources/{resourceId}",
-	"DELETE /api/admin/resources/{resourceId}",
-	"GET /api/admin/resources/read-status",
 	"GET /api/fellow/learning",
-	"GET /api/cases",
-	"POST /api/admin/cases",
-	"PATCH /api/admin/cases/{caseId}",
-	"DELETE /api/admin/cases/{caseId}",
 	"GET /api/teams",
 	"GET /api/fellow/team",
 	"POST /api/admin/teams/assignments",
