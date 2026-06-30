@@ -18,8 +18,30 @@ func New(db *sql.DB) http.Handler {
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
 
-	fellows := &handlers.FellowHandler{DB: db}
-	mux.HandleFunc("GET /api/fellows", fellows.List)
+	fellow := &handlers.FellowHandler{DB: db}
+	mux.HandleFunc("GET /api/fellows", fellow.List)
+	mux.HandleFunc("GET /api/fellows/{fellowId}", fellow.GetDetail)
+	mux.HandleFunc("GET /api/admin/fellows", fellow.AdminList)
+	mux.HandleFunc("POST /api/admin/fellows", fellow.AdminCreate)
+	mux.HandleFunc("PATCH /api/admin/fellows/{fellowId}", fellow.AdminUpdate)
+	mux.HandleFunc("DELETE /api/admin/fellows/{fellowId}", fellow.AdminDelete)
+
+	assignment := &handlers.AssignmentHandler{DB: db}
+	mux.HandleFunc("GET /api/admin/assignments", assignment.AdminList)
+	mux.HandleFunc("POST /api/admin/assignments", assignment.AdminCreate)
+	mux.HandleFunc("PATCH /api/admin/assignments/{assignmentId}", assignment.AdminUpdate)
+	mux.HandleFunc("POST /api/admin/assignments/{assignmentId}/sync", assignment.AdminSync)
+	mux.HandleFunc("GET /api/admin/assignments/{assignmentId}/submissions", assignment.AdminSubmissions)
+
+	event := &handlers.EventHandler{DB: db}
+	mux.HandleFunc("GET /api/events", event.List)
+	mux.HandleFunc("POST /api/admin/events", event.AdminCreate)
+	mux.HandleFunc("PATCH /api/admin/events/{eventId}", event.AdminUpdate)
+	mux.HandleFunc("DELETE /api/admin/events/{eventId}", event.AdminDelete)
+
+	team := &handlers.TeamHandler{DB: db}
+	mux.HandleFunc("GET /api/teams", team.List)
+	mux.HandleFunc("POST /api/admin/teams/assignments", team.AdminSaveAssignments)
 
 	admin := &handlers.AdminHandler{DB: db}
 	mux.HandleFunc("GET /api/admin/overview", admin.Overview)
@@ -52,29 +74,13 @@ func New(db *sql.DB) http.Handler {
 
 var plannedRoutes = []string{
 	"GET /api/me",
-	"GET /api/fellows/{fellowId}",
-	"GET /api/admin/fellows",
-	"POST /api/admin/fellows",
-	"PATCH /api/admin/fellows/{fellowId}",
-	"DELETE /api/admin/fellows/{fellowId}",
 	"GET /api/fellow/assignments",
 	"POST /api/fellow/assignments/{assignmentId}/submit",
-	"GET /api/admin/assignments",
-	"POST /api/admin/assignments",
-	"PATCH /api/admin/assignments/{assignmentId}",
-	"POST /api/admin/assignments/{assignmentId}/sync",
-	"GET /api/admin/assignments/{assignmentId}/submissions",
 	"POST /api/fellow/resources/{resourceId}/read",
 	"GET /api/fellow/learning",
-	"GET /api/teams",
 	"GET /api/fellow/team",
-	"POST /api/admin/teams/assignments",
 	"GET /api/progress",
 	"GET /api/progress/fellows/{fellowId}",
-	"GET /api/events",
-	"POST /api/admin/events",
-	"PATCH /api/admin/events/{eventId}",
-	"DELETE /api/admin/events/{eventId}",
 	"PATCH /api/fellow/profile",
 }
 

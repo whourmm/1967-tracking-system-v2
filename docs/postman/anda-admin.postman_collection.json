@@ -1,0 +1,483 @@
+{
+  "info": {
+    "_postman_id": "b7fb2d92-1f0a-4b8a-anda-admin",
+    "name": "Tracking System V2 - Anda Admin APIs",
+    "description": "Smoke tests for Anda-owned admin APIs: fellows, assignments, teams, and events. Start the backend first with docker compose up -d db backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "fellowId",
+      "value": ""
+    },
+    {
+      "key": "assignmentId",
+      "value": ""
+    },
+    {
+      "key": "eventId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('health is ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fellows",
+      "item": [
+        {
+          "name": "List Fellows",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/fellows"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response is array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin List Fellows",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/fellows"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('uses API envelope', () => { pm.expect(body).to.have.property('data'); pm.expect(body.error).to.eql(null); });",
+                  "pm.test('data is array', () => pm.expect(body.data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Fellow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anda Postman Fellow\",\n  \"gmail\": \"anda.postman@example.com\",\n  \"country\": \"Thailand\",\n  \"university\": \"Chulalongkorn University\",\n  \"major\": \"Computer Engineering\",\n  \"teamflow\": \"Asia/Bangkok evenings\",\n  \"status\": \"pending\",\n  \"team_id\": null,\n  \"group_id\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/fellows"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('created fellow has id', () => pm.expect(body.data.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('fellowId', body.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Fellow Detail",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/fellows/{{fellowId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('fellow id matches', () => pm.expect(body.data.id).to.eql(Number(pm.collectionVariables.get('fellowId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Fellow",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anda Postman Fellow Updated\",\n  \"country\": \"Singapore\",\n  \"university\": \"National University of Singapore\",\n  \"major\": \"Information Systems\",\n  \"teamflow\": \"Weekday evenings\",\n  \"status\": \"confirmed\",\n  \"team_id\": null,\n  \"group_id\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/fellows/{{fellowId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('updated fellow id matches', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.collectionVariables.get('fellowId'))));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Assignments",
+      "item": [
+        {
+          "name": "List Assignments",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/assignments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Assignment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cohort_id\": null,\n  \"sprint_id\": null,\n  \"learning_block_id\": null,\n  \"title\": \"Anda Postman Assignment\",\n  \"form_url\": \"https://forms.gle/example\",\n  \"deadline\": \"2026-07-15T17:00:00Z\",\n  \"description\": \"Temporary assignment created by Postman.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/assignments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('created assignment has id', () => pm.expect(body.data.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('assignmentId', body.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Assignment",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Anda Postman Assignment Updated\",\n  \"form_url\": \"https://forms.gle/updated-example\",\n  \"deadline\": \"2026-07-20T17:00:00Z\",\n  \"description\": \"Updated by Postman.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/assignments/{{assignmentId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('assignment id matches', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.collectionVariables.get('assignmentId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sync Assignment Submissions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"submitted_member_ids\": [{{fellowId}}]\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/assignments/{{assignmentId}}/sync"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('sync references assignment', () => pm.expect(body.data.assignment_id).to.eql(Number(pm.collectionVariables.get('assignmentId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Assignment Submissions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/assignments/{{assignmentId}}/submissions"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('has submissions data', () => pm.expect(pm.response.json().data).to.be.an('object'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Teams",
+      "item": [
+        {
+          "name": "List Teams",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/teams"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save Team Assignments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sprint_id\": null,\n  \"assignments\": [\n    {\n      \"member_id\": {{fellowId}},\n      \"team_id\": null,\n      \"group_id\": null\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/teams/assignments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('updates at least one fellow', () => pm.expect(pm.response.json().data.updated_count).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "List Events",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/events"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cohort_id\": null,\n  \"name\": \"Anda Postman Event\",\n  \"description\": \"Temporary event created by Postman.\",\n  \"date\": \"2026-07-05\",\n  \"all_day\": false,\n  \"start\": \"10:00\",\n  \"end\": \"11:00\",\n  \"timezone\": \"Asia/Bangkok\",\n  \"location\": \"Online\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/events"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('created event has id', () => pm.expect(body.data.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('eventId', body.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Event",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anda Postman Event Updated\",\n  \"description\": \"Updated by Postman.\",\n  \"date\": \"2026-07-06\",\n  \"all_day\": false,\n  \"start\": \"13:00\",\n  \"end\": \"14:00\",\n  \"timezone\": \"Asia/Bangkok\",\n  \"location\": \"Google Meet\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/events/{{eventId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('event id matches', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.collectionVariables.get('eventId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Event",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/admin/events/{{eventId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
+      "item": [
+        {
+          "name": "Delete Fellow",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/admin/fellows/{{fellowId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

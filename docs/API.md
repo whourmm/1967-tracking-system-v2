@@ -93,11 +93,11 @@ Use snake_case response fields for backend contracts.
 | `GET` | `/api/fellows` | Implemented | Current `frontend/src/lib/api.ts` |
 | `GET` | `/api/admin/overview` | Implemented | Admin overview |
 | `GET` | `/api/me` | Planned | Authenticated layouts and profile |
-| `GET` | `/api/fellows/{fellowId}` | Planned | Fellow roster detail, admin fellow profile |
-| `GET` | `/api/admin/fellows` | Planned | Admin fellow management |
-| `POST` | `/api/admin/fellows` | Planned | Admin fellow management |
-| `PATCH` | `/api/admin/fellows/{fellowId}` | Planned | Admin fellow management |
-| `DELETE` | `/api/admin/fellows/{fellowId}` | Planned | Admin fellow management |
+| `GET` | `/api/fellows/{fellowId}` | Implemented | Fellow roster detail, admin fellow profile |
+| `GET` | `/api/admin/fellows` | Implemented | Admin fellow management |
+| `POST` | `/api/admin/fellows` | Implemented | Admin fellow management |
+| `PATCH` | `/api/admin/fellows/{fellowId}` | Implemented | Admin fellow management |
+| `DELETE` | `/api/admin/fellows/{fellowId}` | Implemented | Admin fellow management |
 | `GET` | `/api/cohorts/active/sprints` | Implemented | Fellow sprint timeline |
 | `GET` | `/api/admin/sprints` | Implemented | Admin sprint management |
 | `GET` | `/api/admin/sprints/{sprintId}` | Implemented | Admin sprint management |
@@ -106,11 +106,11 @@ Use snake_case response fields for backend contracts.
 | `DELETE` | `/api/admin/sprints/{sprintId}` | Implemented | Admin sprint management |
 | `GET` | `/api/fellow/assignments` | Planned | Fellow dashboard and assignments |
 | `POST` | `/api/fellow/assignments/{assignmentId}/submit` | Planned | Fellow assignment submission |
-| `GET` | `/api/admin/assignments` | Planned | Admin form tracker |
-| `POST` | `/api/admin/assignments` | Planned | Admin form tracker |
-| `PATCH` | `/api/admin/assignments/{assignmentId}` | Planned | Admin form tracker |
-| `POST` | `/api/admin/assignments/{assignmentId}/sync` | Planned | Google Form response sync |
-| `GET` | `/api/admin/assignments/{assignmentId}/submissions` | Planned | Admin submission matrix |
+| `GET` | `/api/admin/assignments` | Implemented | Admin form tracker |
+| `POST` | `/api/admin/assignments` | Implemented | Admin form tracker |
+| `PATCH` | `/api/admin/assignments/{assignmentId}` | Implemented | Admin form tracker |
+| `POST` | `/api/admin/assignments/{assignmentId}/sync` | Implemented | Google Form response sync |
+| `GET` | `/api/admin/assignments/{assignmentId}/submissions` | Implemented | Admin submission matrix |
 | `GET` | `/api/resources` | Implemented | Fellow learning/resources |
 | `POST` | `/api/fellow/resources/{resourceId}/read` | Planned | Fellow resource completion |
 | `GET` | `/api/admin/resources` | Implemented | Admin resources |
@@ -126,16 +126,16 @@ Use snake_case response fields for backend contracts.
 | `POST` | `/api/admin/cases` | Implemented | Admin case management |
 | `PATCH` | `/api/admin/cases/{caseId}` | Implemented | Admin case management |
 | `DELETE` | `/api/admin/cases/{caseId}` | Implemented | Admin case management |
-| `GET` | `/api/teams` | Planned | Team builder, roster |
+| `GET` | `/api/teams` | Implemented | Team builder, roster |
 | `GET` | `/api/fellow/team` | Planned | Fellow team page |
-| `POST` | `/api/admin/teams/assignments` | Planned | Admin team builder |
+| `POST` | `/api/admin/teams/assignments` | Implemented | Admin team builder |
 | `GET` | `/api/progress` | Planned | Shared cohort progress |
 | `GET` | `/api/progress/fellows/{fellowId}` | Planned | Shared fellow progress detail |
-| `GET` | `/api/events` | Planned | Fellow/admin calendar |
-| `POST` | `/api/admin/events` | Planned | Admin event management |
-| `PATCH` | `/api/admin/events/{eventId}` | Planned | Admin event management |
-| `DELETE` | `/api/admin/events/{eventId}` | Planned | Admin event management |
-| n/a | Web app notifications | Frontend-only | Fellow notifications |
+| `GET` | `/api/events` | Implemented | Fellow/admin calendar |
+| `POST` | `/api/admin/events` | Implemented | Admin event management |
+| `PATCH` | `/api/admin/events/{eventId}` | Implemented | Admin event management |
+| `DELETE` | `/api/admin/events/{eventId}` | Implemented | Admin event management |
+| `GET` | `/api/fellow/notifications` | Schema gap | Fellow notifications |
 | `PATCH` | `/api/fellow/profile` | Schema gap | Fellow profile/settings |
 
 ## Implemented Endpoints
@@ -1342,9 +1342,13 @@ Returns one fellow's assignment, resource, and case progress. Keep private accou
 
 ### Fellow Notifications
 
-**Status:** Frontend-only
+**Status:** Schema gap
 
-Notifications are intentionally web-app only for now. Do not add a notification table until notifications need server persistence, cross-device read state, or admin-authored announcements.
+```http
+GET /api/fellow/notifications
+```
+
+Notifications are currently mocked in the frontend. The database has no `notification` or announcement table. Do not implement until notifications need server persistence, cross-device read state, or admin-authored announcements.
 
 ### Fellow Profile And Settings
 
