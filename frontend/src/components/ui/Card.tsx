@@ -10,7 +10,7 @@ export function Card({ children, className }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-lg border border-slate-200 bg-white shadow-sm",
+        "rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-200 dark:bg-slate-950 dark:shadow-black/20",
         className
       )}
     >
@@ -29,7 +29,7 @@ export function CardHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+    <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 dark:border-slate-200 sm:flex-row sm:items-start sm:justify-between sm:px-5">
       <div className="min-w-0">
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}

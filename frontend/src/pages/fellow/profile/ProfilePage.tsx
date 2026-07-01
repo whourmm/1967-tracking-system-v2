@@ -68,11 +68,7 @@ interface ProfilePageProps {
   showHeader?: boolean;
 }
 
-export default function ProfilePage({
-  title = "My Profile",
-  description = "Manage your personal information, contacts, and availability.",
-  showHeader = true,
-}: ProfilePageProps) {
+export function ProfileAccountSection() {
   const [editingInfo, setEditingInfo] = useState(false);
   const [saved, setSaved] = useState(false);
   const [displayName, setDisplayName] = useState(currentFellow.name);
@@ -106,15 +102,7 @@ export default function ProfilePage({
   const initials = displayName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
   return (
-    <div className="space-y-6">
-      {showHeader && (
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{title}</h1>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="space-y-4">
           <Card className="p-6">
             <div className="flex flex-col items-center gap-4">
@@ -122,7 +110,7 @@ export default function ProfilePage({
                 <div className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-600 text-2xl font-bold text-white ring-4 ring-brand-100">
                   {initials}
                 </div>
-                <button className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-white shadow-md transition hover:bg-slate-700" aria-label="Change photo">
+                <button className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-white shadow-md transition hover:bg-slate-700 dark:border-[#0f172a] dark:bg-[#334155] dark:text-white dark:hover:bg-[#475569]" aria-label="Change photo">
                   <Camera className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -164,7 +152,7 @@ export default function ProfilePage({
           </Card>
         </div>
 
-        <div className="space-y-4 lg:col-span-2">
+        <div className="space-y-4 xl:col-span-2">
           <Card>
             <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <div className="min-w-0">
@@ -257,7 +245,25 @@ export default function ProfilePage({
             </div>
           </Card>
         </div>
-      </div>
+    </div>
+  );
+}
+
+export default function ProfilePage({
+  title = "My Profile",
+  description = "Manage your personal information, contacts, and availability.",
+  showHeader = true,
+}: ProfilePageProps) {
+  return (
+    <div className="space-y-6">
+      {showHeader && (
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{title}</h1>
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
+        </div>
+      )}
+
+      <ProfileAccountSection />
     </div>
   );
 }

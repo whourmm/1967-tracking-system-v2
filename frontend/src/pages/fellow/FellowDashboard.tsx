@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import {
   ArrowRight,
@@ -7,16 +8,11 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
+  Users,
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import {
-  caseAssignments,
-  currentFellow,
-  learningBlocks,
-  teamMembers,
-} from "../../data/mock";
-import { useFellowAssignments } from "../../lib/assignmentStore";
+import { api, type FellowCase, type FellowMe } from "../../lib/api";
 import {
   daysUntil,
   deadlineLabel,
@@ -24,17 +20,8 @@ import {
   formatShortDate,
 } from "../../lib/format";
 import { cn } from "../../lib/cn";
-import { flagFor } from "../../lib/cohort";
-import type { TeamMember } from "../../types";
+import type { Assignment } from "../../types";
 import type { FellowOutletContext } from "../../components/layout/FellowLayout";
-
-// TeamFlow archetype chip colors.
-const teamflowChip: Record<TeamMember["teamflow"], string> = {
-  Initiator: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  Translator: "bg-sky-50 text-sky-700 ring-sky-600/20",
-  Sharper: "bg-violet-50 text-violet-700 ring-violet-600/20",
-  Finisher: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-};
 
 function dateKey(date: Date) {
   const year = date.getFullYear();
@@ -63,42 +50,87 @@ function formatSprintDate(date: Date) {
   });
 }
 
+function sortDistance(assignment: Assignment) {
+  return assignment.deadline ? daysUntil(assignment.deadline) : Number.MAX_SAFE_INTEGER;
+}
+
 export default function FellowDashboard() {
   const { selectedSprint } = useOutletContext<FellowOutletContext>();
-  const assignments = useFellowAssignments();
+  const [me, setMe] = useState<FellowMe | null>(null);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [cases, setCases] = useState<FellowCase[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadDashboard() {
+      setLoading(true);
+      setError("");
+      try {
+        const [nextMe, nextAssignments, nextCases] = await Promise.all([
+          api.me(),
+          api.fellow.assignments(),
+          api.fellow.cases(),
+        ]);
+        if (!alive) return;
+        setMe(nextMe);
+        setAssignments(nextAssignments);
+        setCases(nextCases);
+      } catch (err) {
+        if (!alive) return;
+        setMe(null);
+        setAssignments([]);
+        setCases([]);
+        setError(err instanceof Error ? err.message : "Could not load dashboard data");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    loadDashboard();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const completedAssignments = assignments.filter(
     (assignment) => assignment.status === "graded" || assignment.status === "submitted"
   ).length;
-  const stats = [
-    {
-      label: "Assignments due",
-      value: assignments.filter((a) => a.status === "pending").length,
-      sub: "this sprint",
-      icon: ClipboardList,
-      color: "text-amber-600 bg-amber-50",
-    },
-    {
-      label: "Completed",
-      value: completedAssignments,
-      sub: "all time",
-      icon: CheckCircle2,
-      color: "text-emerald-600 bg-emerald-50",
-    },
-    {
-      label: "Forms submitted",
-      value: `${completedAssignments} / ${assignments.length}`,
-      sub: "across all blocks",
-      icon: BookOpen,
-      color: "text-sky-600 bg-sky-50",
-    },
-    {
-      label: "Overdue",
-      value: assignments.filter((a) => a.status === "overdue").length,
-      sub: "needs attention",
-      icon: Clock,
-      color: "text-brand-600 bg-brand-50",
-    },
-  ];
+  const stats = useMemo(
+    () => [
+      {
+        label: "Assignments due",
+        value: assignments.filter((a) => a.status === "pending").length,
+        sub: "this sprint",
+        icon: ClipboardList,
+        color: "text-amber-600 bg-amber-50",
+      },
+      {
+        label: "Completed",
+        value: completedAssignments,
+        sub: "all time",
+        icon: CheckCircle2,
+        color: "text-emerald-600 bg-emerald-50",
+      },
+      {
+        label: "Forms submitted",
+        value: `${completedAssignments} / ${assignments.length}`,
+        sub: "across all blocks",
+        icon: BookOpen,
+        color: "text-sky-600 bg-sky-50",
+      },
+      {
+        label: "Overdue",
+        value: assignments.filter((a) => a.status === "overdue").length,
+        sub: "needs attention",
+        icon: Clock,
+        color: "text-brand-600 bg-brand-50",
+      },
+    ],
+    [assignments, completedAssignments],
+  );
 
   const sprintDates = getSprintDates(
     selectedSprint.startsOn,
@@ -120,21 +152,50 @@ export default function FellowDashboard() {
 
   const upcoming = [...assignments]
     .filter((a) => a.status === "pending" || a.status === "overdue")
-    .sort((a, b) => daysUntil(a.deadline) - daysUntil(b.deadline))
+    .sort((a, b) => sortDistance(a) - sortDistance(b))
     .slice(0, 3);
-  const currentSprintCase = caseAssignments.find(
-    (assignment) => assignment.sprint === selectedSprint.name
+  const currentSprintCase = cases.find(
+    (item) => item.sprint_id === selectedSprint.id
   );
 
-  // A block is "done" once all its Google Forms are submitted. There is no
-  // percentage of a course — progress is tracked by form submissions per block.
-  const blockProgress = learningBlocks.map((block) => {
-    const forms = assignments.filter((a) => a.block === block.id);
-    const submitted = forms.filter(
-      (a) => a.status === "graded" || a.status === "submitted"
-    ).length;
-    return { block, submitted, total: forms.length };
-  });
+  const blockProgress = useMemo(() => {
+    const byBlock = new Map<string, { id: string; title: string; submitted: number; total: number }>();
+    assignments.forEach((assignment) => {
+      const id = assignment.block || "General";
+      const current = byBlock.get(id) ?? {
+        id,
+        title: id === "General" ? "General assignments" : `Block ${id}`,
+        submitted: 0,
+        total: 0,
+      };
+      current.total += 1;
+      if (assignment.status === "graded" || assignment.status === "submitted") current.submitted += 1;
+      byBlock.set(id, current);
+    });
+    return [...byBlock.values()].sort((a, b) => a.id.localeCompare(b.id));
+  }, [assignments]);
+
+  if (loading) {
+    return (
+      <Card className="p-6">
+        <p className="text-sm text-slate-500">Loading fellow dashboard...</p>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-red-200 bg-red-50 p-6">
+        <h1 className="text-base font-semibold text-red-800">Could not load dashboard</h1>
+        <p className="mt-1 text-sm text-red-700">{error}</p>
+      </Card>
+    );
+  }
+
+  const fellowName = me?.name ?? "Fellow";
+  const firstName = fellowName.split(" ")[0] || "there";
+  const cohortName = me?.fellow?.cohort_name ?? "No cohort assigned";
+  const teamName = me?.fellow?.team_name ?? "No team assigned";
 
   return (
     <div className="space-y-6">
@@ -142,10 +203,10 @@ export default function FellowDashboard() {
       <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-            Welcome back, {currentFellow.name.split(" ")[0]} 👋
+            Welcome back, {firstName} 👋
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            {currentFellow.cohort} · {currentFellow.team} — here’s what’s
+            {cohortName} · {teamName} — here’s what’s
             happening this sprint.
           </p>
         </div>
@@ -239,27 +300,33 @@ export default function FellowDashboard() {
                         Sprint case
                       </span>
                       <span className="text-xs font-medium text-slate-400">
-                        {currentSprintCase.company}
+                        {currentSprintCase.case_owner ?? "Case owner pending"}
                       </span>
                     </div>
                     <h3 className="mt-2 truncate text-base font-semibold text-slate-900">
-                      {currentSprintCase.caseTitle}
+                      {currentSprintCase.title ?? "Untitled case"}
                     </h3>
                     <p className="mt-1 line-clamp-1 text-sm text-slate-500">
-                      {currentSprintCase.deliverable}
+                      {currentSprintCase.summary ?? currentSprintCase.theme ?? "Case summary pending"}
                     </p>
                   </div>
                 </div>
 
-                <a
-                  href={currentSprintCase.briefUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-brand-700 ring-1 ring-brand-200 transition hover:bg-brand-50 sm:w-auto"
-                >
-                  Case brief
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </a>
+                {currentSprintCase.googledrive_link ? (
+                  <a
+                    href={currentSprintCase.googledrive_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-brand-700 ring-1 ring-brand-200 transition hover:bg-brand-50 sm:w-auto"
+                  >
+                    Case brief
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </a>
+                ) : (
+                  <span className="inline-flex w-full shrink-0 items-center justify-center rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500 sm:w-auto">
+                    No brief link
+                  </span>
+                )}
               </div>
             </Card>
           ) : null}
@@ -279,7 +346,11 @@ export default function FellowDashboard() {
               }
             />
             <ul className="divide-y divide-slate-100">
-              {upcoming.map((a) => {
+              {upcoming.length === 0 ? (
+                <li className="px-4 py-8 text-center text-sm text-slate-400 sm:px-5">
+                  No pending assignments right now.
+                </li>
+              ) : upcoming.map((a) => {
                 const overdue = a.status === "overdue";
                 return (
                   <li
@@ -312,10 +383,10 @@ export default function FellowDashboard() {
                             overdue ? "text-brand-600" : "text-slate-600"
                           )}
                         >
-                          {deadlineLabel(a.deadline)}
+                          {a.deadline ? deadlineLabel(a.deadline) : "No deadline"}
                         </p>
                         <p className="text-xs text-slate-400">
-                          {formatDate(a.deadline)}
+                          {a.deadline ? formatDate(a.deadline) : "Date pending"}
                         </p>
                       </div>
                       <StatusBadge status={a.status} />
@@ -329,10 +400,8 @@ export default function FellowDashboard() {
           {/* Team */}
           <Card>
             <CardHeader
-              title={currentFellow.team}
-              subtitle={`${teamMembers.length} fellows · ${
-                new Set(teamMembers.map((m) => m.country)).size
-              } nationalities`}
+              title={teamName}
+              subtitle="Current team assignment from your fellow profile"
               action={
                 <Link
                   to="/fellow/teams"
@@ -342,61 +411,17 @@ export default function FellowDashboard() {
                 </Link>
               }
             />
-            <ul className="flex gap-2 overflow-x-auto p-4 lg:grid lg:grid-cols-4 lg:overflow-visible">
-              {[...teamMembers]
-                .sort((a, b) => {
-                  if (a.name === currentFellow.name) return -1;
-                  if (b.name === currentFellow.name) return 1;
-                  return 0;
-                })
-                .map((m) => {
-                  const isMe = m.name === currentFellow.name;
-                  return (
-                    <li
-                      key={m.name}
-                      className={cn(
-                        "flex w-40 shrink-0 flex-col items-center gap-2 rounded-lg p-3 text-center transition lg:w-auto lg:min-w-0",
-                        isMe ? "bg-brand-50/60 ring-1 ring-brand-100" : "hover:bg-slate-50"
-                      )}
-                    >
-                      <div className="relative">
-                        <div
-                          className={cn(
-                            "flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold",
-                            isMe
-                              ? "bg-brand-600 text-white ring-2 ring-brand-100"
-                              : "bg-slate-100 text-slate-600"
-                          )}
-                        >
-                          {m.initials}
-                        </div>
-                        <span
-                          className="absolute -bottom-1 -right-1 text-base leading-none"
-                          title={m.country}
-                        >
-                          {flagFor(m.country)}
-                        </span>
-                      </div>
-                      <div className="w-full">
-                        <p className="truncate text-sm font-semibold leading-tight text-slate-900">
-                          {m.name}
-                        </p>
-                        <span
-                          className={cn(
-                            "mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
-                            teamflowChip[m.teamflow]
-                          )}
-                        >
-                          {m.teamflow}
-                        </span>
-                      </div>
-                      <p className="w-full truncate text-[11px] text-slate-500">
-                        {m.university}
-                      </p>
-                    </li>
-                  );
-                })}
-            </ul>
+            <div className="flex items-center gap-3 p-4 sm:p-5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600">
+                <Users className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">{fellowName}</p>
+                <p className="truncate text-xs text-slate-500">
+                  {me?.fellow?.teamflow ?? "Teamflow pending"} · {me?.fellow?.university ?? "University pending"}
+                </p>
+              </div>
+            </div>
           </Card>
 
         </div>
@@ -453,11 +478,15 @@ export default function FellowDashboard() {
               }
             />
             <div className="grid gap-2 p-4">
-              {blockProgress.map(({ block, submitted, total }) => {
+              {blockProgress.length === 0 ? (
+                <p className="rounded-md border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-400">
+                  No assignment blocks are available yet.
+                </p>
+              ) : blockProgress.map(({ id, title, submitted, total }) => {
                 const done = total > 0 && submitted === total;
                 return (
                   <Link
-                    key={block.id}
+                    key={id}
                     to="/fellow/learning"
                     className="flex min-w-0 items-center gap-3 rounded-md border border-slate-100 p-3 transition hover:border-brand-200 hover:bg-brand-50/40"
                   >
@@ -469,11 +498,11 @@ export default function FellowDashboard() {
                           : "bg-brand-600 text-white"
                       )}
                     >
-                      {block.id}
+                      {id}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-slate-900">
-                        {block.title}
+                        {title}
                       </p>
                       <p className="text-xs text-slate-500">
                         {total === 0

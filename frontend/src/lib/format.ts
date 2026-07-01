@@ -54,22 +54,22 @@ export const statusMeta: Record<
 > = {
   pending: {
     label: "Pending",
-    classes: "bg-amber-500/10 text-amber-700 ring-amber-600/20",
+    classes: "bg-amber-500/10 text-amber-700 ring-amber-600/20 dark:bg-amber-400/15 dark:text-amber-300 dark:ring-amber-400/30",
     dot: "bg-amber-500",
   },
   submitted: {
     label: "Submitted",
-    classes: "bg-slate-500/10 text-slate-600 ring-slate-500/20",
+    classes: "bg-slate-500/10 text-slate-600 ring-slate-500/20 dark:bg-slate-400/15 dark:text-slate-300 dark:ring-slate-400/30",
     dot: "bg-slate-400",
   },
   overdue: {
     label: "Overdue",
-    classes: "bg-brand-600/10 text-brand-700 ring-brand-600/20",
+    classes: "bg-brand-600/10 text-brand-700 ring-brand-600/20 dark:bg-brand-500/15 dark:text-brand-300 dark:ring-brand-400/30",
     dot: "bg-brand-600",
   },
   graded: {
     label: "Graded",
-    classes: "bg-emerald-500/10 text-emerald-700 ring-emerald-600/20",
+    classes: "bg-emerald-500/10 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-400/15 dark:text-emerald-300 dark:ring-emerald-400/30",
     dot: "bg-emerald-500",
   },
 };

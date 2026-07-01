@@ -11,6 +11,148 @@ type AssignmentHandler struct {
 	DB *sql.DB
 }
 
+// FellowList returns assignment cards for the current fellow.
+// GET /api/fellow/assignments
+func (h *AssignmentHandler) FellowList(w http.ResponseWriter, r *http.Request) {
+	memberID, err := currentFellowID(r.Context(), h.DB)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "current fellow not found")
+			return
+		}
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	rows, err := h.DB.QueryContext(r.Context(), `
+		SELECT
+			a.id, a.cohort_id, a.sprint_id, a.learning_block_id, lb.code,
+			a.title, a.form_url, a.deadline, a.description,
+			COALESCE(asub.submit_status, 0), asub.submitted_at, asub.grade
+		FROM assignment a
+		LEFT JOIN learning_block lb ON lb.id = a.learning_block_id
+		LEFT JOIN assignment_submission asub
+			ON asub.assignment_id = a.id AND asub.member_id = $1
+		ORDER BY a.deadline NULLS LAST, a.id
+	`, memberID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	type FellowAssignment struct {
+		ID              int64      `json:"id"`
+		CohortID        *int64     `json:"cohort_id"`
+		SprintID        *int64     `json:"sprint_id"`
+		LearningBlockID *int64     `json:"learning_block_id"`
+		LearningBlock   *string    `json:"learning_block"`
+		Title           *string    `json:"title"`
+		FormURL         *string    `json:"form_url"`
+		Deadline        *time.Time `json:"deadline"`
+		Description     *string    `json:"description"`
+		SubmitStatus    int        `json:"submit_status"`
+		StatusName      string     `json:"status_name"`
+		SubmittedAt     *time.Time `json:"submitted_at"`
+		Grade           *string    `json:"grade"`
+	}
+
+	assignments := []FellowAssignment{}
+	now := time.Now()
+	for rows.Next() {
+		var item FellowAssignment
+		var cohortID, sprintID, learningBlockID sql.NullInt64
+		var learningBlock, title, formURL, description, grade sql.NullString
+		var deadline, submittedAt sql.NullTime
+
+		if err := rows.Scan(
+			&item.ID, &cohortID, &sprintID, &learningBlockID, &learningBlock,
+			&title, &formURL, &deadline, &description,
+			&item.SubmitStatus, &submittedAt, &grade,
+		); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		item.CohortID = int64Ptr(cohortID)
+		item.SprintID = int64Ptr(sprintID)
+		item.LearningBlockID = int64Ptr(learningBlockID)
+		item.LearningBlock = stringPtr(learningBlock)
+		item.Title = stringPtr(title)
+		item.FormURL = stringPtr(formURL)
+		item.Deadline = timePtr(deadline)
+		item.Description = stringPtr(description)
+		item.SubmittedAt = timePtr(submittedAt)
+		item.Grade = stringPtr(grade)
+		item.StatusName = "pending"
+		if item.SubmitStatus == 1 {
+			item.StatusName = "submitted"
+		} else if item.Deadline != nil && item.Deadline.Before(now) {
+			item.StatusName = "overdue"
+		}
+
+		assignments = append(assignments, item)
+	}
+	if err := rows.Err(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeData(w, http.StatusOK, assignments)
+}
+
+// FellowSubmit marks one assignment submitted for the current fellow.
+// POST /api/fellow/assignments/{assignmentId}/submit
+func (h *AssignmentHandler) FellowSubmit(w http.ResponseWriter, r *http.Request) {
+	assignmentID, ok := pathID(r, "assignmentId")
+	if !ok {
+		writeError(w, http.StatusBadRequest, "invalid assignment id")
+		return
+	}
+
+	memberID, err := currentFellowID(r.Context(), h.DB)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "current fellow not found")
+			return
+		}
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var exists bool
+	if err := h.DB.QueryRowContext(r.Context(), `SELECT EXISTS (SELECT 1 FROM assignment WHERE id = $1)`, assignmentID).Scan(&exists); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !exists {
+		writeError(w, http.StatusNotFound, "assignment not found")
+		return
+	}
+
+	var submittedAt time.Time
+	err = h.DB.QueryRowContext(r.Context(), `
+		INSERT INTO assignment_submission (assignment_id, member_id, submit_status, submitted_at)
+		VALUES ($1, $2, 1, NOW())
+		ON CONFLICT (assignment_id, member_id) DO UPDATE SET
+			submit_status = 1,
+			submitted_at = COALESCE(assignment_submission.submitted_at, EXCLUDED.submitted_at)
+		RETURNING submitted_at
+	`, assignmentID, memberID).Scan(&submittedAt)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeData(w, http.StatusOK, map[string]any{
+		"assignment_id": assignmentID,
+		"member_id":     memberID,
+		"submit_status": 1,
+		"status_name":   "submitted",
+		"submitted_at":  submittedAt,
+	})
+}
+
 // AdminList returns all assignments with cohort-wide submission counts.
 // GET /api/admin/assignments
 func (h *AssignmentHandler) AdminList(w http.ResponseWriter, r *http.Request) {
@@ -250,11 +392,11 @@ func (h *AssignmentHandler) AdminSubmissions(w http.ResponseWriter, r *http.Requ
 	defer rows.Close()
 
 	type FellowSub struct {
-		MemberID    int64      `json:"member_id"`
-		Name        string     `json:"name"`
-		SubmitStatus int       `json:"submit_status"`
-		StatusName  string     `json:"status_name"`
-		SubmittedAt *time.Time `json:"submitted_at"`
+		MemberID     int64      `json:"member_id"`
+		Name         string     `json:"name"`
+		SubmitStatus int        `json:"submit_status"`
+		StatusName   string     `json:"status_name"`
+		SubmittedAt  *time.Time `json:"submitted_at"`
 	}
 
 	fellows := []FellowSub{}

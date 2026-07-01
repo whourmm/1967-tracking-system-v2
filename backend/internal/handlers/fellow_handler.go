@@ -12,6 +12,80 @@ type FellowHandler struct {
 	DB *sql.DB
 }
 
+// Me returns the current fellow profile using the temporary dev identity.
+// GET /api/me
+func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
+	id, err := currentFellowID(r.Context(), h.DB)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "current fellow not found")
+			return
+		}
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	type FellowSummary struct {
+		TeamID     *int64  `json:"team_id"`
+		TeamName   *string `json:"team_name"`
+		CohortID   *int64  `json:"cohort_id"`
+		CohortName *string `json:"cohort_name"`
+		University *string `json:"university"`
+		Major      *string `json:"major"`
+		Status     *string `json:"status"`
+		Teamflow   *string `json:"teamflow"`
+	}
+
+	type MeResponse struct {
+		ID       int64          `json:"id"`
+		Name     *string        `json:"name"`
+		Email    *string        `json:"email"`
+		Role     *string        `json:"role"`
+		PhotoURL *string        `json:"photo_url"`
+		Fellow   *FellowSummary `json:"fellow"`
+	}
+
+	var res MeResponse
+	var fellow FellowSummary
+	var teamID, cohortID sql.NullInt64
+	var teamName, cohortName sql.NullString
+
+	err = h.DB.QueryRowContext(r.Context(), `
+		SELECT
+			u.id, u.name, u.gmail, u.role, u.photo_url,
+			fp.team_id, t.name,
+			g.cohort_id, c.name,
+			fp.university, fp.major, fp.status, fp.teamflow
+		FROM "user" u
+		JOIN fellow fp ON fp.user_id = u.id
+		LEFT JOIN team t ON t.id = fp.team_id
+		LEFT JOIN "group" g ON g.id = COALESCE(fp.group_id, t.group_id)
+		LEFT JOIN cohort c ON c.id = g.cohort_id
+		WHERE u.id = $1
+	`, id).Scan(
+		&res.ID, &res.Name, &res.Email, &res.Role, &res.PhotoURL,
+		&teamID, &teamName,
+		&cohortID, &cohortName,
+		&fellow.University, &fellow.Major, &fellow.Status, &fellow.Teamflow,
+	)
+	if err == sql.ErrNoRows {
+		writeError(w, http.StatusNotFound, "current fellow not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	fellow.TeamID = int64Ptr(teamID)
+	fellow.TeamName = stringPtr(teamName)
+	fellow.CohortID = int64Ptr(cohortID)
+	fellow.CohortName = stringPtr(cohortName)
+	res.Fellow = &fellow
+
+	writeData(w, http.StatusOK, res)
+}
+
 // List returns all fellows as JSON (raw, no envelope — existing contract).
 func (h *FellowHandler) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.QueryContext(r.Context(), `

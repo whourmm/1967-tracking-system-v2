@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -51,6 +52,60 @@
   a {
     @apply text-inherit no-underline;
   }
+
+  .fellow-theme {
+    color-scheme: light;
+  }
+
+  .fellow-theme.dark {
+    color-scheme: dark;
+
+    /* Invert the existing semantic slate ramp inside the fellow portal only. */
+    --color-slate-50: #1e293b;
+    --color-slate-100: #273549;
+    --color-slate-200: #3f4d63;
+    --color-slate-300: #64748b;
+    --color-slate-400: #94a3b8;
+    --color-slate-500: #cbd5e1;
+    --color-slate-600: #e2e8f0;
+    --color-slate-700: #f1f5f9;
+    --color-slate-800: #f8fafc;
+    --color-slate-900: #f8fafc;
+
+    /* Keep brand/status meaning while moving soft tints onto dark surfaces. */
+    --color-brand-50: #351218;
+    --color-brand-700: #fca5a5;
+
+    --color-emerald-50: #082f2b;
+    --color-emerald-100: #064e3b;
+    --color-emerald-600: #34d399;
+    --color-emerald-700: #6ee7b7;
+    --color-emerald-800: #a7f3d0;
+
+    --color-amber-50: #3a2508;
+    --color-amber-100: #4b3008;
+    --color-amber-600: #fbbf24;
+    --color-amber-700: #fcd34d;
+    --color-amber-800: #fde68a;
+
+    --color-sky-50: #082f49;
+    --color-sky-100: #0c4a6e;
+    --color-sky-600: #38bdf8;
+    --color-sky-700: #7dd3fc;
+
+    --color-violet-50: #2e1065;
+    --color-violet-100: #3b0764;
+    --color-violet-600: #a78bfa;
+    --color-violet-700: #c4b5fd;
+
+    --color-rose-50: #4c0519;
+    --color-rose-600: #fb7185;
+    --color-red-50: #450a0a;
+    --color-red-100: #5f1111;
+    --color-red-200: #7f1d1d;
+    --color-red-600: #f87171;
+    --color-red-700: #fca5a5;
+  }
 }
 
 @layer utilities {
@@ -61,6 +116,20 @@
 
   .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Exact white surfaces become layered charcoal; translucent white accents
+     on branded panels intentionally keep their original color. */
+  .fellow-theme.dark .bg-white {
+    background-color: #0f172a;
+  }
+
+  .fellow-theme.dark .bg-white\/90 {
+    background-color: rgb(15 23 42 / 0.92);
+  }
+
+  .fellow-theme.dark .border-white {
+    border-color: #334155;
   }
 }
 

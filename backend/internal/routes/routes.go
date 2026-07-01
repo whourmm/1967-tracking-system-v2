@@ -19,6 +19,7 @@ func New(db *sql.DB) http.Handler {
 	})
 
 	fellow := &handlers.FellowHandler{DB: db}
+	mux.HandleFunc("GET /api/me", fellow.Me)
 	mux.HandleFunc("GET /api/fellows", fellow.List)
 	mux.HandleFunc("GET /api/fellows/{fellowId}", fellow.GetDetail)
 	mux.HandleFunc("GET /api/admin/fellows", fellow.AdminList)
@@ -27,6 +28,8 @@ func New(db *sql.DB) http.Handler {
 	mux.HandleFunc("DELETE /api/admin/fellows/{fellowId}", fellow.AdminDelete)
 
 	assignment := &handlers.AssignmentHandler{DB: db}
+	mux.HandleFunc("GET /api/fellow/assignments", assignment.FellowList)
+	mux.HandleFunc("POST /api/fellow/assignments/{assignmentId}/submit", assignment.FellowSubmit)
 	mux.HandleFunc("GET /api/admin/assignments", assignment.AdminList)
 	mux.HandleFunc("POST /api/admin/assignments", assignment.AdminCreate)
 	mux.HandleFunc("PATCH /api/admin/assignments/{assignmentId}", assignment.AdminUpdate)
@@ -44,6 +47,7 @@ func New(db *sql.DB) http.Handler {
 	mux.HandleFunc("POST /api/admin/teams/assignments", team.AdminSaveAssignments)
 
 	admin := &handlers.AdminHandler{DB: db}
+	learning := &handlers.LearningHandler{DB: db}
 	mux.HandleFunc("GET /api/admin/overview", admin.Overview)
 	mux.HandleFunc("GET /api/cases", admin.ListCases)
 	mux.HandleFunc("GET /api/admin/cases", admin.ListCases)
@@ -57,7 +61,9 @@ func New(db *sql.DB) http.Handler {
 	mux.HandleFunc("POST /api/admin/sprints", admin.CreateSprint)
 	mux.HandleFunc("PATCH /api/admin/sprints/{sprintId}", admin.UpdateSprint)
 	mux.HandleFunc("DELETE /api/admin/sprints/{sprintId}", admin.DeleteSprint)
-	mux.HandleFunc("GET /api/resources", admin.ListResources)
+	mux.HandleFunc("GET /api/resources", learning.ListResources)
+	mux.HandleFunc("GET /api/fellow/learning", learning.GetLearning)
+	mux.HandleFunc("POST /api/fellow/resources/{resourceId}/read", learning.MarkResourceRead)
 	mux.HandleFunc("GET /api/admin/resources", admin.ListResources)
 	mux.HandleFunc("GET /api/admin/resources/{resourceId}", admin.GetResource)
 	mux.HandleFunc("POST /api/admin/resources", admin.CreateResource)
@@ -73,11 +79,6 @@ func New(db *sql.DB) http.Handler {
 }
 
 var plannedRoutes = []string{
-	"GET /api/me",
-	"GET /api/fellow/assignments",
-	"POST /api/fellow/assignments/{assignmentId}/submit",
-	"POST /api/fellow/resources/{resourceId}/read",
-	"GET /api/fellow/learning",
 	"GET /api/fellow/team",
 	"GET /api/progress",
 	"GET /api/progress/fellows/{fellowId}",

@@ -14,15 +14,19 @@ import {
   Home,
   Megaphone,
   Menu,
+  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Sun,
   Users,
   X,
 } from "lucide-react";
-import { currentFellow, notifications as mockNotifications, sprints } from "../../data/mock";
+import { currentFellow, notifications as mockNotifications } from "../../data/mock";
+import { api } from "../../lib/api";
 import { getCurrentUser } from "../../lib/auth";
 import { cn } from "../../lib/cn";
+import { useFellowTheme, type FellowTheme } from "../../lib/fellowTheme";
 import type { NotificationKind, Sprint } from "../../types";
 
 export interface FellowOutletContext {
@@ -63,7 +67,7 @@ const mainNav = [
 function FellowshipBrand() {
   return (
     <div className="flex min-w-0 items-center gap-2.5" aria-label="SEA Bridge | 1967 Fellowship">
-      <span className="block h-8 w-[5.5rem] shrink-0 overflow-hidden" aria-hidden="true">
+      <span className="block h-8 w-[5.5rem] shrink-0 overflow-hidden dark:rounded-sm dark:bg-[#fff]" aria-hidden="true">
         <img
           src="/nextgen_logo.svg"
           alt=""
@@ -250,7 +254,7 @@ function NotificationBell() {
       >
         <Bell className="h-5 w-5" />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white ring-2 ring-white dark:ring-slate-950">
             {unread}
           </span>
         )}
@@ -329,14 +333,40 @@ function NotificationBell() {
   );
 }
 
+function ThemeToggle({
+  theme,
+  onToggle,
+}: {
+  theme: FellowTheme;
+  onToggle: () => void;
+}) {
+  const dark = theme === "dark";
+  const label = dark ? "Switch to light mode" : "Switch to dark mode";
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white motion-reduce:transition-none dark:focus-visible:ring-offset-slate-950"
+      aria-label={label}
+      aria-pressed={dark}
+      title={label}
+    >
+      {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+    </button>
+  );
+}
+
 function SprintSwitcher({
   selectedSprint,
+  sprints,
   sprintIndex,
   onPrevious,
   onNext,
   onSelect,
 }: {
   selectedSprint: Sprint;
+  sprints: Sprint[];
   sprintIndex: number;
   onPrevious: () => void;
   onNext: () => void;
@@ -422,6 +452,7 @@ function SprintSwitcher({
 
 function Topbar({
   selectedSprint,
+  sprints,
   sprintIndex,
   onPreviousSprint,
   onNextSprint,
@@ -429,8 +460,11 @@ function Topbar({
   mobileMenuOpen,
   onOpenMobileMenu,
   sidebarCollapsed,
+  theme,
+  onToggleTheme,
 }: {
   selectedSprint: Sprint;
+  sprints: Sprint[];
   sprintIndex: number;
   onPreviousSprint: () => void;
   onNextSprint: () => void;
@@ -438,6 +472,8 @@ function Topbar({
   mobileMenuOpen: boolean;
   onOpenMobileMenu: () => void;
   sidebarCollapsed: boolean;
+  theme: FellowTheme;
+  onToggleTheme: () => void;
 }) {
   const user = getCurrentUser();
   const displayName = user?.role === "fellow" ? user.name : currentFellow.name;
@@ -447,7 +483,7 @@ function Topbar({
   return (
     <header
       className={cn(
-        "fixed top-0 right-0 left-0 z-20 grid min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur transition-[left] duration-200 ease-out sm:px-4 lg:flex lg:min-h-16 lg:px-8",
+        "fixed top-0 right-0 left-0 z-20 grid min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur transition-[left] duration-200 ease-out motion-reduce:transition-none dark:bg-slate-950/90 sm:px-4 lg:flex lg:min-h-16 lg:px-8",
         sidebarCollapsed ? "lg:left-[4.5rem]" : "lg:left-64"
       )}
     >
@@ -459,12 +495,14 @@ function Topbar({
       </div>
       <SprintSwitcher
         selectedSprint={selectedSprint}
+        sprints={sprints}
         sprintIndex={sprintIndex}
         onPrevious={onPreviousSprint}
         onNext={onNextSprint}
         onSelect={onSelectSprint}
       />
       <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         <NotificationBell />
         <NavLink
           to="/fellow/settings"
@@ -599,24 +637,55 @@ function MobileFellowDrawer({
 
 export default function FellowLayout() {
   const location = useLocation();
-  const currentIndex = Math.max(
-    sprints.findIndex((s) => s.isCurrent),
-    0
-  );
-  const [sprintIndex, setSprintIndex] = useState(currentIndex);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [sprintsLoading, setSprintsLoading] = useState(true);
+  const [sprintsError, setSprintsError] = useState("");
+  const [sprintIndex, setSprintIndex] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { theme, toggleTheme } = useFellowTheme();
   const selectedSprint = sprints[sprintIndex];
   const goPreviousSprint = () => setSprintIndex((i) => Math.max(i - 1, 0));
   const goNextSprint = () =>
     setSprintIndex((i) => Math.min(i + 1, sprints.length - 1));
 
   useEffect(() => {
+    let alive = true;
+
+    async function loadSprints() {
+      setSprintsLoading(true);
+      setSprintsError("");
+      try {
+        const next = await api.fellow.activeSprints();
+        if (!alive) return;
+        setSprints(next);
+        setSprintIndex(Math.max(next.findIndex((s) => s.isCurrent), 0));
+      } catch (err) {
+        if (!alive) return;
+        setSprints([]);
+        setSprintsError(err instanceof Error ? err.message : "Could not load sprint timeline");
+      } finally {
+        if (alive) setSprintsLoading(false);
+      }
+    }
+
+    loadSprints();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-slate-50">
+    <div
+      className={cn(
+        "fellow-theme min-h-screen overflow-x-clip bg-slate-50 transition-colors duration-200 motion-reduce:transition-none dark:bg-slate-950",
+        theme === "dark" && "dark"
+      )}
+    >
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((value) => !value)}
@@ -627,18 +696,37 @@ export default function FellowLayout() {
           sidebarCollapsed ? "lg:pl-[4.5rem]" : "lg:pl-64"
         )}
       >
-        <Topbar
-          selectedSprint={selectedSprint}
-          sprintIndex={sprintIndex}
-          onPreviousSprint={goPreviousSprint}
-          onNextSprint={goNextSprint}
-          onSelectSprint={setSprintIndex}
-          mobileMenuOpen={mobileMenuOpen}
-          onOpenMobileMenu={() => setMobileMenuOpen(true)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
+        {selectedSprint && (
+          <Topbar
+            selectedSprint={selectedSprint}
+            sprints={sprints}
+            sprintIndex={sprintIndex}
+            onPreviousSprint={goPreviousSprint}
+            onNextSprint={goNextSprint}
+            onSelectSprint={setSprintIndex}
+            mobileMenuOpen={mobileMenuOpen}
+            onOpenMobileMenu={() => setMobileMenuOpen(true)}
+            sidebarCollapsed={sidebarCollapsed}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+          />
+        )}
         <main className="mx-auto max-w-6xl px-4 pb-10 pt-20 sm:px-6 lg:px-8 lg:pt-24">
-          <Outlet context={{ selectedSprint } satisfies FellowOutletContext} />
+          {sprintsLoading ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+              Loading sprint timeline...
+            </div>
+          ) : sprintsError ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700 shadow-sm">
+              Could not load sprint timeline: {sprintsError}
+            </div>
+          ) : selectedSprint ? (
+            <Outlet context={{ selectedSprint } satisfies FellowOutletContext} />
+          ) : (
+            <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+              No active cohort sprints are available yet.
+            </div>
+          )}
         </main>
       </div>
       <MobileFellowDrawer

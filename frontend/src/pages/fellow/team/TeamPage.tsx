@@ -50,7 +50,7 @@ function MemberRow({ member, isMe }: { member: TeamMember; isMe: boolean }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate text-sm font-semibold text-slate-900">
+          <p className="truncate text-sm font-semibold text-slate-900 transition-colors group-hover:text-brand-700">
             {member.name}
           </p>
           {isMe && (
@@ -77,14 +77,16 @@ function MemberRow({ member, isMe }: { member: TeamMember; isMe: boolean }) {
         </p>
       </div>
       {profileTo && (
-        <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-slate-500" />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition group-hover:bg-brand-600 group-hover:text-white">
+          <ChevronRight className="h-4 w-4" />
+        </span>
       )}
     </>
   );
 
   const rowClass = cn(
-    "group flex items-center gap-3 px-4 py-3.5 transition",
-    isMe ? "bg-brand-50/40" : "hover:bg-slate-50"
+    "group flex items-center gap-3 px-4 py-3.5 transition-all duration-200 hover:bg-brand-50 hover:shadow-[inset_3px_0_0_0_rgb(205,51,45)] focus-visible:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-300",
+    isMe ? "bg-brand-50/40" : "bg-white"
   );
 
   if (profileTo)
@@ -108,22 +110,22 @@ function MemberCard({ member, isMe }: { member: TeamMember; isMe: boolean }) {
         </span>
       )}
       {!isMe && (
-        <span className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100">
-          <ChevronRight className="h-4 w-4 text-brand-400" />
+        <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-600 opacity-0 shadow-sm transition-all group-hover:translate-x-0 group-hover:opacity-100">
+          <ChevronRight className="h-4 w-4" />
         </span>
       )}
-      <div className={cn("flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold",
-        isMe ? "bg-brand-600 text-white ring-4 ring-brand-100" : "bg-slate-100 text-slate-600"
+      <div className={cn("flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold transition-all duration-200 group-hover:scale-105",
+        isMe ? "bg-brand-600 text-white ring-4 ring-brand-100 group-hover:ring-brand-200" : "bg-slate-100 text-slate-600 group-hover:bg-brand-600 group-hover:text-white group-hover:ring-4 group-hover:ring-brand-100"
       )}>
         {member.initials}
       </div>
       <div>
-        <p className="text-sm font-bold text-slate-900">{member.name}</p>
+        <p className="text-sm font-bold text-slate-900 transition-colors group-hover:text-brand-700">{member.name}</p>
         <span className={cn("mt-1.5 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium", teamflowChip[member.teamflow])}>
           {member.teamflow}
         </span>
       </div>
-      <div className="w-full space-y-1 border-t border-slate-100 pt-3">
+      <div className="w-full space-y-1 border-t border-slate-100 pt-3 transition-colors group-hover:border-brand-200">
         <div className="flex items-center justify-center gap-1.5 text-xs text-slate-600">
           <span>{flag}</span><span className="font-medium">{member.country}</span>
         </div>
@@ -132,14 +134,18 @@ function MemberCard({ member, isMe }: { member: TeamMember; isMe: boolean }) {
           <span className="truncate">{member.university}</span>
         </div>
       </div>
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 transition-colors group-hover:text-brand-700">
+        {isMe ? "Edit account" : "View profile"}
+        <ChevronRight className="h-3.5 w-3.5" />
+      </span>
     </>
   );
 
   const cardClass = cn(
-    "group relative flex min-w-0 flex-col items-center gap-3 rounded-xl border p-5 text-center transition",
+    "group relative flex min-w-0 flex-col items-center gap-3 rounded-xl border p-5 text-center transition-all duration-200 ease-out hover:-translate-y-1 hover:border-brand-400 hover:bg-brand-50 hover:shadow-lg focus-visible:-translate-y-1 focus-visible:border-brand-400 focus-visible:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200",
     isMe
       ? "border-brand-200 bg-brand-50/40 ring-2 ring-brand-100"
-      : "cursor-pointer border-slate-200 bg-white hover:border-brand-200 hover:bg-brand-50/20 hover:shadow-sm"
+      : "cursor-pointer border-slate-200 bg-white"
   );
 
   if (profileTo) return <Link to={profileTo} className={cardClass}>{inner}</Link>;

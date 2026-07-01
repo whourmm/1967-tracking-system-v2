@@ -181,7 +181,7 @@ func (h *AdminHandler) ListCases(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) GetCase(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r, "caseId")
+	id, ok := adminPathID(w, r, "caseId")
 	if !ok {
 		return
 	}
@@ -238,7 +238,7 @@ func (h *AdminHandler) CreateCase(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) UpdateCase(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r, "caseId")
+	id, ok := adminPathID(w, r, "caseId")
 	if !ok {
 		return
 	}
@@ -301,7 +301,7 @@ func (h *AdminHandler) ListActiveCohortSprints(w http.ResponseWriter, r *http.Re
 }
 
 func (h *AdminHandler) GetSprint(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r, "sprintId")
+	id, ok := adminPathID(w, r, "sprintId")
 	if !ok {
 		return
 	}
@@ -354,7 +354,7 @@ func (h *AdminHandler) CreateSprint(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) UpdateSprint(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r, "sprintId")
+	id, ok := adminPathID(w, r, "sprintId")
 	if !ok {
 		return
 	}
@@ -433,7 +433,7 @@ func (h *AdminHandler) ListResources(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) GetResource(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r, "resourceId")
+	id, ok := adminPathID(w, r, "resourceId")
 	if !ok {
 		return
 	}
@@ -484,7 +484,7 @@ func (h *AdminHandler) CreateResource(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) UpdateResource(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r, "resourceId")
+	id, ok := adminPathID(w, r, "resourceId")
 	if !ok {
 		return
 	}
@@ -600,7 +600,7 @@ func (h *AdminHandler) listSprints(w http.ResponseWriter, where string) {
 }
 
 func (h *AdminHandler) deleteByID(w http.ResponseWriter, r *http.Request, name, query string) {
-	id, ok := pathID(w, r, name)
+	id, ok := adminPathID(w, r, name)
 	if !ok {
 		return
 	}
@@ -690,7 +690,7 @@ func decodeJSON(r *http.Request, v any) error {
 	return nil
 }
 
-func pathID(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
+func adminPathID(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
 	id, err := strconv.ParseInt(r.PathValue(name), 10, 64)
 	if err != nil || id <= 0 {
 		writeAPIError(w, http.StatusBadRequest, "invalid id")
@@ -732,13 +732,6 @@ func parseDateTime(value *string) (*time.Time, error) {
 		}
 	}
 	return nil, errors.New("invalid date")
-}
-
-func writeData(w http.ResponseWriter, status int, data any) {
-	writeJSON(w, status, map[string]any{
-		"data":  data,
-		"error": nil,
-	})
 }
 
 func writeAPIError(w http.ResponseWriter, status int, message string) {
