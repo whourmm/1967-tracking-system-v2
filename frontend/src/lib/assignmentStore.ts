@@ -30,6 +30,11 @@ function isAdminAssignmentList(value: unknown): value is AdminAssignment[] {
   );
 }
 
+/** Fills in missing fields for assignments persisted before sheetTab was added. */
+function normaliseAssignment(item: Partial<AdminAssignment> & Pick<AdminAssignment, "id" | "title" | "sprint" | "formUrl" | "due" | "description" | "submittedIds">): AdminAssignment {
+  return { sheetTab: "", ...item };
+}
+
 export function currentFellowId() {
   return allFellows.find((fellow) => fellow.name === currentFellow.name)?.id ?? allFellows[0]?.id ?? 1;
 }
@@ -45,7 +50,7 @@ export function loadAdminAssignments(): AdminAssignment[] {
     if (!isAdminAssignmentList(parsed)) return seededTasks();
 
     return parsed.map((assignment) => ({
-      ...assignment,
+      ...normaliseAssignment(assignment),
       submittedIds: [...assignment.submittedIds],
     }));
   } catch {

@@ -202,4 +202,7 @@ export interface AdminAssignment {
   due: string; // ISO date, "" when none
   description: string;
   submittedIds: number[]; // FellowRecord ids that have submitted
+  /** Google Sheet tab name that holds this form's responses.
+   *  Leave empty to use the first tab (one sheet = one form). */
+  sheetTab: string;
 }

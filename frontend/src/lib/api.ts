@@ -2,6 +2,7 @@ import type { Fellow } from "../types/fellow";
 import type { Assignment, AssignmentStatus, Sprint } from "../types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL ?? "";
 
 type ApiEnvelope<T> = {
   data: T;
@@ -225,6 +226,56 @@ async function sendData<T>(method: "POST" | "PATCH" | "DELETE", path: string, bo
   if (envelope.error) throw new Error(envelope.error);
   return envelope.data;
 }
+
+// ── Apps Script helpers ───────────────────────────────────────────────────────
+
+export type SheetListResult = {
+  count: number;
+  sbieIds: string[];
+  submissions: { timestamp: string; email: string; sbieId: string }[];
+};
+
+export type SheetCheckResult = {
+  sbieId: string;
+  submitted: boolean;
+  submittedAt: string | null;
+};
+
+export type SheetSyncResult = {
+  synced: number;
+  notFound: string[];
+  backendResponse?: unknown;
+  message?: string;
+  error?: string;
+};
+
+async function appsScriptGet<T>(params: Record<string, string>): Promise<T> {
+  if (!APPS_SCRIPT_URL) throw new Error("VITE_APPS_SCRIPT_URL is not configured");
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`${APPS_SCRIPT_URL}?${qs}`);
+  if (!res.ok) throw new Error(`Apps Script error: ${res.status}`);
+  const data = (await res.json()) as T & { error?: string };
+  if ((data as { error?: string }).error) throw new Error((data as { error: string }).error);
+  return data;
+}
+
+export const sheets = {
+  /** Returns all SBIE IDs that appear in the sheet (admin: who submitted). */
+  list: (sheetTab = "") =>
+    appsScriptGet<SheetListResult>({ action: "list", ...(sheetTab && { sheet: sheetTab }) }),
+
+  /** Returns whether a single SBIE ID has submitted (student: did I submit?). */
+  check: (sbieId: string, sheetTab = "") =>
+    appsScriptGet<SheetCheckResult>({ action: "check", sbieId, ...(sheetTab && { sheet: sheetTab }) }),
+
+  /** Syncs the sheet to the backend DB (admin: push responses to the system). */
+  sync: (assignmentId: number, sheetTab = "") =>
+    appsScriptGet<SheetSyncResult>({
+      action: "sync",
+      assignmentId: String(assignmentId),
+      ...(sheetTab && { sheet: sheetTab }),
+    }),
+};
 
 export const api = {
   health: () => get<{ status: string }>("/api/health"),

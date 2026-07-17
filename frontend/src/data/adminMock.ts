@@ -103,6 +103,7 @@ export const adminAssignments: AdminAssignment[] = [
     description:
       "Submit notes from at least 8 customer interviews, including key pain points and verbatim quotes.",
     submittedIds: ids.filter((_, i) => i % 3 !== 0),
+    sheetTab: "",
   },
   {
     id: 2,
@@ -112,6 +113,7 @@ export const adminAssignments: AdminAssignment[] = [
     due: "2026-06-14",
     description: "Reflect on what your team shipped this sprint and what you'd change next.",
     submittedIds: ids.filter((_, i) => i % 2 === 0),
+    sheetTab: "",
   },
   {
     id: 3,
@@ -121,6 +123,7 @@ export const adminAssignments: AdminAssignment[] = [
     due: "2026-06-09",
     description: "Quick status: wins, blockers and what you need help with this week.",
     submittedIds: ids.slice(),
+    sheetTab: "",
   },
 ];
 

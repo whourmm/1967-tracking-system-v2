@@ -19,6 +19,7 @@ import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
 import { adminAssignments, caseSubmissionStatus, sbieId, SPRINTS } from "../../data/adminMock";
 import { allFellows, caseAssignments } from "../../data/mock";
+import { sheets } from "../../lib/api";
 import { formatShortDate } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import { renumberTeamName, teamNameMap } from "../../lib/teams";
@@ -35,6 +36,7 @@ const emptyForm = {
   formUrl: "",
   due: "",
   description: "",
+  sheetTab: "",
 };
 
 let tmpId = 1000;
@@ -68,22 +70,27 @@ function ago(ts: number | undefined, now: number): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
-// Mock for the Apps Script call: reads the form's response sheet and returns the
-// up-to-date set of submitted fellow ids. Here we simulate 1–3 new responses
-// trickling in since the last sync (so each refresh shows realistic movement).
-function fetchSheetSubmissions(task: AdminAssignment): number[] {
-  const pending = allFellows.filter((f) => !task.submittedIds.includes(f.id));
-  if (pending.length === 0) return task.submittedIds;
-  const incoming = Math.min(pending.length, 1 + Math.floor(Math.random() * 3));
-  const picked = pending
-    .map((f) => ({ f, r: Math.random() }))
-    .sort((a, b) => a.r - b.r)
-    .slice(0, incoming)
-    .map(({ f }) => f.id);
-  return [...task.submittedIds, ...picked];
+/**
+ * Calls the Apps Script web app to get the current submission list for a task,
+ * then maps the returned SBIE IDs back to fellow record IDs.
+ *
+ * Falls back gracefully: if VITE_APPS_SCRIPT_URL is not set it returns the
+ * task's existing submittedIds unchanged (mock behaviour for local dev).
+ */
+async function fetchSheetSubmissions(task: AdminAssignment): Promise<number[]> {
+  try {
+    const { sbieIds } = await sheets.list(task.sheetTab);
+    // sbieId(fellowId) == `SBIE26-${String(fellowId).padStart(3, "0")}`
+    const matched = allFellows
+      .filter((f) => sbieIds.includes(sbieId(f.id)))
+      .map((f) => f.id);
+    // Preserve any IDs already in the task that aren't in the sheet yet
+    return [...new Set([...task.submittedIds, ...matched])];
+  } catch {
+    // VITE_APPS_SCRIPT_URL not set or network error — keep existing data
+    return task.submittedIds;
+  }
 }
-
-const SYNC_MS = 750; // simulated Apps Script round-trip
 
 export default function FormTracker() {
   const [tasks, setTasks] = useState<AdminAssignment[]>(loadAdminAssignments);
@@ -178,7 +185,7 @@ export default function FormTracker() {
   }
 
   function startEdit(t: AdminAssignment) {
-    setForm({ title: t.title, sprint: t.sprint, formUrl: t.formUrl, due: t.due, description: t.description });
+    setForm({ title: t.title, sprint: t.sprint, formUrl: t.formUrl, due: t.due, description: t.description, sheetTab: t.sheetTab });
     setAdding(false);
     setEditingId(t.id);
   }
@@ -194,12 +201,13 @@ export default function FormTracker() {
       formUrl: form.formUrl.trim(),
       due: form.due,
       description: form.description.trim(),
+      sheetTab: form.sheetTab.trim(),
     };
     if (editingId !== null) {
       setTasks((prev) => prev.map((t) => (t.id === editingId ? { ...t, ...data } : t)));
       showToast("Assignment updated");
     } else {
-      setTasks((prev) => [...prev, { id: nextId(), ...data, submittedIds: [] }]);
+      setTasks((prev) => [...prev, { id: nextId(), ...data, submittedIds: [], sheetTab: data.sheetTab }]);
       showToast("Assignment added");
     }
     cancelEdit();
@@ -215,42 +223,57 @@ export default function FormTracker() {
   }
 
   // Re-check a single assignment's Google Form responses.
-  function refresh(id: number) {
+  async function refresh(id: number) {
     if (syncing.has(id)) return;
     setSyncing((prev) => new Set(prev).add(id));
-    window.setTimeout(() => {
+    try {
+      const task = tasks.find((t) => t.id === id);
+      if (!task) return;
+      const nextIds = await fetchSheetSubmissions(task);
       const stamp = Date.now();
       setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, submittedIds: fetchSheetSubmissions(t) } : t))
+        prev.map((t) => (t.id === id ? { ...t, submittedIds: nextIds } : t))
       );
       setLastSync((prev) => ({ ...prev, [id]: stamp }));
       setLastSyncAll(stamp);
+      showToast("Synced from Google Form responses");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Sync failed");
+    } finally {
       setSyncing((prev) => {
         const n = new Set(prev);
         n.delete(id);
         return n;
       });
-      showToast("Synced from Google Form responses");
-    }, SYNC_MS);
+    }
   }
 
   // Re-check every assignment at once.
-  function refreshAll() {
+  async function refreshAll() {
     if (anyBusy || tasks.length === 0) return;
     const ids = tasks.map((t) => t.id);
     setSyncing(new Set(ids));
-    window.setTimeout(() => {
+    try {
+      const results = await Promise.all(tasks.map((t) => fetchSheetSubmissions(t)));
       const stamp = Date.now();
-      setTasks((prev) => prev.map((t) => ({ ...t, submittedIds: fetchSheetSubmissions(t) })));
+      setTasks((prev) =>
+        prev.map((t) => {
+          const idx = tasks.findIndex((x) => x.id === t.id);
+          return idx >= 0 ? { ...t, submittedIds: results[idx] } : t;
+        })
+      );
       setLastSync((prev) => {
         const n = { ...prev };
         ids.forEach((id) => (n[id] = stamp));
         return n;
       });
       setLastSyncAll(stamp);
-      setSyncing(new Set());
       showToast(`Synced ${ids.length} assignment${ids.length === 1 ? "" : "s"}`);
-    }, SYNC_MS + 250);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(new Set());
+    }
   }
 
   const inputCls =
@@ -281,6 +304,17 @@ export default function FormTracker() {
       <div>
         <label className={labelCls}>Google Form link</label>
         <input value={form.formUrl} onChange={(e) => set("formUrl", e.target.value)} placeholder="https://forms.gle/…" className={inputCls} />
+      </div>
+      <div>
+        <label className={labelCls}>
+          Response sheet tab <span className="font-normal normal-case text-slate-400">— optional, leave blank for first tab</span>
+        </label>
+        <input
+          value={form.sheetTab}
+          onChange={(e) => set("sheetTab", e.target.value)}
+          placeholder="e.g. Form Responses 1"
+          className={inputCls}
+        />
       </div>
       <div>
         <label className={labelCls}>Description</label>
