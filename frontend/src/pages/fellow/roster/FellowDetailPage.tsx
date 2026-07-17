@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
 import { Link, useParams, Navigate } from "react-router-dom";
 import { ArrowLeft, ExternalLink, GraduationCap, Globe, Mail, MessageCircle, Users } from "lucide-react";
 import { Card, CardHeader } from "../../../components/ui/Card";
 import { allFellows } from "../../../data/mock";
 import type { FellowRecord, TeamFlow } from "../../../types";
 import { cn } from "../../../lib/cn";
+import { api } from "../../../lib/api";
+import { detailFellowRecord } from "../../../lib/fellowRecords";
 
 const teamflowChip: Record<TeamFlow, string> = {
   Initiator: "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20",
@@ -48,7 +51,12 @@ function ContactRow({ icon: Icon, label, value, href }: { icon: typeof Mail; lab
 
 export default function FellowDetailPage() {
   const { fellowId } = useParams<{ fellowId: string }>();
-  const fellow = allFellows.find((f) => f.id === Number(fellowId));
+  const [fellow, setFellow] = useState(() => allFellows.find((f) => f.id === Number(fellowId)));
+  useEffect(() => {
+    const id = Number(fellowId);
+    if (!Number.isFinite(id)) return;
+    api.fellowDetail(id).then((detail) => setFellow(detailFellowRecord(detail))).catch(() => undefined);
+  }, [fellowId]);
   if (!fellow) return <Navigate to="/fellow/roster" replace />;
 
   const teammates = allFellows.filter((f) => f.team === fellow.team && f.id !== fellow.id);

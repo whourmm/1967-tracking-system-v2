@@ -1,5 +1,6 @@
 import type { Fellow } from "../types/fellow";
 import type { Assignment, AssignmentStatus, Sprint } from "../types";
+import { supabase } from "./supabase";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 
@@ -80,6 +81,92 @@ export type ResourceReadStatus = {
   unread: number;
   total: number;
   percent: number;
+};
+
+export type AdminFellow = {
+  id: number;
+  name?: string | null;
+  email?: string | null;
+  country?: string | null;
+  university?: string | null;
+  teamflow?: string | null;
+  team_id?: number | null;
+  team_name?: string | null;
+  status?: string | null;
+  created_at: string;
+  last_login_at?: string | null;
+};
+
+export type FellowDetail = {
+  id: number;
+  name?: string | null;
+  email?: string | null;
+  discord_name?: string | null;
+  line_id?: string | null;
+  phone?: string | null;
+  linkedin?: string | null;
+  photo_url?: string | null;
+  country?: string | null;
+  university?: string | null;
+  major?: string | null;
+  status?: string | null;
+  teamflow?: string | null;
+  team?: { id: number; name: string } | null;
+  created_at: string;
+  last_login_at?: string | null;
+};
+
+export type TeamResponse = {
+  id: number;
+  group_id?: number | null;
+  name?: string | null;
+  case_id?: number | null;
+  case_title?: string | null;
+  member_count: number;
+  created_at: string;
+  update_at: string;
+};
+
+export type AdminEventResponse = {
+  id: number;
+  cohort_id?: number | null;
+  name?: string | null;
+  description?: string | null;
+  date?: string | null;
+  all_day: boolean;
+  start?: string | null;
+  end?: string | null;
+  timezone?: string | null;
+  location?: string | null;
+};
+
+export type AdminAssignmentResponse = {
+  id: number;
+  cohort_id?: number | null;
+  sprint_id?: number | null;
+  title?: string | null;
+  form_url?: string | null;
+  deadline?: string | null;
+  description?: string | null;
+  submitted_count: number;
+  total_fellows: number;
+  created_at: string;
+  update_at: string;
+};
+
+export type AssignmentSubmissionsResponse = {
+  assignment_id: number;
+  title?: string | null;
+  deadline?: string | null;
+  submitted_count: number;
+  total_fellows: number;
+  fellows: Array<{
+    member_id: number;
+    name: string;
+    submit_status: number;
+    status_name: "pending" | "submitted" | "overdue";
+    submitted_at?: string | null;
+  }>;
 };
 
 export type FellowMe = {
@@ -166,7 +253,7 @@ export type MarkResourceReadResponse = {
 };
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`);
+  const res = await fetch(`${BASE_URL}${path}`, { headers: await authHeaders() });
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText}`);
   }
@@ -216,20 +303,37 @@ function mapSprint(item: AdminSprint): Sprint {
 async function sendData<T>(method: "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers: await authHeaders(Boolean(body)),
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+
+  if (res.status === 204) return undefined as T;
 
   const envelope = (await res.json()) as ApiEnvelope<T>;
   if (envelope.error) throw new Error(envelope.error);
   return envelope.data;
 }
 
+async function authHeaders(hasBody = false) {
+  const headers = new Headers();
+  const { data } = await supabase.auth.getSession();
+  if (data.session?.access_token) {
+    headers.set("Authorization", `Bearer ${data.session.access_token}`);
+  }
+  if (hasBody) {
+    headers.set("Content-Type", "application/json");
+  }
+  return headers;
+}
+
 export const api = {
   health: () => get<{ status: string }>("/api/health"),
   me: () => getData<FellowMe>("/api/me"),
   listFellows: () => get<Fellow[]>("/api/fellows"),
+  fellowDetail: (id: number) => getData<FellowDetail>(`/api/fellows/${id}`),
+  events: () => getData<AdminEventResponse[]>("/api/events"),
+  teams: () => getData<TeamResponse[]>("/api/teams"),
   fellow: {
     assignments: async () => (await getData<FellowAssignmentResponse[]>("/api/fellow/assignments")).map(mapFellowAssignment),
     submitAssignment: (id: number) => sendData<SubmitAssignmentResponse>("POST", `/api/fellow/assignments/${id}/submit`),
@@ -240,6 +344,32 @@ export const api = {
   },
   admin: {
     overview: () => getData<AdminOverview>("/api/admin/overview"),
+    listFellows: () => getData<AdminFellow[]>("/api/admin/fellows"),
+    createFellow: (payload: Partial<AdminFellow> & { gmail?: string; major?: string }) =>
+      sendData<AdminFellow>("POST", "/api/admin/fellows", payload),
+    updateFellow: (id: number, payload: Partial<AdminFellow> & { major?: string; group_id?: number | null }) =>
+      sendData<AdminFellow>("PATCH", `/api/admin/fellows/${id}`, payload),
+    deleteFellow: (id: number) => sendData<void>("DELETE", `/api/admin/fellows/${id}`),
+    listAssignments: () => getData<AdminAssignmentResponse[]>("/api/admin/assignments"),
+    assignmentSubmissions: (id: number) =>
+      getData<AssignmentSubmissionsResponse>(`/api/admin/assignments/${id}/submissions`),
+    createAssignment: (payload: Partial<AdminAssignmentResponse>) =>
+      sendData<AdminAssignmentResponse>("POST", "/api/admin/assignments", payload),
+    updateAssignment: (id: number, payload: Partial<AdminAssignmentResponse>) =>
+      sendData<AdminAssignmentResponse>("PATCH", `/api/admin/assignments/${id}`, payload),
+    syncAssignment: (id: number, submittedMemberIds: number[]) =>
+      sendData<{ assignment_id: number; updated_count: number; synced_at: string }>(
+        "POST",
+        `/api/admin/assignments/${id}/sync`,
+        { submitted_member_ids: submittedMemberIds },
+      ),
+    createEvent: (payload: Partial<AdminEventResponse>) =>
+      sendData<AdminEventResponse>("POST", "/api/admin/events", payload),
+    updateEvent: (id: number, payload: Partial<AdminEventResponse>) =>
+      sendData<AdminEventResponse>("PATCH", `/api/admin/events/${id}`, payload),
+    deleteEvent: (id: number) => sendData<void>("DELETE", `/api/admin/events/${id}`),
+    saveTeamAssignments: (assignments: Array<{ member_id: number; team_id: number | null; group_id: number | null }>) =>
+      sendData<{ updated_count: number }>("POST", "/api/admin/teams/assignments", { assignments }),
     listCases: () => getData<AdminCase[]>("/api/admin/cases"),
     getCase: (id: number) => getData<AdminCase>(`/api/admin/cases/${id}`),
     createCase: (payload: Partial<AdminCase>) => sendData<AdminCase>("POST", "/api/admin/cases", payload),

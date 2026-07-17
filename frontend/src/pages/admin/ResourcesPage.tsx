@@ -1,44 +1,20 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BookOpen, CheckCircle2, ChevronDown, Edit3, FileText, GraduationCap, Plus, Trash2, UserX, Video } from "lucide-react";
 import { motion } from "framer-motion";
-import { FellowAvatar, FellowNameLink } from "../../components/admin/FellowProfileLink";
 import ResourceFormDialog, { type ResourceFormValues } from "../../components/admin/ResourceFormDialog";
 import { StatCard } from "../../components/ui/StatCard";
-import { learningReadIds, resourceReadIds } from "../../data/adminMock";
-import { allFellows, learningBlocks, specialCurriculum } from "../../data/mock";
+import { allFellows, learningBlocks, resources as fellowResources, specialCurriculum } from "../../data/mock";
 import { cn } from "../../lib/cn";
+import { api, type AdminResource } from "../../lib/api";
 import type { ResourceItem } from "../../components/admin/contentTypes";
 
-const initialResources: ResourceItem[] = [
-  {
-    id: "pitch-deck",
-    title: "Demo Day pitch deck template",
-    type: "Template",
-    summary: "10-slide structure used by last cohort's top three teams.",
-    url: "catalyst.io/r/deck",
-  },
-  {
-    id: "team-agreement",
-    title: "Team working agreement (Notion)",
-    type: "Guide",
-    summary: "Fill-in template for roles, comms cadence and decision rules.",
-    url: "catalyst.io/r/agreement",
-  },
-  {
-    id: "scoping-recording",
-    title: "Recording: scoping a 1-week build",
-    type: "Video",
-    summary: "32-min walkthrough from a returning mentor.",
-    url: "catalyst.io/r/scoping",
-  },
-  {
-    id: "standup-playbook",
-    title: "Cross-timezone standup playbook",
-    type: "Guide",
-    summary: "How SEA-spanning teams keep async standups tight.",
-    url: "catalyst.io/r/standup",
-  },
-];
+const initialResources: ResourceItem[] = fellowResources.map((resource) => ({
+  id: String(resource.id),
+  title: resource.name,
+  type: resource.type === "LECTURE" ? "Video" : "Guide",
+  summary: resource.description,
+  url: resource.url ?? "",
+}));
 
 type TrackableItem = {
   id: string;
@@ -46,40 +22,44 @@ type TrackableItem = {
   type: string;
   summary: string;
   url: string;
-  readIds: number[];
+  readCount: number;
+  total: number;
   source: "resource" | "learning";
 };
 
-function learningItems(): TrackableItem[] {
+function learningItems(readCounts: Record<string, number>, total: number): TrackableItem[] {
   const specialItems = specialCurriculum.flatMap((section, sectionIndex) =>
     section.links.map((link, linkIndex) => ({
-      id: `learning:special:${sectionIndex}:${linkIndex}`,
+      id: String(link.resourceId ?? `learning:special:${sectionIndex}:${linkIndex}`),
       title: link.label,
       type: link.kind === "pdf" ? "PDF" : "Link",
       summary: section.title,
       url: link.url,
-      readIds: learningReadIds[`learning:special:${sectionIndex}:${linkIndex}`] ?? [],
+      readCount: readCounts[String(link.resourceId)] ?? 0,
+      total,
       source: "learning" as const,
     }))
   );
 
   const blockItems = learningBlocks.flatMap((block) => [
     ...(block.videos ?? []).map((link, index) => ({
-      id: `learning:block:${block.id}:video:${index}`,
+      id: String(link.resourceId ?? `learning:block:${block.id}:video:${index}`),
       title: link.label,
       type: "Video",
       summary: `Block ${block.id} - ${block.title}`,
       url: link.url,
-      readIds: learningReadIds[`learning:block:${block.id}:video:${index}`] ?? [],
+      readCount: readCounts[String(link.resourceId)] ?? 0,
+      total,
       source: "learning" as const,
     })),
     ...(block.articles ?? []).map((link, index) => ({
-      id: `learning:block:${block.id}:article:${index}`,
+      id: String(link.resourceId ?? `learning:block:${block.id}:article:${index}`),
       title: link.label,
       type: "Article",
       summary: `Block ${block.id} - ${block.title}`,
       url: link.url,
-      readIds: learningReadIds[`learning:block:${block.id}:article:${index}`] ?? [],
+      readCount: readCounts[String(link.resourceId)] ?? 0,
+      total,
       source: "learning" as const,
     })),
   ]);
@@ -87,44 +67,22 @@ function learningItems(): TrackableItem[] {
   return [...specialItems, ...blockItems];
 }
 
-function ReaderBreakdown({ readIds }: { readIds: number[] }) {
-  const read = allFellows.filter((f) => readIds.includes(f.id));
-  const unread = allFellows.filter((f) => !readIds.includes(f.id));
-
-  const fellowChip = (tone: "read" | "unread") => (fellow: (typeof allFellows)[number]) => (
-    <span
-      key={fellow.id}
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-2.5 text-xs",
-        tone === "read"
-          ? "border-emerald-200 bg-emerald-50 text-slate-900"
-          : "border-slate-200 bg-white text-slate-500"
-      )}
-    >
-      <FellowAvatar fellow={fellow} size="sm" tone={tone === "read" ? "emerald" : "slate"} />
-      <FellowNameLink fellow={fellow} className={cn("text-xs", tone === "read" ? "text-slate-900" : "text-slate-500")} />
-    </span>
-  );
-
+function ReaderBreakdown({ readCount, total }: { readCount: number; total: number }) {
   return (
     <div className="mt-4 grid gap-4 rounded-lg border border-slate-200 bg-slate-50/70 p-4 lg:grid-cols-2">
       <div>
         <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-700">
           <CheckCircle2 className="h-3.5 w-3.5" />
-          Read ({read.length})
+          Read ({readCount})
         </p>
-        <div className="flex flex-wrap gap-2">
-          {read.length ? read.map(fellowChip("read")) : <span className="text-xs text-slate-400">No readers yet</span>}
-        </div>
+        <p className="text-xs text-slate-500">Reported by the backend.</p>
       </div>
       <div>
         <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
           <UserX className="h-3.5 w-3.5" />
-          Not read ({unread.length})
+          Not read ({Math.max(total - readCount, 0)})
         </p>
-        <div className="flex flex-wrap gap-2">
-          {unread.length ? unread.map(fellowChip("unread")) : <span className="text-xs text-slate-400">Everyone has read this</span>}
-        </div>
+        <p className="text-xs text-slate-500">Reader identities are not exposed by this endpoint.</p>
       </div>
     </div>
   );
@@ -132,9 +90,32 @@ function ReaderBreakdown({ readIds }: { readIds: number[] }) {
 
 export default function ResourcesPage() {
   const [resources, setResources] = useState<ResourceItem[]>(initialResources);
+  const [readCounts, setReadCounts] = useState<Record<string, number>>({});
+  const [loadError, setLoadError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ResourceItem | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  async function loadResources() {
+    try {
+      const [items, statuses] = await Promise.all([api.admin.listResources(), api.admin.resourceReadStatus()]);
+      setResources(items.map((item) => ({
+        id: String(item.id),
+        title: item.name ?? "Untitled resource",
+        type: item.type === "VIDEO" || item.type === "LECTURE" ? "Video" : item.type === "TEMPLATE" ? "Template" : "Guide",
+        summary: item.description ?? "",
+        url: item.url ?? "",
+      })));
+      setReadCounts(Object.fromEntries(statuses.map((status) => [String(status.resource_id), status.read])));
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load resources");
+    }
+  }
+
+  useEffect(() => {
+    void loadResources();
+  }, []);
 
   const sharedItems = useMemo<TrackableItem[]>(
     () =>
@@ -144,19 +125,18 @@ export default function ResourcesPage() {
         type: resource.type,
         summary: resource.summary,
         url: resource.url,
-        readIds: resourceReadIds[resource.id] ?? [],
+        readCount: readCounts[resource.id] ?? 0,
+        total: allFellows.length,
         source: "resource",
       })),
-    [resources]
+    [resources, readCounts]
   );
-  const learning = useMemo(learningItems, []);
+  const learning = useMemo(() => learningItems(readCounts, allFellows.length), [readCounts]);
   const trackedItems = [...sharedItems, ...learning];
   const totalPossibleReads = trackedItems.length * allFellows.length;
-  const totalReads = trackedItems.reduce((sum, item) => sum + item.readIds.length, 0);
+  const totalReads = trackedItems.reduce((sum, item) => sum + item.readCount, 0);
   const avgReadRate = totalPossibleReads ? Math.round((totalReads / totalPossibleReads) * 100) : 0;
-  const unreadFellows = trackedItems.length
-    ? allFellows.filter((fellow) => trackedItems.some((item) => !item.readIds.includes(fellow.id))).length
-    : 0;
+  const unreadFellows = trackedItems.reduce((max, item) => Math.max(max, item.total - item.readCount), 0);
 
   function openCreate() {
     setEditing(null);
@@ -173,25 +153,41 @@ export default function ResourcesPage() {
     setEditing(null);
   }
 
-  function handleSave(values: ResourceFormValues) {
-    if (editing) {
-      setResources((cur) => cur.map((r) => (r.id === editing.id ? { ...r, ...values } : r)));
-    } else {
-      setResources((cur) => [{ id: `resource-${Date.now()}`, ...values }, ...cur]);
+  async function handleSave(values: ResourceFormValues) {
+    const payload: Partial<AdminResource> = {
+      name: values.title,
+      type: values.type === "Video" ? "VIDEO" : values.type === "Template" ? "TEMPLATE" : "ARTICLE",
+      url: values.url,
+      description: values.summary,
+    };
+    try {
+      if (editing) {
+        await api.admin.updateResource(Number(editing.id), payload);
+      } else {
+        await api.admin.createResource(payload);
+      }
+      await loadResources();
+      closeForm();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not save resource");
     }
-    closeForm();
   }
 
-  function remove(item: ResourceItem) {
+  async function remove(item: ResourceItem) {
     if (window.confirm(`Delete "${item.title}"?`)) {
-      setResources((cur) => cur.filter((r) => r.id !== item.id));
-      if (expanded === item.id) setExpanded(null);
+      try {
+        await api.admin.deleteResource(Number(item.id));
+        await loadResources();
+        if (expanded === item.id) setExpanded(null);
+      } catch (error) {
+        setLoadError(error instanceof Error ? error.message : "Could not delete resource");
+      }
     }
   }
 
   function renderTrackedItem(item: TrackableItem, index: number) {
     const Icon = item.type === "Video" ? Video : item.source === "learning" ? BookOpen : FileText;
-    const pct = allFellows.length ? Math.round((item.readIds.length / allFellows.length) * 100) : 0;
+    const pct = item.total ? Math.round((item.readCount / item.total) * 100) : 0;
     const open = expanded === item.id;
 
     return (
@@ -209,7 +205,7 @@ export default function ResourcesPage() {
               <p className="item-title">{item.title}</p>
               <span className={`pill ${item.type === "Video" ? "red" : ""}`}>{item.type}</span>
               <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-600/20">
-                {item.readIds.length} / {allFellows.length} read
+                {item.readCount} / {item.total} read
               </span>
             </div>
             <p className="item-summary">{item.summary}</p>
@@ -224,7 +220,7 @@ export default function ResourcesPage() {
                 <button className="icon-link" type="button" aria-label={`Edit ${item.title}`} onClick={() => openEdit(resources.find((r) => r.id === item.id)!)} >
                   <Edit3 size={15} />
                 </button>
-                <button className="icon-link" type="button" aria-label={`Delete ${item.title}`} onClick={() => remove(resources.find((r) => r.id === item.id)!)} >
+                <button className="icon-link" type="button" aria-label={`Delete ${item.title}`} onClick={() => void remove(resources.find((r) => r.id === item.id)!)} >
                   <Trash2 size={15} />
                 </button>
               </>
@@ -239,7 +235,7 @@ export default function ResourcesPage() {
             </button>
           </div>
         </div>
-        {open && <ReaderBreakdown readIds={item.readIds} />}
+        {open && <ReaderBreakdown readCount={item.readCount} total={item.total} />}
       </motion.article>
     );
   }
@@ -258,6 +254,7 @@ export default function ResourcesPage() {
           </button>
         </div>
       </header>
+      {loadError && <p className="error-box">{loadError}</p>}
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard icon={BookOpen} label="Tracked items" value={trackedItems.length} color="text-brand-600 bg-brand-50" />
@@ -292,7 +289,7 @@ export default function ResourcesPage() {
         </section>
       </div>
 
-      {showForm && <ResourceFormDialog initial={editing} onClose={closeForm} onSave={handleSave} />}
+      {showForm && <ResourceFormDialog initial={editing} onClose={closeForm} onSave={(values) => void handleSave(values)} />}
     </div>
   );
 }

@@ -1,153 +1,90 @@
-export type MockRole = "fellow" | "admin";
+import { api, type FellowMe } from "./api";
+import { supabase } from "./supabase";
 
-export interface MockUser {
-  id: string;
+export type AppRole = "fellow" | "admin";
+
+export interface AppUser {
+  id: number;
   name: string;
   email: string;
-  password: string;
-  role: MockRole;
+  role: AppRole;
   initials: string;
   team?: string;
   cohort?: string;
   university?: string;
 }
 
-type StoredSession = {
-  email: string;
-};
-
 type AuthResult =
-  | { ok: true; user: MockUser }
+  | { ok: true; user: AppUser }
   | { ok: false; error: string };
 
-const ACCOUNTS_KEY = "tracking-system-v2.mockAccounts";
-const LOCAL_SESSION_KEY = "tracking-system-v2.mockSession.local";
-const SESSION_SESSION_KEY = "tracking-system-v2.mockSession.session";
-
-const seededAccounts: MockUser[] = [
-  {
-    id: "admin-praewa",
-    name: "Praewa Suksai",
-    email: "praewa@seabridge.org",
-    password: "password123",
-    role: "admin",
-    initials: "PS",
-  },
-  {
-    id: "fellow-sirada",
-    name: "Sirada Wong",
-    email: "sirada.w@example.com",
-    password: "password123",
-    role: "fellow",
-    initials: "SW",
-    team: "Team 1",
-    cohort: "Cohort 2026",
-    university: "Chulalongkorn University",
-  },
-  {
-    id: "fellow-naphat",
-    name: "Naphat Tan",
-    email: "naphat.t@example.com",
-    password: "password123",
-    role: "fellow",
-    initials: "NT",
-    team: "Team 1",
-    cohort: "Cohort 2026",
-    university: "VNU University of Science",
-  },
-  {
-    id: "fellow-mali",
-    name: "Mali Chen",
-    email: "mali.c@example.com",
-    password: "password123",
-    role: "fellow",
-    initials: "MC",
-    team: "Team 1",
-    cohort: "Cohort 2026",
-    university: "National University of Singapore",
-  },
-];
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
-
-function readJSON<T>(storage: Storage, key: string, fallback: T): T {
-  try {
-    const raw = storage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJSON(storage: Storage, key: string, value: unknown) {
-  storage.setItem(key, JSON.stringify(value));
-}
-
-function registeredAccounts() {
-  return readJSON<MockUser[]>(localStorage, ACCOUNTS_KEY, []);
-}
-
-function saveRegisteredAccounts(accounts: MockUser[]) {
-  writeJSON(localStorage, ACCOUNTS_KEY, accounts);
-}
+const PROFILE_KEY = "tracking-system-v2.profile";
 
 function initialsFor(name: string) {
-  const initials = name
+  return name
     .trim()
     .split(/\s+/)
     .map((part) => part[0])
     .slice(0, 2)
     .join("")
-    .toUpperCase();
-
-  return initials || "FP";
+    .toUpperCase() || "FP";
 }
 
-function accountByEmail(email: string) {
-  const normalized = normalizeEmail(email);
-  return getAccounts().find((account) => account.email === normalized) ?? null;
+function profileFromMe(profile: FellowMe): AppUser {
+  if (profile.role !== "admin" && profile.role !== "fellow") {
+    throw new Error("Your account does not have an app role.");
+  }
+
+  const name = profile.name?.trim() || profile.email?.split("@")[0] || "User";
+  return {
+    id: profile.id,
+    name,
+    email: profile.email ?? "",
+    role: profile.role,
+    initials: initialsFor(name),
+    team: profile.fellow?.team_name ?? undefined,
+    cohort: profile.fellow?.cohort_name ?? undefined,
+    university: profile.fellow?.university ?? undefined,
+  };
 }
 
-function setSession(email: string, remember: boolean) {
-  const session: StoredSession = { email: normalizeEmail(email) };
+async function loadProfile() {
+  const user = profileFromMe(await api.me());
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(user));
+  return user;
+}
 
-  if (remember) {
-    writeJSON(localStorage, LOCAL_SESSION_KEY, session);
-    sessionStorage.removeItem(SESSION_SESSION_KEY);
+export async function initializeAuth() {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    localStorage.removeItem(PROFILE_KEY);
     return;
   }
 
-  writeJSON(sessionStorage, SESSION_SESSION_KEY, session);
-  localStorage.removeItem(LOCAL_SESSION_KEY);
+  if (!getCurrentUser()) {
+    try {
+      await loadProfile();
+    } catch {
+      localStorage.removeItem(PROFILE_KEY);
+    }
+  }
 }
 
-export function getAccounts() {
-  const accountsByEmail = new Map<string, MockUser>();
-
-  [...seededAccounts, ...registeredAccounts()].forEach((account) => {
-    accountsByEmail.set(normalizeEmail(account.email), {
-      ...account,
-      email: normalizeEmail(account.email),
-    });
-  });
-
-  return [...accountsByEmail.values()];
-}
-
-export function login(email: string, password: string, remember: boolean): AuthResult {
-  const account = accountByEmail(email);
-
-  if (!account || account.password !== password) {
-    return { ok: false, error: "Email or password does not match a demo account." };
+export async function login(email: string, password: string): Promise<AuthResult> {
+  const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+  if (error) {
+    return { ok: false, error: error.message };
   }
 
-  setSession(account.email, remember);
-  return { ok: true, user: account };
+  try {
+    return { ok: true, user: await loadProfile() };
+  } catch (error) {
+    await supabase.auth.signOut();
+    return { ok: false, error: error instanceof Error ? error.message : "Unable to load your account." };
+  }
 }
 
-export function registerFellow({
+export async function registerFellow({
   name,
   email,
   password,
@@ -155,76 +92,42 @@ export function registerFellow({
   name: string;
   email: string;
   password: string;
-}): AuthResult {
-  const trimmedName = name.trim();
-  const normalizedEmail = normalizeEmail(email);
-
-  if (!trimmedName) {
-    return { ok: false, error: "Full name is required." };
-  }
-
-  if (!normalizedEmail) {
-    return { ok: false, error: "Email is required." };
-  }
-
-  if (password.length < 8) {
-    return { ok: false, error: "Password must be at least 8 characters." };
-  }
-
-  if (accountByEmail(normalizedEmail)) {
-    return { ok: false, error: "An account with this email already exists." };
-  }
-
-  const user: MockUser = {
-    id: `local-${Date.now()}`,
-    name: trimmedName,
-    email: normalizedEmail,
+}): Promise<AuthResult> {
+  const { data, error } = await supabase.auth.signUp({
+    email: email.trim(),
     password,
-    role: "fellow",
-    initials: initialsFor(trimmedName),
-    team: "Unassigned",
-    cohort: "Cohort 2026",
-    university: "",
-  };
+    options: { data: { full_name: name.trim() } },
+  });
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (!data.session) {
+    return { ok: false, error: "Check your email to confirm the account, then sign in." };
+  }
 
-  saveRegisteredAccounts([...registeredAccounts(), user]);
-  setSession(user.email, true);
-
-  return { ok: true, user };
+  try {
+    return { ok: true, user: await loadProfile() };
+  } catch (error) {
+    await supabase.auth.signOut();
+    return { ok: false, error: error instanceof Error ? error.message : "Unable to create your account." };
+  }
 }
 
-export function logout() {
-  localStorage.removeItem(LOCAL_SESSION_KEY);
-  sessionStorage.removeItem(SESSION_SESSION_KEY);
+export async function logout() {
+  localStorage.removeItem(PROFILE_KEY);
+  await supabase.auth.signOut();
 }
 
-export function getCurrentUser() {
-  const session =
-    readJSON<StoredSession | null>(sessionStorage, SESSION_SESSION_KEY, null) ??
-    readJSON<StoredSession | null>(localStorage, LOCAL_SESSION_KEY, null);
-
-  if (!session) {
+export function getCurrentUser(): AppUser | null {
+  try {
+    const stored = localStorage.getItem(PROFILE_KEY);
+    return stored ? (JSON.parse(stored) as AppUser) : null;
+  } catch {
+    localStorage.removeItem(PROFILE_KEY);
     return null;
   }
-
-  const account = accountByEmail(session.email);
-
-  if (!account) {
-    logout();
-  }
-
-  return account;
 }
 
-export function isAuthenticated() {
-  return getCurrentUser() !== null;
-}
-
-export function hasRole(allowedRoles: MockRole[]) {
-  const user = getCurrentUser();
-  return Boolean(user && allowedRoles.includes(user.role));
-}
-
-export function homeForRole(role: MockRole) {
+export function homeForRole(role: AppRole) {
   return role === "admin" ? "/admin" : "/fellow";
 }

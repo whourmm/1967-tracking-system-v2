@@ -138,6 +138,8 @@ Frontend:
 
 ```txt
 VITE_API_BASE_URL=http://localhost:8080
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key
 ```
 
 Backend:
@@ -147,6 +149,8 @@ APP_ENV=development
 PORT=8080
 DATABASE_URL=postgres://postgres:postgres@db:5432/asean_tracker?sslmode=disable
 MIGRATIONS_PATH=/app/migrations
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key
 ```
 
 For non-Docker local backend runs, use a localhost PostgreSQL URL such as:

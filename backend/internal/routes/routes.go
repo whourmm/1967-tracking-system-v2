@@ -10,7 +10,7 @@ import (
 )
 
 // New builds the application's HTTP handler with all routes registered.
-func New(db *sql.DB) http.Handler {
+func New(db *sql.DB, supabaseURL, publishableKey string) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -55,6 +55,7 @@ func New(db *sql.DB) http.Handler {
 	mux.HandleFunc("POST /api/admin/cases", admin.CreateCase)
 	mux.HandleFunc("PATCH /api/admin/cases/{caseId}", admin.UpdateCase)
 	mux.HandleFunc("DELETE /api/admin/cases/{caseId}", admin.DeleteCase)
+	mux.HandleFunc("POST /api/admin/cases/{caseId}/sync", admin.SyncCaseSubmission)
 	mux.HandleFunc("GET /api/cohorts/active/sprints", admin.ListActiveCohortSprints)
 	mux.HandleFunc("GET /api/admin/sprints", admin.ListSprints)
 	mux.HandleFunc("GET /api/admin/sprints/{sprintId}", admin.GetSprint)
@@ -75,7 +76,7 @@ func New(db *sql.DB) http.Handler {
 		mux.HandleFunc(route, notImplemented)
 	}
 
-	return middleware.CORS(mux)
+	return middleware.CORS(middleware.SupabaseAuth(db, supabaseURL, publishableKey, mux))
 }
 
 var plannedRoutes = []string{

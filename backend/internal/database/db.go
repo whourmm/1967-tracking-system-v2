@@ -27,9 +27,11 @@ func Open(databaseURL, migrationsPath string) (*sql.DB, error) {
 		db.Close()
 		return nil, err
 	}
-	if err := seed(db); err != nil {
-		db.Close()
-		return nil, err
+	if os.Getenv("APP_ENV") != "production" {
+		if err := seed(db); err != nil {
+			db.Close()
+			return nil, err
+		}
 	}
 	return db, nil
 }

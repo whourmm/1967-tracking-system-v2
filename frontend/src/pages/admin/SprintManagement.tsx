@@ -1,49 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Plus } from "lucide-react";
 import EmptyState from "../../components/admin/EmptyState";
 import SprintCard from "../../components/admin/SprintCard";
 import SprintFormDialog from "../../components/admin/SprintFormDialog";
 import type { KeyDate, Sprint } from "../../components/admin/sprintTypes";
-
-const initialSprints: Sprint[] = [
-  {
-    id: "sprint-3",
-    name: "Sprint 3: Demo Build",
-    description: "Teams turn validated ideas into a working demo and final submission package.",
-    startDate: "2026-06-01",
-    endDate: "2026-06-14",
-    status: "Current",
-    keyDates: [
-      { label: "Mentor office hours", date: "2026-06-02" },
-      { label: "Submission deadline", date: "2026-06-05" },
-      { label: "Demo Day", date: "2026-06-06" },
-    ],
-  },
-  {
-    id: "sprint-4",
-    name: "Sprint 4: Investor Narrative",
-    description: "Refine the story, metrics and next ask after demo feedback.",
-    startDate: "2026-06-15",
-    endDate: "2026-06-28",
-    status: "Upcoming",
-    keyDates: [
-      { label: "Deck review", date: "2026-06-18" },
-      { label: "Partner panel", date: "2026-06-25" },
-    ],
-  },
-  {
-    id: "sprint-2",
-    name: "Sprint 2: Customer Discovery",
-    description: "Run customer calls, synthesize pain points and validate problem urgency.",
-    startDate: "2026-05-18",
-    endDate: "2026-05-31",
-    status: "Complete",
-    keyDates: [
-      { label: "Interview synthesis", date: "2026-05-24" },
-      { label: "Learning memo", date: "2026-05-30" },
-    ],
-  },
-];
+import { api, type AdminSprint } from "../../lib/api";
 
 const emptySprint: Sprint = {
   id: "",
@@ -55,11 +16,40 @@ const emptySprint: Sprint = {
   keyDates: [],
 };
 
+function mapSprint(item: AdminSprint): Sprint {
+  const today = new Date().toISOString().slice(0, 10);
+  const startDate = item.starts_on?.slice(0, 10) ?? "";
+  const endDate = item.submission_deadline?.slice(0, 10) ?? "";
+  return {
+    id: String(item.id),
+    name: item.name ?? "Untitled sprint",
+    description: item.description ?? "",
+    startDate,
+    endDate,
+    status: item.is_current ? "Current" : endDate && endDate < today ? "Complete" : startDate && startDate > today ? "Upcoming" : "Draft",
+    keyDates: [],
+  };
+}
+
 export default function SprintManagement() {
-  const [sprints, setSprints] = useState<Sprint[]>(initialSprints);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [loadError, setLoadError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editSprint, setEditSprint] = useState<Sprint | null>(null);
   const [draftSprint, setDraftSprint] = useState<Sprint>(emptySprint);
+
+  async function loadSprints() {
+    try {
+      setSprints((await api.admin.listSprints()).map(mapSprint));
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load sprints");
+    }
+  }
+
+  useEffect(() => {
+    void loadSprints();
+  }, []);
 
   const sortedSprints = useMemo(
     () => [...sprints].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()),
@@ -84,21 +74,34 @@ export default function SprintManagement() {
     setDraftSprint(emptySprint);
   }
 
-  function saveSprint() {
-    const sprintToSave = {
-      ...draftSprint,
-      id: draftSprint.id || `sprint-${Date.now()}`,
-      keyDates: draftSprint.keyDates.filter((item) => item.label.trim() || item.date),
+  async function saveSprint() {
+    const payload: Partial<AdminSprint> = {
+      name: draftSprint.name,
+      description: draftSprint.description,
+      starts_on: draftSprint.startDate,
+      submission_deadline: draftSprint.endDate,
+      is_current: draftSprint.status === "Current",
     };
-
-    setSprints((current) => {
+    try {
       if (editSprint) {
-        return current.map((sprint) => (sprint.id === editSprint.id ? sprintToSave : sprint));
+        await api.admin.updateSprint(Number(editSprint.id), payload);
+      } else {
+        await api.admin.createSprint(payload);
       }
+      await loadSprints();
+      closeForm();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not save sprint");
+    }
+  }
 
-      return [sprintToSave, ...current];
-    });
-    closeForm();
+  async function removeSprint(id: string) {
+    try {
+      await api.admin.deleteSprint(Number(id));
+      await loadSprints();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not delete sprint");
+    }
   }
 
   function updateKeyDate(index: number, key: keyof KeyDate, value: string) {
@@ -124,6 +127,7 @@ export default function SprintManagement() {
           </button>
         </div>
       </header>
+      {loadError && <p className="error-box">{loadError}</p>}
 
       <section className="content-stack">
         {sortedSprints.length === 0 ? (
@@ -143,7 +147,7 @@ export default function SprintManagement() {
                 <SprintCard
                   index={index}
                   key={sprint.id}
-                  onDelete={(sprintId) => setSprints((current) => current.filter((item) => item.id !== sprintId))}
+                  onDelete={(sprintId) => void removeSprint(sprintId)}
                   onEdit={openEditForm}
                   sprint={sprint}
                 />
@@ -159,7 +163,7 @@ export default function SprintManagement() {
           onChange={setDraftSprint}
           onClose={closeForm}
           onRemoveKeyDate={(index) => setDraftSprint((current) => ({ ...current, keyDates: current.keyDates.filter((_, itemIndex) => itemIndex !== index) }))}
-          onSave={saveSprint}
+          onSave={() => void saveSprint()}
           onUpdateKeyDate={updateKeyDate}
           sprint={draftSprint}
           sprintBeingEdited={editSprint}

@@ -3,7 +3,6 @@ import { adminAssignments, SPRINTS } from "../data/adminMock";
 import { allFellows, assignments, currentFellow } from "../data/mock";
 import type { AdminAssignment, Assignment, AssignmentStatus } from "../types";
 
-const STORE_KEY = "tracking-system-v2.admin-assignments";
 const CHANGE_EVENT = "tracking-system-v2.admin-assignments:changed";
 
 const seededTasks = () =>
@@ -12,67 +11,30 @@ const seededTasks = () =>
     submittedIds: [...assignment.submittedIds],
   }));
 
-function isAdminAssignmentList(value: unknown): value is AdminAssignment[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (item) =>
-        item &&
-        typeof item === "object" &&
-        typeof (item as AdminAssignment).id === "number" &&
-        typeof (item as AdminAssignment).title === "string" &&
-        typeof (item as AdminAssignment).sprint === "string" &&
-        typeof (item as AdminAssignment).formUrl === "string" &&
-        typeof (item as AdminAssignment).due === "string" &&
-        typeof (item as AdminAssignment).description === "string" &&
-        Array.isArray((item as AdminAssignment).submittedIds)
-    )
-  );
-}
-
 export function currentFellowId() {
   return allFellows.find((fellow) => fellow.name === currentFellow.name)?.id ?? allFellows[0]?.id ?? 1;
 }
 
 export function loadAdminAssignments(): AdminAssignment[] {
-  if (typeof window === "undefined") return seededTasks();
-
-  try {
-    const stored = window.localStorage.getItem(STORE_KEY);
-    if (!stored) return seededTasks();
-
-    const parsed = JSON.parse(stored);
-    if (!isAdminAssignmentList(parsed)) return seededTasks();
-
-    return parsed.map((assignment) => ({
-      ...assignment,
-      submittedIds: [...assignment.submittedIds],
-    }));
-  } catch {
-    return seededTasks();
-  }
+  return seededTasks();
 }
 
 export function saveAdminAssignments(nextAssignments: AdminAssignment[]) {
+  adminAssignments.splice(0, adminAssignments.length, ...nextAssignments.map((assignment) => ({
+    ...assignment,
+    submittedIds: [...assignment.submittedIds],
+  })));
   if (typeof window === "undefined") return;
-
-  window.localStorage.setItem(STORE_KEY, JSON.stringify(nextAssignments));
   window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
 }
 
 export function subscribeAdminAssignments(callback: () => void) {
   if (typeof window === "undefined") return () => undefined;
 
-  const onStorage = (event: StorageEvent) => {
-    if (event.key === STORE_KEY) callback();
-  };
-
   window.addEventListener(CHANGE_EVENT, callback);
-  window.addEventListener("storage", onStorage);
 
   return () => {
     window.removeEventListener(CHANGE_EVENT, callback);
-    window.removeEventListener("storage", onStorage);
   };
 }
 

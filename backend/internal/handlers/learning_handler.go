@@ -57,7 +57,7 @@ type fellowLearningSection struct {
 // ListResources returns resources with the current fellow's read state.
 // GET /api/resources
 func (h *LearningHandler) ListResources(w http.ResponseWriter, r *http.Request) {
-	memberID, err := currentFellowID(r.Context(), h.DB)
+	memberID, err := currentFellowID(r.Context())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			writeError(w, http.StatusNotFound, "current fellow not found")
@@ -79,7 +79,7 @@ func (h *LearningHandler) ListResources(w http.ResponseWriter, r *http.Request) 
 // GetLearning returns sections, resources, and form assignments for the current fellow.
 // GET /api/fellow/learning
 func (h *LearningHandler) GetLearning(w http.ResponseWriter, r *http.Request) {
-	memberID, err := currentFellowID(r.Context(), h.DB)
+	memberID, err := currentFellowID(r.Context())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			writeError(w, http.StatusNotFound, "current fellow not found")
@@ -120,7 +120,7 @@ func (h *LearningHandler) MarkResourceRead(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	memberID, err := currentFellowID(r.Context(), h.DB)
+	memberID, err := currentFellowID(r.Context())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			writeError(w, http.StatusNotFound, "current fellow not found")

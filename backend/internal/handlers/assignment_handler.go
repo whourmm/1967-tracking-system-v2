@@ -14,7 +14,7 @@ type AssignmentHandler struct {
 // FellowList returns assignment cards for the current fellow.
 // GET /api/fellow/assignments
 func (h *AssignmentHandler) FellowList(w http.ResponseWriter, r *http.Request) {
-	memberID, err := currentFellowID(r.Context(), h.DB)
+	memberID, err := currentFellowID(r.Context())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			writeError(w, http.StatusNotFound, "current fellow not found")
@@ -110,7 +110,7 @@ func (h *AssignmentHandler) FellowSubmit(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	memberID, err := currentFellowID(r.Context(), h.DB)
+	memberID, err := currentFellowID(r.Context())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			writeError(w, http.StatusNotFound, "current fellow not found")

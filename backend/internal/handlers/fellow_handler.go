@@ -12,10 +12,10 @@ type FellowHandler struct {
 	DB *sql.DB
 }
 
-// Me returns the current fellow profile using the temporary dev identity.
+// Me returns the current authenticated app profile.
 // GET /api/me
 func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
-	id, err := currentFellowID(r.Context(), h.DB)
+	id, err := currentFellowID(r.Context())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			writeError(w, http.StatusNotFound, "current fellow not found")
@@ -57,7 +57,7 @@ func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
 			g.cohort_id, c.name,
 			fp.university, fp.major, fp.status, fp.teamflow
 		FROM "user" u
-		JOIN fellow fp ON fp.user_id = u.id
+		LEFT JOIN fellow fp ON fp.user_id = u.id
 		LEFT JOIN team t ON t.id = fp.team_id
 		LEFT JOIN "group" g ON g.id = COALESCE(fp.group_id, t.group_id)
 		LEFT JOIN cohort c ON c.id = g.cohort_id
@@ -81,7 +81,9 @@ func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
 	fellow.TeamName = stringPtr(teamName)
 	fellow.CohortID = int64Ptr(cohortID)
 	fellow.CohortName = stringPtr(cohortName)
-	res.Fellow = &fellow
+	if res.Role != nil && *res.Role == "fellow" {
+		res.Fellow = &fellow
+	}
 
 	writeData(w, http.StatusOK, res)
 }
