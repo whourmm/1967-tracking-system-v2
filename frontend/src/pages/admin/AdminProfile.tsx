@@ -74,8 +74,8 @@ export default function AdminProfile() {
     setEditingInfo(false);
     setTimeout(() => setSaved(false), 2500);
   }
-  function handleSignOut() {
-    logout();
+  async function handleSignOut() {
+    await logout();
     navigate("/login", { replace: true });
   }
 

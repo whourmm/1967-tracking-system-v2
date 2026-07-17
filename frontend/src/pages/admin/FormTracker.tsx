@@ -24,6 +24,7 @@ import { formatShortDate } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import { renumberTeamName, teamNameMap } from "../../lib/teams";
 import { loadAdminAssignments, saveAdminAssignments } from "../../lib/assignmentStore";
+import { api } from "../../lib/api";
 import type { AdminAssignment } from "../../types";
 
 const TOTAL = allFellows.length;
@@ -38,9 +39,6 @@ const emptyForm = {
   description: "",
   sheetTab: "",
 };
-
-let tmpId = 1000;
-const nextId = () => ++tmpId;
 
 type TaskFilter = "all" | "progress" | "complete";
 const TASK_TABS: { key: TaskFilter; label: string }[] = [
@@ -120,6 +118,22 @@ export default function FormTracker() {
 
   const { showToast, toast } = useToast();
 
+  async function loadTasks() {
+    const [items, sprints] = await Promise.all([api.admin.listAssignments(), api.admin.listSprints()]);
+    const submissions = await Promise.all(items.map((item) => api.admin.assignmentSubmissions(item.id)));
+    const next = items.map((item, index): AdminAssignment => ({
+      id: item.id,
+      title: item.title ?? "Untitled assignment",
+      sprint: sprints.find((sprint) => sprint.id === item.sprint_id)?.name ?? "Unscheduled",
+      formUrl: item.form_url ?? "",
+      due: item.deadline?.slice(0, 10) ?? "",
+      description: item.description ?? "",
+      submittedIds: submissions[index].fellows.filter((fellow) => fellow.submit_status === 1).map((fellow) => fellow.member_id),
+    }));
+    setTasks(next);
+    saveAdminAssignments(next);
+  }
+
   useEffect(() => {
     saveAdminAssignments(tasks);
   }, [tasks]);
@@ -190,7 +204,7 @@ export default function FormTracker() {
     setEditingId(t.id);
   }
 
-  function save() {
+  async function save() {
     if (!form.title.trim()) {
       showToast("An assignment needs a title");
       return;
@@ -201,44 +215,55 @@ export default function FormTracker() {
       formUrl: form.formUrl.trim(),
       due: form.due,
       description: form.description.trim(),
-      sheetTab: form.sheetTab.trim(),
     };
-    if (editingId !== null) {
-      setTasks((prev) => prev.map((t) => (t.id === editingId ? { ...t, ...data } : t)));
-      showToast("Assignment updated");
-    } else {
-      setTasks((prev) => [...prev, { id: nextId(), ...data, submittedIds: [], sheetTab: data.sheetTab }]);
-      showToast("Assignment added");
+    try {
+      const sprints = await api.admin.listSprints();
+      const sprintId = sprints.find((sprint) => sprint.name === data.sprint)?.id;
+      const payload = {
+        title: data.title,
+        sprint_id: sprintId,
+        form_url: data.formUrl,
+        deadline: data.due ? `${data.due}T23:59:59Z` : undefined,
+        description: data.description,
+      };
+      if (editingId !== null) {
+        await api.admin.updateAssignment(editingId, payload);
+        showToast("Assignment updated");
+      } else {
+        await api.admin.createAssignment(payload);
+        showToast("Assignment added");
+      }
+      await loadTasks();
+      cancelEdit();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not save assignment");
     }
-    cancelEdit();
   }
 
   function remove(id: number) {
     const t = tasks.find((x) => x.id === id);
     if (t && window.confirm(`Delete “${t.title}”?`)) {
-      setTasks((prev) => prev.filter((x) => x.id !== id));
-      if (editingId === id) cancelEdit();
-      if (expanded === id) setExpanded(null);
+      showToast("The backend does not expose assignment deletion yet");
     }
   }
 
-  // Re-check a single assignment's Google Form responses.
   async function refresh(id: number) {
     if (syncing.has(id)) return;
     setSyncing((prev) => new Set(prev).add(id));
     try {
-      const task = tasks.find((t) => t.id === id);
-      if (!task) return;
-      const nextIds = await fetchSheetSubmissions(task);
+      const response = await api.admin.assignmentSubmissions(id);
       const stamp = Date.now();
       setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, submittedIds: nextIds } : t))
+        prev.map((task) => task.id === id ? {
+          ...task,
+          submittedIds: response.fellows.filter((fellow) => fellow.submit_status === 1).map((fellow) => fellow.member_id),
+        } : task)
       );
       setLastSync((prev) => ({ ...prev, [id]: stamp }));
       setLastSyncAll(stamp);
-      showToast("Synced from Google Form responses");
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sync failed");
+      showToast("Loaded current submission records");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not refresh submissions");
     } finally {
       setSyncing((prev) => {
         const n = new Set(prev);
@@ -248,29 +273,22 @@ export default function FormTracker() {
     }
   }
 
-  // Re-check every assignment at once.
   async function refreshAll() {
     if (anyBusy || tasks.length === 0) return;
     const ids = tasks.map((t) => t.id);
     setSyncing(new Set(ids));
     try {
-      const results = await Promise.all(tasks.map((t) => fetchSheetSubmissions(t)));
+      await loadTasks();
       const stamp = Date.now();
-      setTasks((prev) =>
-        prev.map((t) => {
-          const idx = tasks.findIndex((x) => x.id === t.id);
-          return idx >= 0 ? { ...t, submittedIds: results[idx] } : t;
-        })
-      );
       setLastSync((prev) => {
         const n = { ...prev };
         ids.forEach((id) => (n[id] = stamp));
         return n;
       });
       setLastSyncAll(stamp);
-      showToast(`Synced ${ids.length} assignment${ids.length === 1 ? "" : "s"}`);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sync failed");
+      showToast(`Loaded ${ids.length} assignment${ids.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not refresh assignments");
     } finally {
       setSyncing(new Set());
     }

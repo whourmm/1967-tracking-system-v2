@@ -22,7 +22,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { currentFellow, notifications as mockNotifications } from "../../data/mock";
+import { currentFellow, notifications } from "../../data/mock";
 import { api } from "../../lib/api";
 import { getCurrentUser } from "../../lib/auth";
 import { cn } from "../../lib/cn";
@@ -211,7 +211,7 @@ function Sidebar({
 
 function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState(mockNotifications);
+  const [items, setItems] = useState(notifications);
   const ref = useRef<HTMLDivElement>(null);
 
   const unread = items.filter((n) => !n.read).length;

@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getCurrentUser, homeForRole, type MockRole } from "../lib/auth";
+import { getCurrentUser, homeForRole, type AppRole } from "../lib/auth";
 
 export default function ProtectedRoute({
   allowedRoles,
   children,
 }: {
-  allowedRoles: MockRole[];
+  allowedRoles: AppRole[];
   children: ReactNode;
 }) {
   const location = useLocation();

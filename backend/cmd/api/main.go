@@ -13,6 +13,11 @@ func main() {
 	port := getenv("PORT", "8080")
 	databaseURL := getenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/asean_tracker?sslmode=disable")
 	migrationsPath := getenv("MIGRATIONS_PATH", "migrations")
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	publishableKey := os.Getenv("SUPABASE_PUBLISHABLE_KEY")
+	if supabaseURL == "" || publishableKey == "" {
+		log.Fatal("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required")
+	}
 
 	db, err := database.Open(databaseURL, migrationsPath)
 	if err != nil {
@@ -20,7 +25,7 @@ func main() {
 	}
 	defer db.Close()
 
-	handler := routes.New(db)
+	handler := routes.New(db, supabaseURL, publishableKey)
 
 	addr := ":" + port
 	log.Printf("backend listening on %s", addr)

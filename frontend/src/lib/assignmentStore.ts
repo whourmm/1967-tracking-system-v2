@@ -3,7 +3,6 @@ import { adminAssignments, SPRINTS } from "../data/adminMock";
 import { allFellows, assignments, currentFellow } from "../data/mock";
 import type { AdminAssignment, Assignment, AssignmentStatus } from "../types";
 
-const STORE_KEY = "tracking-system-v2.admin-assignments";
 const CHANGE_EVENT = "tracking-system-v2.admin-assignments:changed";
 
 const seededTasks = () =>
@@ -12,6 +11,7 @@ const seededTasks = () =>
     submittedIds: [...assignment.submittedIds],
   }));
 
+<<<<<<< HEAD
 function isAdminAssignmentList(value: unknown): value is AdminAssignment[] {
   return (
     Array.isArray(value) &&
@@ -35,11 +35,14 @@ function normaliseAssignment(item: Partial<AdminAssignment> & Pick<AdminAssignme
   return { sheetTab: "", ...item };
 }
 
+=======
+>>>>>>> 50b4db00ad81db64aedd399589e9e75284f7c653
 export function currentFellowId() {
   return allFellows.find((fellow) => fellow.name === currentFellow.name)?.id ?? allFellows[0]?.id ?? 1;
 }
 
 export function loadAdminAssignments(): AdminAssignment[] {
+<<<<<<< HEAD
   if (typeof window === "undefined") return seededTasks();
 
   try {
@@ -56,28 +59,27 @@ export function loadAdminAssignments(): AdminAssignment[] {
   } catch {
     return seededTasks();
   }
+=======
+  return seededTasks();
+>>>>>>> 50b4db00ad81db64aedd399589e9e75284f7c653
 }
 
 export function saveAdminAssignments(nextAssignments: AdminAssignment[]) {
+  adminAssignments.splice(0, adminAssignments.length, ...nextAssignments.map((assignment) => ({
+    ...assignment,
+    submittedIds: [...assignment.submittedIds],
+  })));
   if (typeof window === "undefined") return;
-
-  window.localStorage.setItem(STORE_KEY, JSON.stringify(nextAssignments));
   window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
 }
 
 export function subscribeAdminAssignments(callback: () => void) {
   if (typeof window === "undefined") return () => undefined;
 
-  const onStorage = (event: StorageEvent) => {
-    if (event.key === STORE_KEY) callback();
-  };
-
   window.addEventListener(CHANGE_EVENT, callback);
-  window.addEventListener("storage", onStorage);
 
   return () => {
     window.removeEventListener(CHANGE_EVENT, callback);
-    window.removeEventListener("storage", onStorage);
   };
 }
 

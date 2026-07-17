@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BookOpen,
   Box,
@@ -15,6 +15,7 @@ import {
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { adminInitials, adminProfile, COHORTS } from "../../data/adminMock";
 import { getCurrentUser } from "../../lib/auth";
+import { api, type AdminOverview } from "../../lib/api";
 
 const navGroups = [
   {
@@ -68,6 +69,29 @@ export default function AdminLayout() {
   const [cohorts, setCohorts] = useState<string[]>(COHORTS);
   const [cohort, setCohort] = useState(COHORTS[0]);
   const [cohortMenuOpen, setCohortMenuOpen] = useState(false);
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [assignmentCount, setAssignmentCount] = useState<number | null>(null);
+  const [eventCount, setEventCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    Promise.all([api.admin.overview(), api.admin.listAssignments(), api.events()])
+      .then(([nextOverview, nextAssignments, nextEvents]) => {
+        setOverview(nextOverview);
+        setAssignmentCount(nextAssignments.length);
+        setEventCount(nextEvents.length);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const navCounts: Record<string, number | null | undefined> = {
+    "/admin/teams": overview?.teams,
+    "/admin/fellows": overview?.fellows,
+    "/admin/cases": overview?.cases,
+    "/admin/resources": overview?.resources,
+    "/admin/assignments": assignmentCount,
+    "/admin/sprints": overview?.sprints,
+    "/admin/events": eventCount,
+  };
 
   function addCohort() {
     const name = window.prompt("Name the new cohort:", "Summer 2026");
@@ -96,6 +120,7 @@ export default function AdminLayout() {
             <div className="nav-heading">{group.label}</div>
             {group.items.map((item) => {
               const Icon = item.icon;
+              const count = navCounts[item.to];
               return (
                 <NavLink
                   className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
@@ -105,7 +130,7 @@ export default function AdminLayout() {
                 >
                   <Icon size={16} />
                   <span>{item.label}</span>
-                  {item.count ? <span className="nav-badge">{item.count}</span> : null}
+                  {count != null ? <span className="nav-badge">{count}</span> : null}
                 </NavLink>
               );
             })}
@@ -114,9 +139,9 @@ export default function AdminLayout() {
 
         <div className="submission-window">
           <strong>Submission window</strong>
-          <span>Closes in 9 days - Sprint 3 deliverable</span>
+          <span>{overview ? `${overview.assignment_progress.pending} submissions pending` : "Loading current progress"}</span>
           <div className="progress-track" style={{ marginTop: 12 }}>
-            <span className="progress-fill" style={{ width: "61%" }} />
+            <span className="progress-fill" style={{ width: `${overview?.assignment_progress.percent ?? 0}%` }} />
           </div>
         </div>
       </aside>

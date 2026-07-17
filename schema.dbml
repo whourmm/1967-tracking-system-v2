@@ -22,7 +22,7 @@ Table user {
   photo_url    varchar
   country      varchar
   update_at    timestamp
-  gmail        varchar
+  gmail        varchar    [note: 'unique case-insensitively; links Supabase Auth to the app user']
   last_login_at timestamp [null, note: 'most recent successful login']
 }
 

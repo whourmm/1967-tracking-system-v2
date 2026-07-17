@@ -56,6 +56,7 @@ export interface Resource {
   author: string;
   tag: string;
   progress: number; // 0–100
+  url?: string;
 }
 
 // --- Learning System ---------------------------------------------------------
@@ -78,6 +79,7 @@ export interface LearningLink {
   url: string;
   kind: LearningLinkKind;
   meta?: string; // e.g. "12 min", "Google Form", "Thai · MEB"
+  resourceId?: number;
 }
 
 export interface LearningBlock {

@@ -1,5 +1,6 @@
 .env
 !.env.example
+mockdata
 
 # Frontend
 frontend/node_modules/

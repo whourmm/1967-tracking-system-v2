@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Card, CardHeader } from "../../../components/ui/Card";
 import { currentFellow } from "../../../data/mock";
+import { getCurrentUser } from "../../../lib/auth";
 import { cn } from "../../../lib/cn";
 import {
   loadMyAvailability,
@@ -33,11 +34,12 @@ interface ContactField {
   visibility: Visibility;
 }
 
+const signedInUser = getCurrentUser();
 const defaultContacts: ContactField[] = [
-  { key: "email", label: "Email", icon: Mail, placeholder: "your@email.com", value: "sirada.w@example.com", visibility: "public" },
-  { key: "discord", label: "Discord", icon: MessageCircle, placeholder: "username#0000", value: "sirada_w", visibility: "public" },
-  { key: "line", label: "LINE ID", icon: MessageCircle, placeholder: "your LINE ID", value: "siradawong", visibility: "private" },
-  { key: "instagram", label: "Instagram", icon: Globe, placeholder: "@handle", value: "@sirada.w", visibility: "private" },
+  { key: "email", label: "Email", icon: Mail, placeholder: "your@email.com", value: signedInUser?.email ?? "", visibility: "public" },
+  { key: "discord", label: "Discord", icon: MessageCircle, placeholder: "username#0000", value: "", visibility: "public" },
+  { key: "line", label: "LINE ID", icon: MessageCircle, placeholder: "your LINE ID", value: "", visibility: "private" },
+  { key: "instagram", label: "Instagram", icon: Globe, placeholder: "@handle", value: "", visibility: "private" },
 ];
 
 const availabilityDays = weekDays;
@@ -72,9 +74,9 @@ export function ProfileAccountSection() {
   const [editingInfo, setEditingInfo] = useState(false);
   const [saved, setSaved] = useState(false);
   const [displayName, setDisplayName] = useState(currentFellow.name);
-  const [nickname, setNickname] = useState("Sirada");
+  const [nickname, setNickname] = useState(currentFellow.name.split(" ")[0] ?? "");
   const [university, setUniversity] = useState(currentFellow.university);
-  const [major, setMajor] = useState("Commerce & Accountancy");
+  const [major, setMajor] = useState("");
   const [contacts, setContacts] = useState<ContactField[]>(defaultContacts);
   const [availability, setAvailability] = useState(loadMyAvailability);
 

@@ -131,8 +131,8 @@ function ToggleList({
 function AccountSection() {
   const navigate = useNavigate();
 
-  function handleSignOut() {
-    logout();
+  async function handleSignOut() {
+    await logout();
     navigate("/login", { replace: true });
   }
 

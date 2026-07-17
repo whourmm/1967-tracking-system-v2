@@ -18,10 +18,10 @@ import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
 import { allFellows } from "../../data/mock";
 import { SPRINTS } from "../../data/adminMock";
-import { useSuspended } from "../../data/cohortStore";
 import { flagFor, teamflowChip } from "../../lib/cohort";
 import { cn } from "../../lib/cn";
 import { numberedTeamName, renumberTeamName, teamNameMap } from "../../lib/teams";
+import { api } from "../../lib/api";
 import type { FellowRecord } from "../../types";
 
 const seededTeamNameMap = teamNameMap(allFellows.map((f) => f.team));
@@ -93,7 +93,7 @@ export default function TeamBuilder() {
   const [saved, setSaved] = useState(() => cloneAll(initialBoards)); // last saved snapshot
   const [sprint, setSprint] = useState(SPRINTS[SPRINTS.length - 1]); // current sprint
   const { showToast, toast } = useToast();
-  const suspended = useSuspended();
+  const suspended = new Set<number>();
 
   // Constraints (shared across sprints)
   const [teamSize, setTeamSize] = useState(4);
@@ -149,9 +149,23 @@ export default function TeamBuilder() {
     showToast(`Cleared assignments for ${sprint}`);
   }
 
-  function save() {
-    setSaved((prev) => ({ ...prev, [sprint]: cloneBoard(board) }));
-    showToast(`Saved teams for ${sprint}`);
+  async function save() {
+    try {
+      const liveTeams = await api.teams();
+      await api.admin.saveTeamAssignments(allFellows.map((fellow) => {
+        const draftTeam = board.teams.find((team) => team.id === (board.assignment[fellow.id] ?? null));
+        const liveTeam = liveTeams.find((team) => team.name === draftTeam?.name);
+        return {
+          member_id: fellow.id,
+          team_id: liveTeam?.id ?? null,
+          group_id: liveTeam?.group_id ?? null,
+        };
+      }));
+      setSaved((prev) => ({ ...prev, [sprint]: cloneBoard(board) }));
+      showToast(`Saved teams for ${sprint}`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not save teams");
+    }
   }
 
   function discard() {
@@ -262,7 +276,7 @@ export default function TeamBuilder() {
           )}
           <button
             type="button"
-            onClick={save}
+            onClick={() => void save()}
             disabled={!dirty}
             className={cn(
               "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition",

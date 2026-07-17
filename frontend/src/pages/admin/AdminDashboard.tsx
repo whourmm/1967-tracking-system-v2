@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
 import { adminEvents, caseSubmissionStatus, learningReadIds, resourceReadIds } from "../../data/adminMock";
@@ -5,6 +6,7 @@ import { allFellows, caseAssignments } from "../../data/mock";
 import { formatShortDate } from "../../lib/format";
 import { renumberTeamName, sortTeamNames, teamNameMap } from "../../lib/teams";
 import { useAdminAssignments } from "../../lib/assignmentStore";
+import { api, type AdminOverview } from "../../lib/api";
 
 const chartWidth = 630;
 const chartHeight = 210;
@@ -78,14 +80,14 @@ const caseRows = caseAssignments.map((assignment) => ({
   status: caseSubmissionStatus[assignment.id] ?? assignment.status,
 }));
 
-const caseSubmitted = caseRows.filter((assignment) => assignment.status === "submitted" || assignment.status === "reviewed").length;
+const fallbackCaseSubmitted = caseRows.filter((assignment) => assignment.status === "submitted" || assignment.status === "reviewed").length;
 const completeTeams = teams.filter((team) => team.complete).length;
 const trackedReadIds = [...Object.values(resourceReadIds), ...Object.values(learningReadIds)];
-const averageReadRate = pct(
+const fallbackAverageReadRate = pct(
   trackedReadIds.reduce((sum, ids) => sum + ids.length, 0),
   trackedReadIds.length * allFellows.length
 );
-const fellowsNeedingReadFollowup = trackedReadIds.length
+const fallbackReadsNeedingFollowup = trackedReadIds.length
   ? allFellows.filter((fellow) => trackedReadIds.some((readIds) => !readIds.includes(fellow.id))).length
   : 0;
 
@@ -103,6 +105,15 @@ const upcomingEvents = [...adminEvents]
   });
 
 export default function AdminDashboard() {
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  useEffect(() => {
+    api.admin.overview().then(setOverview).catch(() => setOverview(null));
+  }, []);
+
+  const caseSubmitted = overview?.case_submission_progress.done ?? fallbackCaseSubmitted;
+  const caseTotal = overview?.case_submission_progress.total ?? caseRows.length;
+  const averageReadRate = overview?.resource_read_progress.percent ?? fallbackAverageReadRate;
+  const fellowsNeedingReadFollowup = overview?.resource_read_progress.pending ?? fallbackReadsNeedingFollowup;
   const adminAssignments = useAdminAssignments();
   const completeAssignments = adminAssignments.filter((assignment) => assignment.submittedIds.length === allFellows.length).length;
   const averageAssignmentPct = pct(
@@ -142,9 +153,9 @@ export default function AdminDashboard() {
         </article>
         <article className="card stat-card">
           <p className="eyebrow">Case submissions</p>
-          <p className="stat-value">{caseSubmitted}<span style={{ color: "#9aa3b5" }}> /{caseRows.length}</span></p>
-          <p className={caseSubmitted === caseRows.length ? "stat-note positive" : "stat-note warning"}>
-            {caseRows.length - caseSubmitted} pending
+          <p className="stat-value">{caseSubmitted}<span style={{ color: "#9aa3b5" }}> /{caseTotal}</span></p>
+          <p className={caseSubmitted === caseTotal ? "stat-note positive" : "stat-note warning"}>
+            {Math.max(caseTotal - caseSubmitted, 0)} pending
           </p>
         </article>
         <article className="card stat-card">
@@ -229,15 +240,15 @@ export default function AdminDashboard() {
             <div className="team-row">
               <div>
                 <div className="team-name">
-                  <span className={`status-dot${caseSubmitted < caseRows.length ? " red" : ""}`} />
+                  <span className={`status-dot${caseSubmitted < caseTotal ? " red" : ""}`} />
                   Case submissions
                 </div>
-                <p className="team-meta">{caseRows.length - caseSubmitted} case submissions still pending</p>
+                <p className="team-meta">{Math.max(caseTotal - caseSubmitted, 0)} case submissions still pending</p>
               </div>
               <div className="mini-progress">
-                <span className="progress-fill" style={{ width: `${pct(caseSubmitted, caseRows.length)}%` }} />
+                <span className="progress-fill" style={{ width: `${pct(caseSubmitted, caseTotal)}%` }} />
               </div>
-              <div className="team-count">{caseSubmitted}/{caseRows.length}</div>
+              <div className="team-count">{caseSubmitted}/{caseTotal}</div>
             </div>
             <div className="team-row">
               <div>

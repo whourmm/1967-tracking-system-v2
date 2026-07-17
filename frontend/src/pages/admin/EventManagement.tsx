@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CalendarPlus,
@@ -13,12 +13,12 @@ import {
 import { Card, CardHeader } from "../../components/ui/Card";
 import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
-import { adminEvents } from "../../data/adminMock";
 import { TIMEZONES, formatEventWhen, gcalUrl } from "../../lib/calendar";
 import { cn } from "../../lib/cn";
+import { api, type AdminEventResponse } from "../../lib/api";
 import type { AdminEvent } from "../../types";
 
-const TODAY = "2026-06-05"; // fixed "today" so the mock reads sensibly
+const TODAY = new Date().toISOString().slice(0, 10);
 
 const emptyForm: Omit<AdminEvent, "id"> = {
   title: "",
@@ -31,14 +31,39 @@ const emptyForm: Omit<AdminEvent, "id"> = {
   description: "",
 };
 
-let tmpId = 1000;
-const nextId = () => ++tmpId;
+function mapEvent(event: AdminEventResponse): AdminEvent {
+  return {
+    id: event.id,
+    title: event.name ?? "Untitled event",
+    date: event.date ?? "",
+    allDay: event.all_day,
+    start: event.start ?? "",
+    end: event.end ?? "",
+    tz: event.timezone ?? "Asia/Bangkok",
+    location: event.location ?? "",
+    description: event.description ?? "",
+  };
+}
 
 export default function EventManagement() {
-  const [events, setEvents] = useState<AdminEvent[]>(() => adminEvents.map((e) => ({ ...e })));
+  const [events, setEvents] = useState<AdminEvent[]>([]);
+  const [loadError, setLoadError] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Omit<AdminEvent, "id">>(emptyForm);
   const { showToast, toast } = useToast();
+
+  async function loadEvents() {
+    try {
+      setEvents((await api.events()).map(mapEvent));
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load events");
+    }
+  }
+
+  useEffect(() => {
+    void loadEvents();
+  }, []);
 
   const sorted = useMemo(
     () => events.slice().sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)),
@@ -63,7 +88,7 @@ export default function EventManagement() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function save() {
+  async function save() {
     if (!form.title.trim()) {
       showToast("An event needs a title");
       return;
@@ -84,21 +109,41 @@ export default function EventManagement() {
       start: form.allDay ? "" : form.start,
       end: form.allDay ? "" : form.end,
     };
-    if (editingId !== null) {
-      setEvents((prev) => prev.map((e) => (e.id === editingId ? { ...data, id: editingId } : e)));
-      showToast("Event updated");
-    } else {
-      setEvents((prev) => [...prev, { ...data, id: nextId() }]);
-      showToast("Event added");
+    const payload: Partial<AdminEventResponse> = {
+      name: data.title,
+      date: data.date,
+      all_day: data.allDay,
+      start: data.start,
+      end: data.end,
+      timezone: data.tz,
+      location: data.location,
+      description: data.description,
+    };
+    try {
+      if (editingId !== null) {
+        await api.admin.updateEvent(editingId, payload);
+        showToast("Event updated");
+      } else {
+        await api.admin.createEvent(payload);
+        showToast("Event added");
+      }
+      await loadEvents();
+      resetForm();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not save event");
     }
-    resetForm();
   }
 
-  function remove(id: number) {
+  async function remove(id: number) {
     const ev = events.find((e) => e.id === id);
     if (ev && window.confirm(`Delete “${ev.title}”?`)) {
-      setEvents((prev) => prev.filter((e) => e.id !== id));
-      if (editingId === id) resetForm();
+      try {
+        await api.admin.deleteEvent(id);
+        await loadEvents();
+        if (editingId === id) resetForm();
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Could not delete event");
+      }
     }
   }
 
@@ -109,6 +154,7 @@ export default function EventManagement() {
   return (
     <div className="page space-y-6">
       {toast}
+      {loadError && <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</p>}
 
       {/* Header */}
       <div>
@@ -199,7 +245,7 @@ export default function EventManagement() {
             <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="Shows up in the calendar event." className={cn(inputCls, "resize-y")} />
           </div>
 
-          <button type="button" onClick={save} className="flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500">
+          <button type="button" onClick={() => void save()} className="flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500">
             <Plus className="h-4 w-4" />
             {editingId !== null ? "Save changes" : "Add event"}
           </button>
@@ -255,7 +301,7 @@ export default function EventManagement() {
                     <button type="button" onClick={() => startEdit(ev)} className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Edit event">
                       <Pencil className="h-4 w-4" />
                     </button>
-                    <button type="button" onClick={() => remove(ev.id)} className="rounded-md p-1.5 text-slate-400 transition hover:bg-brand-50 hover:text-brand-600" aria-label="Delete event">
+                    <button type="button" onClick={() => void remove(ev.id)} className="rounded-md p-1.5 text-slate-400 transition hover:bg-brand-50 hover:text-brand-600" aria-label="Delete event">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>

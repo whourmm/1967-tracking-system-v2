@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, ExternalLink, GraduationCap, Globe, Mail, MessageCircle, Users } from "lucide-react";
 import { FellowAvatar, FellowNameLink } from "../../components/admin/FellowProfileLink";
@@ -7,6 +8,8 @@ import { flagFor, teamflowChip } from "../../lib/cohort";
 import { cn } from "../../lib/cn";
 import { renumberTeamName, teamNameMap } from "../../lib/teams";
 import type { FellowRecord, TeamFlow } from "../../types";
+import { api } from "../../lib/api";
+import { detailFellowRecord } from "../../lib/fellowRecords";
 
 const teamflowDesc: Record<TeamFlow, string> = {
   Initiator: "Generates ideas, starts momentum, and pushes the team to begin.",
@@ -56,7 +59,13 @@ export default function AdminFellowProfile() {
   const { fellowId } = useParams<{ fellowId: string }>();
   const location = useLocation();
   const stateFellow = (location.state as { fellow?: FellowRecord } | null)?.fellow;
-  const fellow = allFellows.find((f) => f.id === Number(fellowId)) ?? stateFellow;
+  const [fellow, setFellow] = useState(() => allFellows.find((f) => f.id === Number(fellowId)) ?? stateFellow);
+
+  useEffect(() => {
+    const id = Number(fellowId);
+    if (!Number.isFinite(id)) return;
+    api.fellowDetail(id).then((detail) => setFellow(detailFellowRecord(detail))).catch(() => undefined);
+  }, [fellowId]);
 
   if (!fellow) return <Navigate to="/admin/fellows" replace />;
 

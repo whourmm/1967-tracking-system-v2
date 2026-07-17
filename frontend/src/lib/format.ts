@@ -15,9 +15,9 @@ export function formatShortDate(iso: string): string {
   });
 }
 
-// Whole days from today until `iso` (negative if in the past). Uses a fixed
-// "today" so the mock data always reads sensibly during the demo.
-const TODAY = new Date("2026-06-05T00:00:00");
+// Whole days from today until `iso` (negative if in the past).
+const TODAY = new Date();
+TODAY.setHours(0, 0, 0, 0);
 
 export function daysUntil(iso: string): number {
   const target = new Date(iso + "T00:00:00");

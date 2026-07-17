@@ -1,49 +1,46 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Edit3, FileText, Plus, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import CaseFormDialog, { type CaseFormValues } from "../../components/admin/CaseFormDialog";
 import type { CaseItem } from "../../components/admin/contentTypes";
-
-const initialCases: CaseItem[] = [
-  {
-    id: "coral-payments",
-    title: "How Team Coral shipped a payments demo in 48h",
-    status: "Published",
-    author: "Linh Pham",
-    summary: "A breakdown of how a cross-country team scoped, split work and demoed a working payments flow over one weekend.",
-    document: "team-coral-payments-writeup.pdf",
-    tags: ["sprint", "fintech", "teamwork"],
-    date: "May 21, 2026",
-  },
-  {
-    id: "user-calls",
-    title: "Validating an idea with 12 user calls",
-    status: "Published",
-    author: "Wei-Lin Tan",
-    summary: "What we learned booking, running and synthesising a dozen customer interviews in five days.",
-    document: "user-research-synthesis.docx",
-    tags: ["research", "validation"],
-    date: "May 18, 2026",
-  },
-  {
-    id: "scope-demo",
-    title: "Saying no: scoping a demo you can actually finish",
-    status: "Draft",
-    author: "Dewi Putri",
-    summary: "A finisher's guide to cutting scope so the team has something to show on demo day.",
-    document: "",
-    tags: ["scope", "demo-day"],
-    date: "May 25, 2026",
-  },
-];
+import { api, type AdminCase } from "../../lib/api";
 
 const todayLabel = () =>
   new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
+function mapCase(item: AdminCase): CaseItem {
+  return {
+    id: String(item.id),
+    title: item.title ?? "Untitled case",
+    status: item.status?.toLowerCase() === "published" ? "Published" : "Draft",
+    author: item.case_owner ?? "",
+    summary: item.summary ?? "",
+    document: item.file_name ?? "",
+    tags: item.theme?.split(",").map((tag) => tag.trim()).filter(Boolean) ?? [],
+    date: item.published_date
+      ? new Date(item.published_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : todayLabel(),
+  };
+}
+
 export default function CaseManagement() {
-  const [cases, setCases] = useState<CaseItem[]>(initialCases);
+  const [cases, setCases] = useState<CaseItem[]>([]);
+  const [loadError, setLoadError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<CaseItem | null>(null);
+
+  async function loadCases() {
+    try {
+      setCases((await api.admin.listCases()).map(mapCase));
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load cases");
+    }
+  }
+
+  useEffect(() => {
+    void loadCases();
+  }, []);
 
   function openCreate() {
     setEditing(null);
@@ -60,18 +57,37 @@ export default function CaseManagement() {
     setEditing(null);
   }
 
-  function handleSave(values: CaseFormValues) {
-    if (editing) {
-      setCases((cur) => cur.map((c) => (c.id === editing.id ? { ...c, ...values } : c)));
-    } else {
-      setCases((cur) => [{ id: `case-${Date.now()}`, date: todayLabel(), ...values }, ...cur]);
+  async function handleSave(values: CaseFormValues) {
+    const payload: Partial<AdminCase> = {
+      title: values.title,
+      case_owner: values.author,
+      status: values.status.toLowerCase(),
+      summary: values.summary,
+      file_name: values.document,
+      theme: values.tags.join(", "),
+      published_date: new Date().toISOString().slice(0, 10),
+    };
+    try {
+      if (editing) {
+        await api.admin.updateCase(Number(editing.id), payload);
+      } else {
+        await api.admin.createCase(payload);
+      }
+      await loadCases();
+      closeForm();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not save case");
     }
-    closeForm();
   }
 
-  function remove(item: CaseItem) {
+  async function remove(item: CaseItem) {
     if (window.confirm(`Delete "${item.title}"?`)) {
-      setCases((cur) => cur.filter((c) => c.id !== item.id));
+      try {
+        await api.admin.deleteCase(Number(item.id));
+        await loadCases();
+      } catch (error) {
+        setLoadError(error instanceof Error ? error.message : "Could not delete case");
+      }
     }
   }
 
@@ -89,6 +105,7 @@ export default function CaseManagement() {
           </button>
         </div>
       </header>
+      {loadError && <p className="error-box">{loadError}</p>}
 
       <div className="content-stack">
         <section className="card list-card">
@@ -121,7 +138,7 @@ export default function CaseManagement() {
                   <button className="icon-link" type="button" aria-label={`Edit ${item.title}`} onClick={() => openEdit(item)}>
                     <Edit3 size={15} />
                   </button>
-                  <button className="icon-link" type="button" aria-label={`Delete ${item.title}`} onClick={() => remove(item)}>
+                  <button className="icon-link" type="button" aria-label={`Delete ${item.title}`} onClick={() => void remove(item)}>
                     <Trash2 size={15} />
                   </button>
                 </div>
@@ -131,7 +148,7 @@ export default function CaseManagement() {
         </section>
       </div>
 
-      {showForm && <CaseFormDialog initial={editing} onClose={closeForm} onSave={handleSave} />}
+      {showForm && <CaseFormDialog initial={editing} onClose={closeForm} onSave={(values) => void handleSave(values)} />}
     </div>
   );
 }

@@ -12,10 +12,13 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const result = registerFellow({ name, email, password });
+    setSubmitting(true);
+    const result = await registerFellow({ name, email, password });
+    setSubmitting(false);
 
     if (!result.ok) {
       setError(result.error);
@@ -143,9 +146,10 @@ export default function RegisterPage() {
 
         <button
           type="submit"
+          disabled={submitting}
           className="flex w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
         >
-          Create account
+          {submitting ? "Creating account..." : "Create account"}
           <ArrowRight className="h-4 w-4" />
         </button>
       </form>

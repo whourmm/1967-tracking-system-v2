@@ -292,6 +292,52 @@ func (h *AdminHandler) DeleteCase(w http.ResponseWriter, r *http.Request) {
 	h.deleteByID(w, r, "caseId", `DELETE FROM "case" WHERE id = $1`)
 }
 
+func (h *AdminHandler) SyncCaseSubmission(w http.ResponseWriter, r *http.Request) {
+	caseID, ok := adminPathID(w, r, "caseId")
+	if !ok {
+		return
+	}
+
+	var payload struct {
+		TeamID        *int64  `json:"team_id"`
+		SubmissionURL *string `json:"submission_url"`
+	}
+	if err := decodeJSON(r, &payload); err != nil {
+		writeAPIError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if payload.TeamID == nil || *payload.TeamID <= 0 {
+		writeAPIError(w, http.StatusBadRequest, "team_id is required")
+		return
+	}
+
+	var submittedAt time.Time
+	err := h.DB.QueryRowContext(r.Context(), `
+		INSERT INTO case_submission (case_id, team_id, status, submission_url, submitted_at)
+		VALUES ($1, $2, 'submitted', $3, NOW())
+		ON CONFLICT (case_id, team_id) DO UPDATE SET
+			status = CASE
+				WHEN case_submission.status = 'reviewed' THEN case_submission.status
+				ELSE 'submitted'
+			END,
+			submission_url = COALESCE(EXCLUDED.submission_url, case_submission.submission_url),
+			submitted_at = COALESCE(case_submission.submitted_at, EXCLUDED.submitted_at),
+			updated_at = NOW()
+		RETURNING submitted_at
+	`, caseID, *payload.TeamID, payload.SubmissionURL).Scan(&submittedAt)
+	if err != nil {
+		writeDBError(w, err)
+		return
+	}
+
+	writeData(w, http.StatusOK, map[string]any{
+		"case_id":      caseID,
+		"team_id":      *payload.TeamID,
+		"status":       "submitted",
+		"submitted_at": submittedAt,
+	})
+}
+
 func (h *AdminHandler) ListSprints(w http.ResponseWriter, r *http.Request) {
 	h.listSprints(w, "")
 }

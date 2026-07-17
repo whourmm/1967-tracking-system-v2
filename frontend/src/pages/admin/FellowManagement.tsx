@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Ban,
   CheckCircle2,
@@ -19,39 +19,29 @@ import { Card, CardHeader } from "../../components/ui/Card";
 import { FellowAvatar, FellowNameLink } from "../../components/admin/FellowProfileLink";
 import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
-import { useSuspended, toggleSuspended } from "../../data/cohortStore";
-import { allFellows } from "../../data/mock";
 import { countryFlag, flagFor, teamflowChip } from "../../lib/cohort";
 import { cn } from "../../lib/cn";
-import { renumberTeamName, sortTeamNames, teamNameMap } from "../../lib/teams";
+import { sortTeamNames } from "../../lib/teams";
+import { api, type AdminFellow, type TeamResponse } from "../../lib/api";
+import { adminFellowRecord } from "../../lib/fellowRecords";
 import type { FellowRecord } from "../../types";
 
 const UNASSIGNED = "Unassigned";
 const countryOptions = Object.keys(countryFlag);
-const seededTeamNameMap = teamNameMap(allFellows.map((f) => f.team));
 
-let tmpId = 1000; // ids for fellows added in-session
-const nextId = () => ++tmpId;
 
 // Teamflow is collected via a form fellows submit before Sprint 1 — it is not
 // set by the admin. These ids haven't completed it yet (mock), so their
 // teamflow shows as "Not submitted".
-const TEAMFLOW_PENDING_IDS = new Set([7, 16, 20]);
 
 // `lastActiveAt` is the last time a fellow signed in to the website. null means
 // they've been invited but never signed in yet.
 type ManagedFellow = FellowRecord & {
   teamflowSubmitted: boolean;
   lastActiveAt: number | null;
+  teamId: number | null;
+  suspended: boolean;
 };
-
-const MIN = 60_000;
-const HOUR = 60 * MIN;
-const DAY = 24 * HOUR;
-const ACTIVITY_OFFSETS = [3 * MIN, 38 * MIN, 2 * HOUR, 5 * HOUR, 9 * HOUR, 26 * HOUR, 2 * DAY, 4 * DAY];
-
-const initialsOf = (name: string) =>
-  name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
 function lastActiveLabel(ts: number): string {
   const s = Math.round((Date.now() - ts) / 1000);
@@ -106,39 +96,36 @@ function parseCsv(text: string) {
     .filter((r) => r.name && r.name.toLowerCase() !== "name");
 }
 
-function makeFellow(name: string, country: string, university: string): ManagedFellow {
+function managedFellow(fellow: AdminFellow): ManagedFellow {
   return {
-    id: nextId(),
-    name,
-    initials: initialsOf(name),
-    country,
-    university: university || "—",
-    teamflow: "Initiator", // placeholder; hidden until the Teamflow form is submitted
-    teamflowSubmitted: false,
-    team: UNASSIGNED,
-    status: "Pending",
-    startDate: "2026-06-05",
-    lastActiveAt: null,
-    email: null,
-    discord: null,
-    line: null,
-    instagram: null,
+    ...adminFellowRecord(fellow),
+    teamflowSubmitted: Boolean(fellow.teamflow),
+    lastActiveAt: fellow.last_login_at ? new Date(fellow.last_login_at).getTime() : null,
+    teamId: fellow.team_id ?? null,
+    suspended: fellow.status === "dropped",
   };
 }
 
 export default function FellowManagement() {
-  // Local, page-scoped copy of the roster — the admin edits this mock in place.
-  const [fellows, setFellows] = useState<ManagedFellow[]>(() => {
-    const now = Date.now();
-    return allFellows.map((f) => ({
-      ...f,
-      team: renumberTeamName(f.team, seededTeamNameMap),
-      teamflowSubmitted: !TEAMFLOW_PENDING_IDS.has(f.id),
-      lastActiveAt: f.status === "Confirmed" ? now - ACTIVITY_OFFSETS[f.id % ACTIVITY_OFFSETS.length] : null,
-    }));
-  });
+  const [fellows, setFellows] = useState<ManagedFellow[]>([]);
+  const [teamRecords, setTeamRecords] = useState<TeamResponse[]>([]);
+  const [loadError, setLoadError] = useState("");
   const { showToast, toast } = useToast();
-  const suspended = useSuspended();
+
+  async function loadFellows() {
+    try {
+      const [nextFellows, nextTeams] = await Promise.all([api.admin.listFellows(), api.teams()]);
+      setFellows(nextFellows.map(managedFellow));
+      setTeamRecords(nextTeams);
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load fellows");
+    }
+  }
+
+  useEffect(() => {
+    void loadFellows();
+  }, []);
 
   // Add-fellow form
   const [addMode, setAddMode] = useState<"single" | "csv">("single");
@@ -178,18 +165,23 @@ export default function FellowManagement() {
   const teamflowDone = fellows.filter((f) => f.teamflowSubmitted).length;
   const countries = new Set(fellows.map((f) => f.country)).size;
   const awaitingTeamflow = fellows.length - teamflowDone;
-  const suspendedCount = fellows.filter((f) => suspended.has(f.id)).length;
+  const suspendedCount = fellows.filter((f) => f.suspended).length;
 
-  function addFellow() {
+  async function addFellow() {
     const trimmed = name.trim();
     if (!trimmed) {
       showToast("Enter a name first");
       return;
     }
-    setFellows((prev) => [makeFellow(trimmed, country, university.trim()), ...prev]);
-    setName("");
-    setUniversity("");
-    showToast(`Added ${trimmed}`);
+    try {
+      await api.admin.createFellow({ name: trimmed, country, university: university.trim(), status: "pending" });
+      await loadFellows();
+      setName("");
+      setUniversity("");
+      showToast(`Added ${trimmed}`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not add fellow");
+    }
   }
 
   function handleCsvUpload(file: File | undefined) {
@@ -232,26 +224,60 @@ export default function FellowManagement() {
     setCsvInputKey((key) => key + 1);
   }
 
-  function addBulk() {
+  async function addBulk() {
     const rows = parseCsv(csvText);
     if (rows.length === 0) {
       showToast("Upload a CSV with at least one fellow");
       return;
     }
-    const created = rows.map((r) => makeFellow(r.name, resolveCountry(r.country), r.university));
-    setFellows((prev) => [...created, ...prev]);
-    clearCsv();
-    showToast(`Added ${created.length} fellow${created.length === 1 ? "" : "s"}`);
+    try {
+      await Promise.all(rows.map((row) => api.admin.createFellow({
+        name: row.name,
+        country: resolveCountry(row.country),
+        university: row.university,
+        status: "pending",
+      })));
+      await loadFellows();
+      clearCsv();
+      showToast(`Added ${rows.length} fellow${rows.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not import fellows");
+    }
   }
 
-  function updateFellow(id: number, patch: Partial<FellowRecord>) {
-    setFellows((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  async function updateFellow(id: number, patch: Partial<FellowRecord>) {
+    const payload: Partial<AdminFellow> & { group_id?: number | null } = {};
+    if (patch.team !== undefined) {
+      const team = teamRecords.find((item) => item.name === patch.team);
+      payload.team_id = team?.id ?? null;
+      payload.group_id = team?.group_id ?? null;
+    }
+    try {
+      await api.admin.updateFellow(id, payload);
+      await loadFellows();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not update fellow");
+    }
   }
 
-  function removeFellow(id: number) {
+  async function removeFellow(id: number) {
     const f = fellows.find((x) => x.id === id);
     if (f && window.confirm(`Remove ${f.name} from the cohort?`)) {
-      setFellows((prev) => prev.filter((x) => x.id !== id));
+      try {
+        await api.admin.deleteFellow(id);
+        await loadFellows();
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Could not remove fellow");
+      }
+    }
+  }
+
+  async function toggleSuspended(fellow: ManagedFellow) {
+    try {
+      await api.admin.updateFellow(fellow.id, { status: fellow.suspended ? "confirmed" : "dropped" });
+      await loadFellows();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not update status");
     }
   }
 
@@ -263,6 +289,7 @@ export default function FellowManagement() {
   return (
     <div className="page space-y-6">
       {toast}
+      {loadError && <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</p>}
 
       {/* Header */}
       <div>
@@ -315,7 +342,7 @@ export default function FellowManagement() {
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addFellow()}
+                onKeyDown={(e) => e.key === "Enter" && void addFellow()}
                 placeholder="e.g. Sirikit Wong"
                 className={inputCls}
               />
@@ -334,7 +361,7 @@ export default function FellowManagement() {
             </div>
             <button
               type="button"
-              onClick={addFellow}
+              onClick={() => void addFellow()}
               className="flex items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
             >
               <Plus className="h-4 w-4" />
@@ -372,7 +399,7 @@ export default function FellowManagement() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={addBulk}
+                onClick={() => void addBulk()}
                 disabled={parsedCount === 0}
                 className="flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500 disabled:opacity-60"
               >
@@ -463,7 +490,7 @@ export default function FellowManagement() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((f) => {
-                  const sus = suspended.has(f.id);
+                  const sus = f.suspended;
                   return (
                   <tr key={f.id} className={cn("transition hover:bg-slate-50", sus && "opacity-60")}>
                     <td className="px-5 py-3">
@@ -503,7 +530,7 @@ export default function FellowManagement() {
                     <td className="px-5 py-3">
                       <select
                         value={f.team || UNASSIGNED}
-                        onChange={(e) => updateFellow(f.id, { team: e.target.value })}
+                        onChange={(e) => void updateFellow(f.id, { team: e.target.value })}
                         className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-brand-300"
                       >
                         <option value={UNASSIGNED}>Unassigned</option>
@@ -529,7 +556,7 @@ export default function FellowManagement() {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
-                          onClick={() => toggleSuspended(f.id)}
+                          onClick={() => void toggleSuspended(f)}
                           className={cn(
                             "rounded-md p-1.5 transition",
                             sus ? "text-emerald-600 hover:bg-emerald-50" : "text-slate-400 hover:bg-amber-50 hover:text-amber-600"
@@ -541,7 +568,7 @@ export default function FellowManagement() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => removeFellow(f.id)}
+                          onClick={() => void removeFellow(f.id)}
                           className="rounded-md p-1.5 text-slate-400 transition hover:bg-brand-50 hover:text-brand-600"
                           aria-label={`Remove ${f.name}`}
                         >

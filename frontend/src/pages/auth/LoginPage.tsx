@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import AuthLayout from "./AuthLayout";
-import { homeForRole, login, type MockUser } from "../../lib/auth";
+import { homeForRole, login, type AppUser } from "../../lib/auth";
 
 type LoginLocationState = {
   from?: {
@@ -12,7 +12,7 @@ type LoginLocationState = {
   };
 };
 
-function canReturnTo(user: MockUser, pathname: string) {
+function canReturnTo(user: AppUser, pathname: string) {
   return (
     (user.role === "admin" && pathname.startsWith("/admin")) ||
     (user.role === "fellow" && pathname.startsWith("/fellow"))
@@ -20,17 +20,18 @@ function canReturnTo(user: MockUser, pathname: string) {
 }
 
 export default function LoginPage() {
-  const navigate = useNavigate();
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const result = login(email, password, remember);
+    setSubmitting(true);
+    const result = await login(email, password);
+    setSubmitting(false);
 
     if (!result.ok) {
       setError(result.error);
@@ -43,7 +44,7 @@ export default function LoginPage() {
         ? `${from.pathname}${from.search ?? ""}${from.hash ?? ""}`
         : homeForRole(result.user.role);
 
-    navigate(destination, { replace: true });
+    window.location.replace(destination);
   };
 
   return (
@@ -115,21 +116,6 @@ export default function LoginPage() {
           </div>
         </label>
 
-        <div className="flex items-center justify-between text-sm">
-          <label className="flex items-center gap-2 text-slate-600">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(event) => setRemember(event.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
-            />
-            Remember me
-          </label>
-          <a href="#" className="font-medium text-brand-600 hover:text-brand-700">
-            Forgot password?
-          </a>
-        </div>
-
         {error && (
           <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -138,9 +124,10 @@ export default function LoginPage() {
 
         <button
           type="submit"
+          disabled={submitting}
           className="flex w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
         >
-          Sign in
+          {submitting ? "Signing in..." : "Sign in"}
           <ArrowRight className="h-4 w-4" />
         </button>
       </form>
