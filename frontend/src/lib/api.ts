@@ -127,6 +127,11 @@ export type TeamResponse = {
   update_at: string;
 };
 
+export type CaseSubmissionStatus = {
+  case_id: number;
+  status: "pending" | "submitted" | "reviewed";
+};
+
 export type AdminEventResponse = {
   id: number;
   cohort_id?: number | null;
@@ -252,12 +257,28 @@ export type MarkResourceReadResponse = {
   read_at: string;
 };
 
+async function parseResponse<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  let payload: unknown;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = text;
+    }
+  }
+  if (!res.ok) {
+    const message = payload && typeof payload === "object" && "error" in payload
+      ? String((payload as { error: unknown }).error)
+      : `${res.status} ${res.statusText}`;
+    throw new Error(message);
+  }
+  return payload as T;
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, { headers: await authHeaders() });
-  if (!res.ok) {
-    throw new Error(`${res.status} ${res.statusText}`);
-  }
-  return res.json() as Promise<T>;
+  return parseResponse<T>(res);
 }
 
 async function getData<T>(path: string): Promise<T> {
@@ -306,11 +327,10 @@ async function sendData<T>(method: "POST" | "PATCH" | "DELETE", path: string, bo
     headers: await authHeaders(Boolean(body)),
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
 
   if (res.status === 204) return undefined as T;
 
-  const envelope = (await res.json()) as ApiEnvelope<T>;
+  const envelope = await parseResponse<ApiEnvelope<T>>(res);
   if (envelope.error) throw new Error(envelope.error);
   return envelope.data;
 }
@@ -371,6 +391,7 @@ export const api = {
     saveTeamAssignments: (assignments: Array<{ member_id: number; team_id: number | null; group_id: number | null }>) =>
       sendData<{ updated_count: number }>("POST", "/api/admin/teams/assignments", { assignments }),
     listCases: () => getData<AdminCase[]>("/api/admin/cases"),
+    caseSubmissionStatuses: () => getData<CaseSubmissionStatus[]>("/api/admin/case-submissions"),
     getCase: (id: number) => getData<AdminCase>(`/api/admin/cases/${id}`),
     createCase: (payload: Partial<AdminCase>) => sendData<AdminCase>("POST", "/api/admin/cases", payload),
     updateCase: (id: number, payload: Partial<AdminCase>) => sendData<AdminCase>("PATCH", `/api/admin/cases/${id}`, payload),

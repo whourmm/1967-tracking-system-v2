@@ -33,14 +33,14 @@ func (h *TeamHandler) List(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type TeamItem struct {
-		ID          int64      `json:"id"`
-		GroupID     *int64     `json:"group_id"`
-		Name        *string    `json:"name"`
-		CaseID      *int64     `json:"case_id"`
-		CaseTitle   *string    `json:"case_title"`
-		MemberCount int        `json:"member_count"`
-		CreatedAt   time.Time  `json:"created_at"`
-		UpdateAt    time.Time  `json:"update_at"`
+		ID          int64     `json:"id"`
+		GroupID     *int64    `json:"group_id"`
+		Name        *string   `json:"name"`
+		CaseID      *int64    `json:"case_id"`
+		CaseTitle   *string   `json:"case_title"`
+		MemberCount int       `json:"member_count"`
+		CreatedAt   time.Time `json:"created_at"`
+		UpdateAt    time.Time `json:"update_at"`
 	}
 
 	teams := []TeamItem{}

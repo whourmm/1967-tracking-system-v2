@@ -126,12 +126,13 @@ export async function hydrateLiveData() {
   });
 
   if (user.role === "admin") {
-    const [me, fellows, sprintRows, assignmentRows, caseRows, resourceRows, eventRows] = await Promise.all([
+    const [me, fellows, sprintRows, assignmentRows, caseRows, caseStatuses, resourceRows, eventRows] = await Promise.all([
       api.me(),
       api.admin.listFellows(),
       api.admin.listSprints(),
       api.admin.listAssignments(),
       api.admin.listCases(),
+      api.admin.caseSubmissionStatuses(),
       api.admin.listResources(),
       api.events(),
     ]);
@@ -197,13 +198,13 @@ export async function hydrateLiveData() {
       description: item.summary ?? "",
       assignedTeam: "Unassigned",
       deadline: item.published_date?.slice(0, 10) ?? "",
-      status: item.status === "reviewed" || item.status === "submitted" ? item.status : "pending",
+      status: "pending",
       briefUrl: item.googledrive_link ?? "",
       submissionUrl: "",
       deliverable: item.theme ?? "",
     })));
     clearRecord(caseSubmissionStatus);
-    caseAssignments.forEach((item) => { caseSubmissionStatus[item.id] = item.status; });
+    caseStatuses.forEach((item) => { caseSubmissionStatus[item.case_id] = item.status; });
     hydrateResources(resourceRows);
     return;
   }
@@ -220,6 +221,7 @@ export async function hydrateLiveData() {
     avatarInitials: initialsOf(me.name ?? user.name),
   });
   replace(teamMembers, allFellows.filter((fellow) => fellow.team === currentFellow.team).map((fellow) => ({
+    id: fellow.id,
     name: fellow.name,
     initials: fellow.initials,
     country: fellow.country,

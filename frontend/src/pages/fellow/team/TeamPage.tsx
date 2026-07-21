@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { CalendarCheck, Check, ChevronRight, GraduationCap, Pin } from "lucide-react";
 import { Card, CardHeader } from "../../../components/ui/Card";
-import { allFellows, currentFellow, teamMembers } from "../../../data/mock";
+import { currentFellow, teamMembers } from "../../../data/mock";
 import type { TeamMember } from "../../../types";
 import type { FellowOutletContext } from "../../../components/layout/FellowLayout";
 import { cn } from "../../../lib/cn";
+import { getCurrentUser } from "../../../lib/auth";
 import {
   dayFullNames,
   loadMyAvailability,
@@ -26,8 +27,7 @@ const countryFlag: Record<string, string> = {
 
 function memberProfileTo(member: TeamMember, isMe: boolean) {
   if (isMe) return "/fellow/settings";
-  const fellowRecord = allFellows.find((f) => f.name === member.name);
-  return fellowRecord ? `/fellow/roster/${fellowRecord.id}` : undefined;
+  return member.id ? `/fellow/roster/${member.id}` : undefined;
 }
 
 // Compact row used on phones, where the tall profile cards would force a full
@@ -162,15 +162,13 @@ function listDays(days: string[]) {
 // Maps each member's available days (picked on their profile) onto a weekly
 // grid so the team can see at a glance which day to book a meeting.
 function TeamAvailability({ members }: { members: TeamMember[] }) {
-  // The current fellow's selection lives in localStorage (set on My Profile);
-  // teammates' days come with their member record.
+  const currentUserID = getCurrentUser()?.id;
   const [myDays] = useState(loadMyAvailability);
-
   const memberDays = members.map((member) => ({
     member,
     days:
-      member.name === currentFellow.name
-        ? new Set(weekDays.filter((d) => myDays[d]))
+      member.id === currentUserID
+        ? new Set(weekDays.filter((day) => myDays[day]))
         : new Set(member.availability),
   }));
 
@@ -238,7 +236,7 @@ function TeamAvailability({ members }: { members: TeamMember[] }) {
 
           {/* One row per member */}
           {memberDays.map(({ member, days }) => {
-            const isMe = member.name === currentFellow.name;
+            const isMe = member.id === currentUserID;
             return (
               <div
                 key={member.name}
@@ -319,10 +317,11 @@ function TeamAvailability({ members }: { members: TeamMember[] }) {
 
 export default function TeamPage() {
   const { selectedSprint } = useOutletContext<FellowOutletContext>();
+  const currentUser = getCurrentUser();
   const nationalities = new Set(teamMembers.map((m) => m.country)).size;
   const orderedMembers = [
-    ...teamMembers.filter((m) => m.name === currentFellow.name),
-    ...teamMembers.filter((m) => m.name !== currentFellow.name),
+    ...teamMembers.filter((m) => m.id === currentUser?.id),
+    ...teamMembers.filter((m) => m.id !== currentUser?.id),
   ];
 
   return (
@@ -335,15 +334,15 @@ export default function TeamPage() {
       </div>
 
       <Card>
-        <CardHeader title={currentFellow.team} subtitle={`${teamMembers.length} fellows · ${nationalities} nationalities · ${selectedSprint.name}`} />
+        <CardHeader title={currentFellow.team} subtitle={`${teamMembers.length} fellows · ${nationalities} nationalities${selectedSprint ? ` · ${selectedSprint.name}` : ""}`} />
         <div className="divide-y divide-slate-100 sm:hidden">
           {orderedMembers.map((member) => (
-            <MemberRow key={member.name} member={member} isMe={member.name === currentFellow.name} />
+            <MemberRow key={member.id ?? member.name} member={member} isMe={member.id === currentUser?.id} />
           ))}
         </div>
         <div className="hidden gap-4 p-5 sm:grid sm:grid-cols-2 xl:grid-cols-4">
           {orderedMembers.map((member) => (
-            <MemberCard key={member.name} member={member} isMe={member.name === currentFellow.name} />
+            <MemberCard key={member.id ?? member.name} member={member} isMe={member.id === currentUser?.id} />
           ))}
         </div>
       </Card>

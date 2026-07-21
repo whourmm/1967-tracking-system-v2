@@ -1,12 +1,9 @@
 import { useState } from "react";
 import {
-  CalendarDays,
   Check,
   Globe,
-  Plus,
   Shapes,
   Shuffle,
-  Trash2,
   Undo2,
   UserMinus,
   Users,
@@ -20,11 +17,8 @@ import { allFellows } from "../../data/mock";
 import { SPRINTS } from "../../data/adminMock";
 import { flagFor, teamflowChip } from "../../lib/cohort";
 import { cn } from "../../lib/cn";
-import { numberedTeamName, renumberTeamName, teamNameMap } from "../../lib/teams";
 import { api } from "../../lib/api";
 import type { FellowRecord } from "../../types";
-
-const seededTeamNameMap = teamNameMap(allFellows.map((f) => f.team));
 
 interface Team {
   id: number;
@@ -60,14 +54,14 @@ function boardEqual(a: SprintBoard, b: SprintBoard): boolean {
 // Seed every sprint with the same starting teams (independent copies). The
 // admin then edits each sprint on its own.
 function seedBoards(): Record<string, SprintBoard> {
-  const names = [...new Set(allFellows.map((f) => f.team))];
+  const names = [...new Set(allFellows.map((f) => f.team).filter((name) => name && name !== "Unassigned"))];
   const boards: Record<string, SprintBoard> = {};
   for (const s of SPRINTS) {
     const byName = new Map<string, number>();
     const teams = names.map((name) => {
       const id = nextTeamId();
       byName.set(name, id);
-      return { id, name: renumberTeamName(name, seededTeamNameMap) };
+      return { id, name };
     });
     const assignment: Record<number, number | null> = {};
     allFellows.forEach((f) => {
@@ -91,7 +85,7 @@ export default function TeamBuilder() {
   const [initialBoards] = useState(seedBoards);
   const [boards, setBoards] = useState(() => cloneAll(initialBoards)); // working draft
   const [saved, setSaved] = useState(() => cloneAll(initialBoards)); // last saved snapshot
-  const [sprint, setSprint] = useState(SPRINTS[SPRINTS.length - 1]); // current sprint
+  const [sprint] = useState(SPRINTS[SPRINTS.length - 1]); // current sprint
   const { showToast, toast } = useToast();
   const suspended = new Set<number>();
 
@@ -127,23 +121,6 @@ export default function TeamBuilder() {
     updateBoard((b) => ({ ...b, assignment: { ...b.assignment, [fellowId]: teamId } }));
   }
 
-  function addTeam() {
-    updateBoard((b) => ({
-      ...b,
-      teams: [...b.teams, { id: nextTeamId(), name: numberedTeamName(b.teams.length) }],
-    }));
-  }
-
-  function removeTeam(id: number) {
-    updateBoard((b) => {
-      const assignment = { ...b.assignment };
-      allFellows.forEach((f) => {
-        if (assignment[f.id] === id) assignment[f.id] = null;
-      });
-      return { teams: b.teams.filter((t) => t.id !== id), assignment };
-    });
-  }
-
   function unassignAll() {
     updateBoard((b) => ({ ...b, assignment: {} }));
     showToast(`Cleared assignments for ${sprint}`);
@@ -152,6 +129,13 @@ export default function TeamBuilder() {
   async function save() {
     try {
       const liveTeams = await api.teams();
+      const assignedTeams = new Set(Object.values(board.assignment).filter((id): id is number => id != null));
+      const missingTeams = board.teams.filter(
+        (team) => assignedTeams.has(team.id) && !liveTeams.some((liveTeam) => liveTeam.name === team.name),
+      );
+      if (missingTeams.length) {
+        throw new Error(`These teams do not exist in the database: ${missingTeams.map((team) => team.name).join(", ")}`);
+      }
       await api.admin.saveTeamAssignments(allFellows.map((fellow) => {
         const draftTeam = board.teams.find((team) => team.id === (board.assignment[fellow.id] ?? null));
         const liveTeam = liveTeams.find((team) => team.name === draftTeam?.name);
@@ -178,12 +162,13 @@ export default function TeamBuilder() {
   function randomise() {
     const size = Math.max(2, Math.min(8, teamSize));
     const active = allFellows.filter((f) => !isSuspended(f.id));
-    const needed = Math.max(1, Math.ceil(active.length / size));
+    if (teams.length === 0) {
+      showToast("Create teams in the database before assigning fellows");
+      return;
+    }
+    const needed = Math.min(teams.length, Math.max(1, Math.ceil(active.length / size)));
 
     const work = teams.slice();
-    while (work.length < needed) {
-      work.push({ id: nextTeamId(), name: numberedTeamName(work.length) });
-    }
     const buckets = work.slice(0, needed).map((t) => ({ t, list: [] as FellowRecord[] }));
 
     let candidates = shuffle(active);
@@ -231,17 +216,16 @@ export default function TeamBuilder() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Teams</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Each sprint keeps its own teams — pick a sprint to edit, then save. Suspended fellows stay in the pool.
+            Assign fellows to teams that already exist in the database. Team assignments are current; sprint history is not stored yet.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white py-1 pl-3 pr-1.5">
-            <CalendarDays className="h-4 w-4 text-slate-400" />
+          <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 py-1 pl-3 pr-1.5">
             <select
               value={sprint}
-              onChange={(e) => setSprint(e.target.value)}
+              disabled
               aria-label="Sprint"
-              className="bg-transparent py-1 text-sm font-semibold text-slate-700 outline-none"
+              className="bg-transparent py-1 text-sm font-semibold text-slate-500 outline-none"
             >
               {SPRINTS.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -342,14 +326,6 @@ export default function TeamBuilder() {
                 ) : (
                   <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-700 ring-1 ring-brand-600/20">no finisher</span>
                 )}
-                <button
-                  type="button"
-                  onClick={() => removeTeam(team.id)}
-                  className="rounded-md p-1 text-slate-400 transition hover:bg-brand-50 hover:text-brand-600"
-                  aria-label={`Delete ${team.name}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
               </div>
 
               <p className="text-xs text-slate-400">
@@ -397,14 +373,9 @@ export default function TeamBuilder() {
           );
         })}
 
-        <button
-          type="button"
-          onClick={addTeam}
-          className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 text-sm font-medium text-slate-500 transition hover:border-brand-300 hover:bg-brand-50/40 hover:text-brand-600"
-        >
-          <Plus className="h-6 w-6" />
-          Add team
-        </button>
+        {teams.length === 0 && (
+          <Card className="p-5 text-sm text-slate-500">No persisted teams exist yet. Create the team records before assigning fellows.</Card>
+        )}
       </div>
 
       {/* Unassigned pool */}

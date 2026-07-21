@@ -30,7 +30,7 @@ import { useFellowTheme, type FellowTheme } from "../../lib/fellowTheme";
 import type { NotificationKind, Sprint } from "../../types";
 
 export interface FellowOutletContext {
-  selectedSprint: Sprint;
+  selectedSprint: Sprint | null;
 }
 
 const notificationIcon: Record<NotificationKind, typeof Bell> = {
@@ -644,7 +644,7 @@ export default function FellowLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { theme, toggleTheme } = useFellowTheme();
-  const selectedSprint = sprints[sprintIndex];
+  const selectedSprint = sprints[sprintIndex] ?? null;
   const goPreviousSprint = () => setSprintIndex((i) => Math.max(i - 1, 0));
   const goNextSprint = () =>
     setSprintIndex((i) => Math.min(i + 1, sprints.length - 1));
@@ -711,6 +711,19 @@ export default function FellowLayout() {
             onToggleTheme={toggleTheme}
           />
         )}
+        {!selectedSprint && (
+          <header className="fixed inset-x-0 top-0 z-30 flex h-16 items-center border-b border-slate-200 bg-white px-4 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="flex items-center gap-2 rounded-md p-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              aria-label="Open navigation"
+            >
+              <Menu className="h-5 w-5" />
+              Fellow portal
+            </button>
+          </header>
+        )}
         <main className="mx-auto max-w-6xl px-4 pb-10 pt-20 sm:px-6 lg:px-8 lg:pt-24">
           {sprintsLoading ? (
             <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
@@ -720,13 +733,14 @@ export default function FellowLayout() {
             <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700 shadow-sm">
               Could not load sprint timeline: {sprintsError}
             </div>
-          ) : selectedSprint ? (
-            <Outlet context={{ selectedSprint } satisfies FellowOutletContext} />
-          ) : (
+          ) : !selectedSprint ? (
             <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
               No active cohort sprints are available yet.
             </div>
-          )}
+          ) : null}
+          <div className={!selectedSprint ? "mt-6" : ""}>
+            <Outlet context={{ selectedSprint } satisfies FellowOutletContext} />
+          </div>
         </main>
       </div>
       <MobileFellowDrawer

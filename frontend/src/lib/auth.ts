@@ -61,12 +61,10 @@ export async function initializeAuth() {
     return;
   }
 
-  if (!getCurrentUser()) {
-    try {
-      await loadProfile();
-    } catch {
-      localStorage.removeItem(PROFILE_KEY);
-    }
+  try {
+    await loadProfile();
+  } catch {
+    localStorage.removeItem(PROFILE_KEY);
   }
 }
 
@@ -116,6 +114,20 @@ export async function registerFellow({
 export async function logout() {
   localStorage.removeItem(PROFILE_KEY);
   await supabase.auth.signOut();
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<AuthResult> {
+  const { data: userData } = await supabase.auth.getUser();
+  const email = userData.user?.email;
+  if (!email) return { ok: false, error: "Unable to load your signed-in account." };
+
+  const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+  if (signInError) return { ok: false, error: "Current password is incorrect." };
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) return { ok: false, error: error.message };
+  const user = getCurrentUser();
+  return user ? { ok: true, user } : { ok: false, error: "Password changed, but the local profile is unavailable." };
 }
 
 export function getCurrentUser(): AppUser | null {

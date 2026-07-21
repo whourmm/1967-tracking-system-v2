@@ -132,22 +132,21 @@ export default function FellowDashboard() {
     [assignments, completedAssignments],
   );
 
-  const sprintDates = getSprintDates(
-    selectedSprint.startsOn,
-    selectedSprint.deadline
-  );
+  const sprintDates = selectedSprint
+    ? getSprintDates(selectedSprint.startsOn, selectedSprint.deadline)
+    : [];
   const todayKey = dateKey(new Date());
 
   // Timing relative to today drives the label/eyebrow, so past and upcoming
   // sprints read correctly (not just "0 days left").
-  const hasStarted = daysUntil(selectedSprint.startsOn) <= 0;
-  const hasEnded = daysUntil(selectedSprint.deadline) < 0;
-  const daysLeft = Math.max(daysUntil(selectedSprint.deadline), 0);
+  const hasStarted = selectedSprint ? daysUntil(selectedSprint.startsOn) <= 0 : false;
+  const hasEnded = selectedSprint ? daysUntil(selectedSprint.deadline) < 0 : false;
+  const daysLeft = selectedSprint ? Math.max(daysUntil(selectedSprint.deadline), 0) : 0;
   const sprintState = hasEnded ? "Past" : !hasStarted ? "Upcoming" : "Current";
   const sprintStatusLabel = hasEnded
     ? "Completed"
     : !hasStarted
-      ? `Starts ${formatShortDate(selectedSprint.startsOn)}`
+      ? `Starts ${formatShortDate(selectedSprint?.startsOn ?? "")}`
       : `${daysLeft} days left`;
 
   const upcoming = [...assignments]
@@ -155,7 +154,7 @@ export default function FellowDashboard() {
     .sort((a, b) => sortDistance(a) - sortDistance(b))
     .slice(0, 3);
   const currentSprintCase = cases.find(
-    (item) => item.sprint_id === selectedSprint.id
+    (item) => item.sprint_id === selectedSprint?.id
   );
 
   const blockProgress = useMemo(() => {
@@ -188,6 +187,15 @@ export default function FellowDashboard() {
       <Card className="border-red-200 bg-red-50 p-6">
         <h1 className="text-base font-semibold text-red-800">Could not load dashboard</h1>
         <p className="mt-1 text-sm text-red-700">{error}</p>
+      </Card>
+    );
+  }
+
+  if (!selectedSprint) {
+    return (
+      <Card className="p-6">
+        <h1 className="text-base font-semibold text-slate-900">Welcome to the fellow portal</h1>
+        <p className="mt-1 text-sm text-slate-500">Your profile, roster, team, and learning pages remain available while an admin sets up the active sprint.</p>
       </Card>
     );
   }

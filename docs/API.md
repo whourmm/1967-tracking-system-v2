@@ -5,7 +5,7 @@ Backend API reference and implementation roadmap for the ASEAN 1967 Fellowship t
 This document is intentionally split between:
 
 - **Implemented**: registered today in `backend/internal/routes/routes.go`.
-- **Planned**: contract expected by the app and backed by the current PostgreSQL schema; skeleton routes may return `501 Not Implemented`.
+- **Planned**: contract expected by the app but not registered yet.
 - **Schema gap**: frontend behavior exists or is expected, but the current schema does not yet fully support the contract.
 - **Frontend-only**: intentionally kept in the web app for now.
 
@@ -92,7 +92,7 @@ Use snake_case response fields for backend contracts.
 | `GET` | `/api/health` | Implemented | Frontend API connectivity |
 | `GET` | `/api/fellows` | Implemented | Current `frontend/src/lib/api.ts` |
 | `GET` | `/api/admin/overview` | Implemented | Admin overview |
-| `GET` | `/api/me` | Planned | Authenticated layouts and profile |
+| `GET` | `/api/me` | Implemented | Authenticated layouts and profile |
 | `GET` | `/api/fellows/{fellowId}` | Implemented | Fellow roster detail, admin fellow profile |
 | `GET` | `/api/admin/fellows` | Implemented | Admin fellow management |
 | `POST` | `/api/admin/fellows` | Implemented | Admin fellow management |
@@ -104,24 +104,25 @@ Use snake_case response fields for backend contracts.
 | `POST` | `/api/admin/sprints` | Implemented | Admin sprint management |
 | `PATCH` | `/api/admin/sprints/{sprintId}` | Implemented | Admin sprint management |
 | `DELETE` | `/api/admin/sprints/{sprintId}` | Implemented | Admin sprint management |
-| `GET` | `/api/fellow/assignments` | Planned | Fellow dashboard and assignments |
-| `POST` | `/api/fellow/assignments/{assignmentId}/submit` | Planned | Fellow assignment submission |
+| `GET` | `/api/fellow/assignments` | Implemented | Fellow dashboard and assignments |
+| `POST` | `/api/fellow/assignments/{assignmentId}/submit` | Implemented | Fellow assignment submission |
 | `GET` | `/api/admin/assignments` | Implemented | Admin form tracker |
 | `POST` | `/api/admin/assignments` | Implemented | Admin form tracker |
 | `PATCH` | `/api/admin/assignments/{assignmentId}` | Implemented | Admin form tracker |
 | `POST` | `/api/admin/assignments/{assignmentId}/sync` | Implemented | Google Form response sync |
 | `GET` | `/api/admin/assignments/{assignmentId}/submissions` | Implemented | Admin submission matrix |
 | `GET` | `/api/resources` | Implemented | Fellow learning/resources |
-| `POST` | `/api/fellow/resources/{resourceId}/read` | Planned | Fellow resource completion |
+| `POST` | `/api/fellow/resources/{resourceId}/read` | Implemented | Fellow resource completion |
 | `GET` | `/api/admin/resources` | Implemented | Admin resources |
 | `GET` | `/api/admin/resources/{resourceId}` | Implemented | Admin resources |
 | `POST` | `/api/admin/resources` | Implemented | Admin resources |
 | `PATCH` | `/api/admin/resources/{resourceId}` | Implemented | Admin resources |
 | `DELETE` | `/api/admin/resources/{resourceId}` | Implemented | Admin resources |
 | `GET` | `/api/admin/resources/read-status` | Implemented | Admin read tracking |
-| `GET` | `/api/fellow/learning` | Planned | Fellow learning system |
+| `GET` | `/api/fellow/learning` | Implemented | Fellow learning system |
 | `GET` | `/api/cases` | Implemented | Fellow assignments, admin cases |
 | `GET` | `/api/admin/cases` | Implemented | Admin case management |
+| `GET` | `/api/admin/case-submissions` | Implemented | Admin case submission status |
 | `GET` | `/api/admin/cases/{caseId}` | Implemented | Admin case management |
 | `POST` | `/api/admin/cases` | Implemented | Admin case management |
 | `PATCH` | `/api/admin/cases/{caseId}` | Implemented | Admin case management |
@@ -204,7 +205,7 @@ Auth0 is planned but not wired yet. Current frontend auth is local mock state in
 
 ### Current User
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/me
@@ -252,7 +253,7 @@ Backend authorization must be enforced server-side. Frontend role checks are onl
 
 ### Get Fellow Detail
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/fellows/{fellowId}
@@ -291,7 +292,7 @@ Response target `200`:
 
 ### Admin List Fellows
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/admin/fellows
@@ -323,7 +324,7 @@ Response target `200`:
 
 ### Admin Create Fellow
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 POST /api/admin/fellows
@@ -363,7 +364,7 @@ Response target `201`:
 
 ### Admin Update Fellow
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 PATCH /api/admin/fellows/{fellowId}
@@ -399,7 +400,7 @@ Response target `200`:
 
 ### Admin Remove Fellow
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 DELETE /api/admin/fellows/{fellowId}
@@ -549,7 +550,7 @@ Response `200`:
 
 ### Fellow List Assignments
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/fellow/assignments
@@ -591,7 +592,7 @@ Response target `200`:
 
 ### Fellow Submit Assignment
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 POST /api/fellow/assignments/{assignmentId}/submit
@@ -622,7 +623,7 @@ Response target `200`:
 
 ### Admin List Assignments
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/admin/assignments
@@ -656,7 +657,7 @@ Response target `200`:
 
 ### Admin Create Assignment
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 POST /api/admin/assignments
@@ -693,7 +694,7 @@ Response target `201`:
 
 ### Admin Update Assignment
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 PATCH /api/admin/assignments/{assignmentId}
@@ -703,7 +704,7 @@ Updates assignment metadata.
 
 ### Admin Sync Assignment Submissions
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 POST /api/admin/assignments/{assignmentId}/sync
@@ -734,7 +735,7 @@ Response target `200`:
 
 ### Admin Assignment Submission Matrix
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/admin/assignments/{assignmentId}/submissions
@@ -813,7 +814,7 @@ Response target `200`:
 
 ### Fellow Mark Resource As Read
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 POST /api/fellow/resources/{resourceId}/read
@@ -985,7 +986,7 @@ Response target `200`:
 
 ### Fellow Learning System
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/fellow/learning
@@ -1121,7 +1122,7 @@ Response `200`:
 
 ### List Teams
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/teams
@@ -1186,7 +1187,7 @@ Response target `200`:
 
 ### Admin Save Team Assignments
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 POST /api/admin/teams/assignments
@@ -1224,7 +1225,7 @@ Response target `200`:
 
 ### List Events
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/events
@@ -1260,7 +1261,7 @@ Response target `200`:
 
 ### Admin Create Event
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 POST /api/admin/events
@@ -1286,7 +1287,7 @@ Request target:
 
 ### Admin Update Event
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 PATCH /api/admin/events/{eventId}
@@ -1296,7 +1297,7 @@ Updates event metadata and calendar fields.
 
 ### Admin Delete Event
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 DELETE /api/admin/events/{eventId}
@@ -1336,7 +1337,8 @@ Progress sources:
 GET /api/progress/fellows/{fellowId}
 ```
 
-Returns one fellow's assignment, resource, and case progress. Keep private account/settings fields out of this response.
+Returns one fellow's assignment, resource, and case progress. Keep private
+account/settings fields out of this response.
 
 ## Frontend-Local Or Schema-Gap Features
 
@@ -1358,7 +1360,10 @@ Notifications are currently mocked in the frontend. The database has no `notific
 PATCH /api/fellow/profile
 ```
 
-The frontend profile/settings pages include display name, university, availability, profile visibility, notification preferences, and account settings. The schema now supports weekly availability and availability visibility, but notification preferences and general account settings remain frontend-local.
+The frontend profile/settings pages include display name, university,
+availability, profile visibility, notification preferences, and account
+settings. Weekly availability exists in the schema, but this route remains
+unimplemented until the frontend uses it.
 
 ## Schema Alignment Notes
 
@@ -1376,7 +1381,7 @@ The frontend profile/settings pages include display name, university, availabili
 | Notifications | Frontend-only | No notification table by design for now. |
 | Profile visibility | Partial | `fellow.availability_visible` exists; no generic per-field visibility table. |
 | Availability | Supported | `fellow_availability(member_id, day_of_week)` stores weekly availability. |
-| Auth/session | Planned | Auth0 middleware stubs exist, but frontend auth is mock local state. |
+| Auth/session | Supported | Supabase supplies access tokens; backend middleware links the authenticated email to the app user and enforces roles. |
 
 ## Status Codes
 

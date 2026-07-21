@@ -3,8 +3,13 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/lib/pq"
+	"github.com/tracking-system-v2/backend/internal/middleware"
 )
 
 // FellowHandler serves fellow-related endpoints.
@@ -90,12 +95,25 @@ func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 // List returns all fellows as JSON (raw, no envelope — existing contract).
 func (h *FellowHandler) List(w http.ResponseWriter, r *http.Request) {
+	user, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authenticated user missing from request")
+		return
+	}
+	var cohortID *int64
+	if user.Role == "fellow" {
+		cohortID = memberCohortID(r.Context(), h.DB, user.ID)
+	}
 	rows, err := h.DB.QueryContext(r.Context(), `
 		SELECT u.id, COALESCE(u.name, ''), COALESCE(u.gmail, ''), COALESCE(f.status, ''), u.created_at
 		FROM fellow f
 		JOIN "user" u ON u.id = f.user_id
+		LEFT JOIN "group" g ON g.id = f.group_id
+		LEFT JOIN team t ON t.id = f.team_id
+		LEFT JOIN "group" tg ON tg.id = t.group_id
+		WHERE $1::boolean OR COALESCE(g.cohort_id, tg.cohort_id, $2) = $2
 		ORDER BY u.id
-	`)
+	`, user.Role == "admin", cohortID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -161,6 +179,15 @@ func (h *FellowHandler) GetDetail(w http.ResponseWriter, r *http.Request) {
 	var d FellowDetail
 	var teamID sql.NullInt64
 	var teamName sql.NullString
+	user, authenticated := middleware.CurrentUser(r.Context())
+	if !authenticated {
+		writeError(w, http.StatusUnauthorized, "authenticated user missing from request")
+		return
+	}
+	var cohortID *int64
+	if user.Role == "fellow" {
+		cohortID = memberCohortID(r.Context(), h.DB, user.ID)
+	}
 
 	err := h.DB.QueryRowContext(r.Context(), `
 		SELECT
@@ -171,8 +198,11 @@ func (h *FellowHandler) GetDetail(w http.ResponseWriter, r *http.Request) {
 		FROM "user" u
 		JOIN fellow fp ON fp.user_id = u.id
 		LEFT JOIN team t ON t.id = fp.team_id
+		LEFT JOIN "group" g ON g.id = fp.group_id
+		LEFT JOIN "group" tg ON tg.id = t.group_id
 		WHERE u.id = $1
-	`, id).Scan(
+			AND ($2::boolean OR COALESCE(g.cohort_id, tg.cohort_id, $3) = $3)
+	`, id, user.Role == "admin", cohortID).Scan(
 		&d.ID, &d.Name, &d.Email, &d.DiscordName, &d.LineID, &d.Phone, &d.LinkedIn, &d.PhotoURL,
 		&d.Country, &d.University, &d.Major, &d.Status, &d.Teamflow,
 		&teamID, &teamName,
@@ -262,6 +292,15 @@ func (h *FellowHandler) AdminCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if body.Name == nil || strings.TrimSpace(*body.Name) == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if body.Gmail == nil || strings.TrimSpace(*body.Gmail) == "" {
+		writeError(w, http.StatusBadRequest, "gmail is required")
+		return
+	}
+	*body.Gmail = strings.ToLower(strings.TrimSpace(*body.Gmail))
 
 	tx, err := h.DB.BeginTx(r.Context(), nil)
 	if err != nil {
@@ -277,6 +316,11 @@ func (h *FellowHandler) AdminCreate(w http.ResponseWriter, r *http.Request) {
 		RETURNING id
 	`, body.Name, body.Gmail, body.Country).Scan(&userID)
 	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			writeError(w, http.StatusConflict, "a user with this email already exists")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

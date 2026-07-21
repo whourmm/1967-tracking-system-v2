@@ -122,6 +122,7 @@ export interface FellowProfile {
 export type TeamFlow = "Initiator" | "Translator" | "Sharper" | "Finisher";
 
 export interface TeamMember {
+  id?: number;
   name: string;
   initials: string;
   country: string;

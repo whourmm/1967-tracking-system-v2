@@ -51,6 +51,7 @@ func New(db *sql.DB, supabaseURL, publishableKey string) http.Handler {
 	mux.HandleFunc("GET /api/admin/overview", admin.Overview)
 	mux.HandleFunc("GET /api/cases", admin.ListCases)
 	mux.HandleFunc("GET /api/admin/cases", admin.ListCases)
+	mux.HandleFunc("GET /api/admin/case-submissions", admin.ListCaseSubmissionStatuses)
 	mux.HandleFunc("GET /api/admin/cases/{caseId}", admin.GetCase)
 	mux.HandleFunc("POST /api/admin/cases", admin.CreateCase)
 	mux.HandleFunc("PATCH /api/admin/cases/{caseId}", admin.UpdateCase)

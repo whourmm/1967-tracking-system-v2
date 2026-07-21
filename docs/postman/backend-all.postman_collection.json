@@ -1,0 +1,951 @@
+{
+  "info": {
+    "_postman_id": "8db44759-3940-4f70-955d-2aa5e62f953f",
+    "name": "Tracking System V2 - Complete Backend",
+    "description": "Tests every route registered in backend/internal/routes/routes.go. Read-only tests always run. Write tests run only when runMutations=true.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('response completed within 30 seconds', () => pm.expect(pm.response.responseTime).to.be.below(30000));",
+          "if (pm.response.code !== 204) {",
+          "  pm.test('response is JSON', () => pm.expect(pm.response.headers.get('Content-Type') || '').to.include('application/json'));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "supabaseUrl", "value": "" },
+    { "key": "supabaseKey", "value": "" },
+    { "key": "adminEmail", "value": "" },
+    { "key": "adminPassword", "value": "" },
+    { "key": "fellowEmail", "value": "" },
+    { "key": "fellowPassword", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "fellowToken", "value": "" },
+    { "key": "runMutations", "value": "false" },
+    { "key": "currentFellowId", "value": "" },
+    { "key": "teamId", "value": "" },
+    { "key": "createdFellowId", "value": "" },
+    { "key": "assignmentId", "value": "" },
+    { "key": "caseId", "value": "" },
+    { "key": "sprintId", "value": "" },
+    { "key": "resourceId", "value": "" },
+    { "key": "eventId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 - Availability and authentication",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('health is ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Supabase login - admin",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "apikey", "value": "{{supabaseKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{supabaseUrl}}/auth/v1/token?grant_type=password"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('adminToken') || !pm.variables.get('adminEmail') || !pm.variables.get('adminPassword')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Supabase login succeeded', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('admin access token returned', () => pm.expect(body.access_token).to.be.a('string').and.not.empty);",
+                  "pm.environment.set('adminToken', body.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Supabase login - fellow",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "apikey", "value": "{{supabaseKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{fellowEmail}}\",\n  \"password\": \"{{fellowPassword}}\"\n}"
+            },
+            "url": "{{supabaseUrl}}/auth/v1/token?grant_type=password"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('fellowToken') || !pm.variables.get('fellowEmail') || !pm.variables.get('fellowPassword')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Supabase login succeeded', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('fellow access token returned', () => pm.expect(body.access_token).to.be.a('string').and.not.empty);",
+                  "pm.environment.set('fellowToken', body.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Protected route rejects missing token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('authentication error returned', () => pm.expect(pm.response.json().error).to.eql('authentication required'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fellow cannot access admin route",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{fellowToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/overview"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403', () => pm.response.to.have.status(403));",
+                  "pm.test('authorization error returned', () => pm.expect(pm.response.json().error).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin cannot access fellow route",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/fellow/assignments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403', () => pm.response.to.have.status(403));",
+                  "pm.test('authorization error returned', () => pm.expect(pm.response.json().error).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Current user",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{fellowToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('current user has id', () => pm.expect(body.data.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('currentFellowId', body.data.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Shared and fellow read APIs",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{fellowToken}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "List fellows",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/fellows" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('response is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Get fellow detail",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/fellows/{{currentFellowId}}" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('fellow id matches', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.variables.get('currentFellowId'))));"
+            ]}
+          }]
+        },
+        {
+          "name": "List active cohort sprints",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/cohorts/active/sprints" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "List resources",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/resources" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "List cases",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/cases" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "List teams",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/teams" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('data is an array', () => pm.expect(body.data).to.be.an('array'));",
+              "if (!pm.variables.get('teamId') && body.data.length) pm.environment.set('teamId', body.data[0].id);"
+            ]}
+          }]
+        },
+        {
+          "name": "List events",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/events" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "List fellow assignments",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/fellow/assignments" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Get fellow learning",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/fellow/learning" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json().data;",
+              "pm.test('learning sections returned', () => { pm.expect(data.blocks).to.be.an('array'); pm.expect(data.special_sections).to.be.an('array'); });"
+            ]}
+          }]
+        }
+      ]
+    },
+    {
+      "name": "03 - Admin read APIs",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "Admin overview",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/overview" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('overview has fellow count', () => pm.expect(pm.response.json().data.fellows).to.be.a('number'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Admin list fellows",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/fellows" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Admin list assignments",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/assignments" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Admin list cases",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/cases" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Admin case submission statuses",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/case-submissions" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Admin list sprints",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/sprints" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Admin list resources",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/resources" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Admin resource read status",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/resources/read-status" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('data is an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+            ]}
+          }]
+        }
+      ]
+    },
+    {
+      "name": "04 - Full write tests (guarded)",
+      "description": "Skipped unless runMutations=true. Run this folder in order. Temporary data is removed except the assignment, because the API has no assignment-delete route.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (String(pm.variables.get('runMutations')) !== 'true') pm.execution.skipRequest();"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "Create temporary fellow",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Temporary Fellow\",\n  \"gmail\": \"postman-{{$guid}}@example.com\",\n  \"country\": \"Thailand\",\n  \"university\": \"Postman Test University\",\n  \"major\": \"API Testing\",\n  \"teamflow\": \"temporary\",\n  \"status\": \"pending\",\n  \"team_id\": null,\n  \"group_id\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/fellows"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('created fellow has id', () => pm.expect(body.data.id).to.be.a('number'));",
+              "pm.collectionVariables.set('createdFellowId', body.data.id);"
+            ]}
+          }]
+        },
+        {
+          "name": "Get temporary fellow",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/fellows/{{createdFellowId}}" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('fellow id matches', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.variables.get('createdFellowId'))));"
+            ]}
+          }]
+        },
+        {
+          "name": "Update temporary fellow",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Temporary Fellow Updated\",\n  \"status\": \"confirmed\"\n}" },
+            "url": "{{baseUrl}}/api/admin/fellows/{{createdFellowId}}"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('fellow id matches', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.variables.get('createdFellowId'))));"
+            ]}
+          }]
+        },
+        {
+          "name": "Save team assignment for temporary fellow",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sprint_id\": null,\n  \"assignments\": [{\n    \"member_id\": {{createdFellowId}},\n    \"team_id\": null,\n    \"group_id\": null\n  }]\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/teams/assignments"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('one fellow updated', () => pm.expect(pm.response.json().data.updated_count).to.eql(1));"
+            ]}
+          }]
+        },
+        {
+          "name": "Create assignment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cohort_id\": null,\n  \"sprint_id\": null,\n  \"learning_block_id\": null,\n  \"title\": \"POSTMAN DELETE ME {{$guid}}\",\n  \"form_url\": \"https://example.com/postman-form\",\n  \"deadline\": \"2026-12-31T17:00:00Z\",\n  \"description\": \"Created by the complete backend Postman test.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/assignments"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('created assignment has id', () => pm.expect(body.data.id).to.be.a('number'));",
+              "pm.collectionVariables.set('assignmentId', body.data.id);"
+            ]}
+          }]
+        },
+        {
+          "name": "Update assignment",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"Updated by Postman.\"\n}" },
+            "url": "{{baseUrl}}/api/admin/assignments/{{assignmentId}}"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('assignment id matches', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.variables.get('assignmentId'))));"
+            ]}
+          }]
+        },
+        {
+          "name": "Fellow submits assignment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{fellowToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/fellow/assignments/{{assignmentId}}/submit"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json().data;",
+              "pm.test('assignment marked submitted', () => { pm.expect(data.assignment_id).to.eql(Number(pm.variables.get('assignmentId'))); pm.expect(data.submit_status).to.eql(1); });"
+            ]}
+          }]
+        },
+        {
+          "name": "Sync assignment submissions",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"submitted_member_ids\": [{{createdFellowId}}]\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/assignments/{{assignmentId}}/sync"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('assignment id matches', () => pm.expect(pm.response.json().data.assignment_id).to.eql(Number(pm.variables.get('assignmentId'))));"
+            ]}
+          }]
+        },
+        {
+          "name": "List assignment submissions",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/assignments/{{assignmentId}}/submissions" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('submission matrix returned', () => pm.expect(pm.response.json().data).to.be.an('object'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Create resource",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"GUIDE\",\n  \"name\": \"Postman Temporary Resource\",\n  \"description\": \"Temporary resource created by Postman.\",\n  \"url\": \"https://example.com/postman-resource\",\n  \"duration\": \"1 min\",\n  \"author\": \"Postman\",\n  \"tag\": \"temporary\",\n  \"sort_order\": 999\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/resources"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('created resource has id', () => pm.expect(body.data.id).to.be.a('number'));",
+              "pm.collectionVariables.set('resourceId', body.data.id);"
+            ]}
+          }]
+        },
+        {
+          "name": "Get resource",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/resources/{{resourceId}}" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('resource id matches', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.variables.get('resourceId'))));"
+            ]}
+          }]
+        },
+        {
+          "name": "Update resource",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Temporary Resource Updated\"\n}" },
+            "url": "{{baseUrl}}/api/admin/resources/{{resourceId}}"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('resource was updated', () => pm.expect(pm.response.json().data.name).to.eql('Postman Temporary Resource Updated'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Fellow marks resource read",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{fellowToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/fellow/resources/{{resourceId}}/read"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('resource id matches', () => pm.expect(pm.response.json().data.resource_id).to.eql(Number(pm.variables.get('resourceId'))));"
+            ]}
+          }]
+        },
+        {
+          "name": "Create case",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman Temporary Case\",\n  \"case_owner\": \"Postman\",\n  \"status\": \"draft\",\n  \"summary\": \"Temporary case created by Postman.\",\n  \"published_date\": \"2026-07-20\",\n  \"googledrive_link\": \"https://example.com/postman-case\",\n  \"theme\": \"API test\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/cases"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('created case has id', () => pm.expect(body.data.id).to.be.a('number'));",
+              "pm.collectionVariables.set('caseId', body.data.id);"
+            ]}
+          }]
+        },
+        {
+          "name": "Get case",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/cases/{{caseId}}" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('case id matches', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.variables.get('caseId'))));"
+            ]}
+          }]
+        },
+        {
+          "name": "Update case",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"published\",\n  \"summary\": \"Updated by Postman.\"\n}" },
+            "url": "{{baseUrl}}/api/admin/cases/{{caseId}}"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('case was updated', () => pm.expect(pm.response.json().data.status).to.eql('published'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Sync case submission",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": {{teamId}},\n  \"submission_url\": \"https://example.com/postman-submission\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/cases/{{caseId}}/sync"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["if (!pm.variables.get('teamId')) pm.execution.skipRequest();"]
+              }
+            },
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": [
+                "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('case id matches', () => pm.expect(pm.response.json().data.case_id).to.eql(Number(pm.variables.get('caseId'))));"
+              ]}
+            }
+          ]
+        },
+        {
+          "name": "Create sprint",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Temporary Sprint\",\n  \"description\": \"Temporary sprint created by Postman.\",\n  \"starts_on\": \"2026-08-01T00:00:00Z\",\n  \"submission_deadline\": \"2026-08-07T17:00:00Z\",\n  \"is_current\": false\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/sprints"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('created sprint has id', () => pm.expect(body.data.id).to.be.a('number'));",
+              "pm.collectionVariables.set('sprintId', body.data.id);"
+            ]}
+          }]
+        },
+        {
+          "name": "Get sprint",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/admin/sprints/{{sprintId}}" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('sprint id matches', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.variables.get('sprintId'))));"
+            ]}
+          }]
+        },
+        {
+          "name": "Update sprint",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"Updated by Postman.\"\n}" },
+            "url": "{{baseUrl}}/api/admin/sprints/{{sprintId}}"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('sprint was updated', () => pm.expect(pm.response.json().data.description).to.eql('Updated by Postman.'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Create event",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cohort_id\": null,\n  \"name\": \"Postman Temporary Event\",\n  \"description\": \"Temporary event created by Postman.\",\n  \"date\": \"2026-08-01\",\n  \"all_day\": false,\n  \"start\": \"10:00\",\n  \"end\": \"11:00\",\n  \"timezone\": \"Asia/Bangkok\",\n  \"location\": \"Online\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/events"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('created event has id', () => pm.expect(body.data.id).to.be.a('number'));",
+              "pm.collectionVariables.set('eventId', body.data.id);"
+            ]}
+          }]
+        },
+        {
+          "name": "Update event",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Temporary Event Updated\"\n}" },
+            "url": "{{baseUrl}}/api/admin/events/{{eventId}}"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('event id matches', () => pm.expect(pm.response.json().data.id).to.eql(Number(pm.variables.get('eventId'))));"
+            ]}
+          }]
+        },
+        {
+          "name": "Validation - case title required",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"draft\"\n}" },
+            "url": "{{baseUrl}}/api/admin/cases"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('validation error returned', () => pm.expect(pm.response.json().error).to.be.a('string'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Validation - sprint name required",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"missing name\"\n}" },
+            "url": "{{baseUrl}}/api/admin/sprints"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('validation error returned', () => pm.expect(pm.response.json().error).to.be.a('string'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Validation - resource name required",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"GUIDE\"\n}" },
+            "url": "{{baseUrl}}/api/admin/resources"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('validation error returned', () => pm.expect(pm.response.json().error).to.be.a('string'));"
+            ]}
+          }]
+        },
+        {
+          "name": "Cleanup - delete event",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/admin/events/{{eventId}}" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["pm.test('status is 204', () => pm.response.to.have.status(204));"] }
+          }]
+        },
+        {
+          "name": "Cleanup - delete resource",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/admin/resources/{{resourceId}}" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('resource deleted', () => pm.expect(pm.response.json().data.deleted).to.eql(true));"
+            ]}
+          }]
+        },
+        {
+          "name": "Cleanup - delete case",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/admin/cases/{{caseId}}" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('case deleted', () => pm.expect(pm.response.json().data.deleted).to.eql(true));"
+            ]}
+          }]
+        },
+        {
+          "name": "Cleanup - delete sprint",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/admin/sprints/{{sprintId}}" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('sprint deleted', () => pm.expect(pm.response.json().data.deleted).to.eql(true));"
+            ]}
+          }]
+        },
+        {
+          "name": "Cleanup - delete temporary fellow",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/admin/fellows/{{createdFellowId}}" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["pm.test('status is 204', () => pm.response.to.have.status(204));"] }
+          }]
+        }
+      ]
+    }
+  ]
+}

@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardHeader } from "../../../components/ui/Card";
-import { logout } from "../../../lib/auth";
+import { changePassword, logout } from "../../../lib/auth";
 import { cn } from "../../../lib/cn";
 import { ProfileAccountSection } from "../profile/ProfilePage";
 
@@ -251,8 +251,32 @@ function SecuritySection() {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  function handleSave() {
+  async function handleSave() {
+    setError("");
+    if (newPassword.length < 8) {
+      setError("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match.");
+      return;
+    }
+    setSaving(true);
+    const result = await changePassword(currentPassword, newPassword);
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
@@ -270,24 +294,35 @@ function SecuritySection() {
             Password updated
           </div>
         )}
+        {error && (
+          <div className="border-b border-red-100 bg-red-50 px-5 py-2.5 text-xs font-medium text-red-700">
+            {error}
+          </div>
+        )}
         <div className="space-y-4 p-5">
           {[
             {
               label: "Current password",
               show: showCurrent,
               toggle: () => setShowCurrent((showing) => !showing),
+              value: currentPassword,
+              setValue: setCurrentPassword,
             },
             {
               label: "New password",
               show: showNew,
               toggle: () => setShowNew((showing) => !showing),
+              value: newPassword,
+              setValue: setNewPassword,
             },
             {
               label: "Confirm new password",
               show: showNew,
               toggle: () => setShowNew((showing) => !showing),
+              value: confirmPassword,
+              setValue: setConfirmPassword,
             },
-          ].map(({ label, show, toggle }) => (
+          ].map(({ label, show, toggle, value, setValue }) => (
             <div key={label}>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
                 {label}
@@ -295,6 +330,8 @@ function SecuritySection() {
               <div className="relative">
                 <input
                   type={show ? "text" : "password"}
+                  value={value}
+                  onChange={(event) => setValue(event.target.value)}
                   placeholder="••••••••"
                   className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 pr-10 text-sm text-slate-900 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                 />
@@ -313,9 +350,10 @@ function SecuritySection() {
             <button
               type="button"
               onClick={handleSave}
-              className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+              disabled={saving || !currentPassword || !newPassword || !confirmPassword}
+              className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500 disabled:opacity-50"
             >
-              Update password
+              {saving ? "Updating..." : "Update password"}
             </button>
           </div>
         </div>

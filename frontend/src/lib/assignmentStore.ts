@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { adminAssignments, SPRINTS } from "../data/adminMock";
-import { allFellows, assignments, currentFellow } from "../data/mock";
+import { assignments } from "../data/mock";
+import { getCurrentUser } from "./auth";
 import type { AdminAssignment, Assignment, AssignmentStatus } from "../types";
 
 const CHANGE_EVENT = "tracking-system-v2.admin-assignments:changed";
@@ -12,7 +13,7 @@ const seededTasks = () =>
   }));
 
 export function currentFellowId() {
-  return allFellows.find((fellow) => fellow.name === currentFellow.name)?.id ?? allFellows[0]?.id ?? 1;
+  return getCurrentUser()?.id ?? 0;
 }
 
 export function loadAdminAssignments(): AdminAssignment[] {
