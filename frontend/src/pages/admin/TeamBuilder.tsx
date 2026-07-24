@@ -56,7 +56,7 @@ function boardEqual(a: SprintBoard, b: SprintBoard): boolean {
 function seedBoards(): Record<string, SprintBoard> {
   const names = [...new Set(allFellows.map((f) => f.team).filter((name) => name && name !== "Unassigned"))];
   const boards: Record<string, SprintBoard> = {};
-  for (const s of SPRINTS) {
+  for (const s of SPRINTS.length ? SPRINTS : ["Unscheduled"]) {
     const byName = new Map<string, number>();
     const teams = names.map((name) => {
       const id = nextTeamId();
@@ -85,7 +85,8 @@ export default function TeamBuilder() {
   const [initialBoards] = useState(seedBoards);
   const [boards, setBoards] = useState(() => cloneAll(initialBoards)); // working draft
   const [saved, setSaved] = useState(() => cloneAll(initialBoards)); // last saved snapshot
-  const [sprint] = useState(SPRINTS[SPRINTS.length - 1]); // current sprint
+  const sprintOptions = SPRINTS.length ? SPRINTS : ["Unscheduled"];
+  const [sprint, setSprint] = useState(sprintOptions[sprintOptions.length - 1]);
   const { showToast, toast } = useToast();
   const suspended = new Set<number>();
 
@@ -223,11 +224,11 @@ export default function TeamBuilder() {
           <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 py-1 pl-3 pr-1.5">
             <select
               value={sprint}
-              disabled
+              onChange={(event) => setSprint(event.target.value)}
               aria-label="Sprint"
-              className="bg-transparent py-1 text-sm font-semibold text-slate-500 outline-none"
+              className="bg-transparent py-1 text-sm font-semibold text-slate-700 outline-none"
             >
-              {SPRINTS.map((s) => (
+              {sprintOptions.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>

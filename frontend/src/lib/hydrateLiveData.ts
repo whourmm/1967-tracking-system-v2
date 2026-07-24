@@ -24,7 +24,7 @@ import {
 import type { AdminResource } from "./api";
 import { api } from "./api";
 import { getCurrentUser } from "./auth";
-import { adminFellowRecord, detailFellowRecord, initialsOf } from "./fellowRecords";
+import { adminFellowRecord, detailFellowRecord, initialsOf, teamflowOf } from "./fellowRecords";
 import type { LearningBlock, ResourceType, SpecialCurriculum } from "../types";
 
 function replace<T>(target: T[], values: T[]) {
@@ -209,24 +209,24 @@ export async function hydrateLiveData() {
     return;
   }
 
-  const [me, summaries] = await Promise.all([api.me(), api.listFellows()]);
+  const [me, summaries, team] = await Promise.all([api.me(), api.listFellows(), api.fellow.team()]);
   const details = await Promise.all(summaries.map((fellow) => api.fellowDetail(fellow.id)));
   replace(allFellows, details.map(detailFellowRecord));
   Object.assign(currentFellow, {
     name: me.name ?? user.name,
     role: "Fellow",
-    team: me.fellow?.team_name ?? "Unassigned",
+    team: team?.name ?? me.fellow?.team_name ?? "Unassigned",
     cohort: me.fellow?.cohort_name ?? "Current cohort",
     university: me.fellow?.university ?? "—",
     avatarInitials: initialsOf(me.name ?? user.name),
   });
-  replace(teamMembers, allFellows.filter((fellow) => fellow.team === currentFellow.team).map((fellow) => ({
-    id: fellow.id,
-    name: fellow.name,
-    initials: fellow.initials,
-    country: fellow.country,
-    university: fellow.university,
-    teamflow: fellow.teamflow,
+  replace(teamMembers, (team?.members ?? []).map((member) => ({
+    id: member.id,
+    name: member.name,
+    initials: initialsOf(member.name),
+    country: member.country || "—",
+    university: member.university || "—",
+    teamflow: teamflowOf(member.teamflow),
     availability: [],
   })));
 }

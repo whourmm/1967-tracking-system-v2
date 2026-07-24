@@ -1152,7 +1152,7 @@ Response target `200`:
 
 ### Fellow Team Detail
 
-**Status:** Planned
+**Status:** Implemented
 
 ```http
 GET /api/fellow/team
