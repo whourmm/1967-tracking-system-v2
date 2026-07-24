@@ -17,17 +17,18 @@ import { Card, CardHeader } from "../../components/ui/Card";
 import { FellowAvatar, FellowNameLink } from "../../components/admin/FellowProfileLink";
 import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
-import { adminAssignments, caseSubmissionStatus, sbieId, SPRINTS } from "../../data/adminMock";
+import { adminAssignments, caseSubmissionStatus, SPRINTS } from "../../data/adminMock";
 import { allFellows, caseAssignments } from "../../data/mock";
-import { sheets } from "../../lib/api";
 import { formatShortDate } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import { renumberTeamName, teamNameMap } from "../../lib/teams";
 import { loadAdminAssignments, saveAdminAssignments } from "../../lib/assignmentStore";
-import { api } from "../../lib/api";
+import { api, sheets } from "../../lib/api";
+import { formatSbieId, parseSbieId } from "../../lib/sbie";
 import type { AdminAssignment } from "../../types";
 
 const TOTAL = allFellows.length;
+const SBIE_YEAR = new Date().getFullYear();
 const httpUrl = (u: string) => (!u ? "#" : /^https?:\/\//i.test(u) ? u : "https://" + u);
 const seededTeamNameMap = teamNameMap(allFellows.map((f) => f.team));
 
@@ -55,6 +56,16 @@ function stats(a: AdminAssignment) {
 
 const caseDone = (status: string) => status === "submitted" || status === "reviewed";
 
+// A sheet row counts for a fellow when its SBIE ID (SBIE-YYYY-ID) parses to
+// their fellow id, or, as a fallback, when the respondent's email matches.
+function matchSheetFellows(sbieIds: string[], submissions: Array<{ email: string }>): number[] {
+  const ids = new Set(sbieIds.map((s) => parseSbieId(s)).filter((id): id is number => id !== null));
+  const emails = new Set(submissions.map((s) => s.email?.trim().toLowerCase()).filter(Boolean));
+  return allFellows
+    .filter((f) => ids.has(f.id) || (f.email && emails.has(f.email.toLowerCase())))
+    .map((f) => f.id);
+}
+
 // "X ago" relative label, recomputed against a ticking `now`.
 function ago(ts: number | undefined, now: number): string {
   if (!ts) return "not synced yet";
@@ -68,27 +79,6 @@ function ago(ts: number | undefined, now: number): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
-/**
- * Calls the Apps Script web app to get the current submission list for a task,
- * then maps the returned SBIE IDs back to fellow record IDs.
- *
- * Falls back gracefully: if VITE_APPS_SCRIPT_URL is not set it returns the
- * task's existing submittedIds unchanged (mock behaviour for local dev).
- */
-async function fetchSheetSubmissions(task: AdminAssignment): Promise<number[]> {
-  try {
-    const { sbieIds } = await sheets.list(task.sheetTab);
-    // sbieId(fellowId) == `SBIE26-${String(fellowId).padStart(3, "0")}`
-    const matched = allFellows
-      .filter((f) => sbieIds.includes(sbieId(f.id)))
-      .map((f) => f.id);
-    // Preserve any IDs already in the task that aren't in the sheet yet
-    return [...new Set([...task.submittedIds, ...matched])];
-  } catch {
-    // VITE_APPS_SCRIPT_URL not set or network error — keep existing data
-    return task.submittedIds;
-  }
-}
 
 export default function FormTracker() {
   const [tasks, setTasks] = useState<AdminAssignment[]>(loadAdminAssignments);
@@ -129,6 +119,7 @@ export default function FormTracker() {
       due: item.deadline?.slice(0, 10) ?? "",
       description: item.description ?? "",
       submittedIds: submissions[index].fellows.filter((fellow) => fellow.submit_status === 1).map((fellow) => fellow.member_id),
+      sheetTab: item.sheet_tab ?? "",
     }));
     setTasks(next);
     saveAdminAssignments(next);
@@ -225,6 +216,7 @@ export default function FormTracker() {
         form_url: data.formUrl,
         deadline: data.due ? `${data.due}T23:59:59Z` : undefined,
         description: data.description,
+        sheet_tab: form.sheetTab.trim(),
       };
       if (editingId !== null) {
         await api.admin.updateAssignment(editingId, payload);
@@ -240,28 +232,51 @@ export default function FormTracker() {
     }
   }
 
-  function remove(id: number) {
+  async function remove(id: number) {
     const t = tasks.find((x) => x.id === id);
-    if (t && window.confirm(`Delete “${t.title}”?`)) {
-      showToast("The backend does not expose assignment deletion yet");
+    if (!t || !window.confirm(`Delete “${t.title}”?`)) return;
+    try {
+      await api.admin.deleteAssignment(id);
+      if (editingId === id) cancelEdit();
+      await loadTasks();
+      showToast("Assignment deleted");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not delete assignment");
     }
   }
 
+  // Full pipeline: read SBIE IDs from the Google Sheet (via Apps Script), save
+  // any matches into the backend, then show the counts stored in the DB. If the
+  // sheet is unreachable (or VITE_APPS_SCRIPT_URL isn't set) the backend counts
+  // still load — fellows can always mark themselves submitted in-app too.
   async function refresh(id: number) {
     if (syncing.has(id)) return;
     setSyncing((prev) => new Set(prev).add(id));
     try {
+      const task = tasks.find((t) => t.id === id);
+      let sheetNote = "";
+      try {
+        const { sbieIds, submissions } = await sheets.list(task?.sheetTab ?? "");
+        const matchedIds = matchSheetFellows(sbieIds, submissions);
+        if (matchedIds.length > 0) {
+          await api.admin.syncAssignment(id, matchedIds);
+        }
+        sheetNote = ` · ${matchedIds.length} matched from sheet`;
+      } catch {
+        sheetNote = " · sheet unreachable, showing saved records";
+      }
+
       const response = await api.admin.assignmentSubmissions(id);
       const stamp = Date.now();
       setTasks((prev) =>
-        prev.map((task) => task.id === id ? {
-          ...task,
+        prev.map((t) => t.id === id ? {
+          ...t,
           submittedIds: response.fellows.filter((fellow) => fellow.submit_status === 1).map((fellow) => fellow.member_id),
-        } : task)
+        } : t)
       );
       setLastSync((prev) => ({ ...prev, [id]: stamp }));
       setLastSyncAll(stamp);
-      showToast("Loaded current submission records");
+      showToast(`Synced submissions${sheetNote}`);
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Could not refresh submissions");
     } finally {
@@ -278,6 +293,17 @@ export default function FormTracker() {
     const ids = tasks.map((t) => t.id);
     setSyncing(new Set(ids));
     try {
+      // Pull each assignment's sheet and push matches into the backend first;
+      // failures (e.g. Apps Script not configured) fall through to DB counts.
+      await Promise.all(tasks.map(async (task) => {
+        try {
+          const { sbieIds, submissions } = await sheets.list(task.sheetTab);
+          const matchedIds = matchSheetFellows(sbieIds, submissions);
+          if (matchedIds.length > 0) await api.admin.syncAssignment(task.id, matchedIds);
+        } catch {
+          /* sheet unreachable — keep stored records */
+        }
+      }));
       await loadTasks();
       const stamp = Date.now();
       setLastSync((prev) => {
@@ -676,7 +702,7 @@ export default function FormTracker() {
                                 <FellowNameLink fellow={f} className="inline-block max-w-24 truncate text-xs">
                                   {f.name.split(" ")[0]}
                                 </FellowNameLink>
-                                <span className="font-mono text-[10px] text-slate-400">{sbieId(f.id)}</span>
+                                <span className="font-mono text-[10px] text-slate-400">{formatSbieId(f.id, SBIE_YEAR)}</span>
                               </span>
                               <span className={cn("flex h-4 w-4 items-center justify-center rounded-full", done ? "bg-emerald-500 text-white" : "border border-slate-300 text-transparent")}>
                                 <Check className="h-2.5 w-2.5" strokeWidth={4} />

@@ -9,13 +9,17 @@ import {
   FileText,
   FolderOpen,
   Grid2X2,
+  Moon,
   Plus,
+  Sun,
   Users,
 } from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { adminInitials, adminProfile, COHORTS } from "../../data/adminMock";
 import { getCurrentUser } from "../../lib/auth";
 import { api, type AdminOverview } from "../../lib/api";
+import { useAdminTheme } from "../../lib/fellowTheme";
+import { cn } from "../../lib/cn";
 
 const navGroups = [
   {
@@ -58,6 +62,7 @@ const routeLabels: Record<string, string> = {
 export default function AdminLayout() {
   const { pathname } = useLocation();
   const user = getCurrentUser();
+  const { theme, toggleTheme } = useAdminTheme();
   const avatarInitials = user?.role === "admin" ? user.initials : adminInitials;
   const displayName = user?.role === "admin" ? user.name : adminProfile.name;
   const pageLabel = routeLabels[pathname]
@@ -103,7 +108,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="admin-shell">
+    <div className={cn("admin-theme admin-shell", theme === "dark" && "dark")}>
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
@@ -152,6 +157,15 @@ export default function AdminLayout() {
             Program <span aria-hidden="true">&gt;</span> <strong>{pageLabel}</strong>
           </div>
           <div className="topbar-actions">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="icon-button"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
             <div className="relative">
               <button className="select-button" type="button" onClick={() => setCohortMenuOpen((o) => !o)}>
                 <span className="select-kicker">Cohort</span>

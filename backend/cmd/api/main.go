@@ -16,7 +16,7 @@ func main() {
 	supabaseURL := os.Getenv("SUPABASE_URL")
 	publishableKey := os.Getenv("SUPABASE_PUBLISHABLE_KEY")
 	if supabaseURL == "" || publishableKey == "" {
-		log.Fatal("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required")
+		log.Println("WARNING: SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY not set — running without auth (dev mode)")
 	}
 
 	db, err := database.Open(databaseURL, migrationsPath)

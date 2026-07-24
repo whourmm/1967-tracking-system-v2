@@ -635,6 +635,15 @@ function MobileFellowDrawer({
   );
 }
 
+const NO_SPRINT: Sprint = {
+  id: 0,
+  name: "No sprint yet",
+  description: "",
+  startsOn: "",
+  deadline: "",
+  isCurrent: false,
+};
+
 export default function FellowLayout() {
   const location = useLocation();
   const [sprints, setSprints] = useState<Sprint[]>([]);
@@ -644,7 +653,7 @@ export default function FellowLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { theme, toggleTheme } = useFellowTheme();
-  const selectedSprint = sprints[sprintIndex];
+  const selectedSprint = sprints[sprintIndex] ?? NO_SPRINT;
   const goPreviousSprint = () => setSprintIndex((i) => Math.max(i - 1, 0));
   const goNextSprint = () =>
     setSprintIndex((i) => Math.min(i + 1, sprints.length - 1));
@@ -696,21 +705,19 @@ export default function FellowLayout() {
           sidebarCollapsed ? "lg:pl-[4.5rem]" : "lg:pl-64"
         )}
       >
-        {selectedSprint && (
-          <Topbar
-            selectedSprint={selectedSprint}
-            sprints={sprints}
-            sprintIndex={sprintIndex}
-            onPreviousSprint={goPreviousSprint}
-            onNextSprint={goNextSprint}
-            onSelectSprint={setSprintIndex}
-            mobileMenuOpen={mobileMenuOpen}
-            onOpenMobileMenu={() => setMobileMenuOpen(true)}
-            sidebarCollapsed={sidebarCollapsed}
-            theme={theme}
-            onToggleTheme={toggleTheme}
-          />
-        )}
+        <Topbar
+          selectedSprint={selectedSprint}
+          sprints={sprints}
+          sprintIndex={sprintIndex}
+          onPreviousSprint={goPreviousSprint}
+          onNextSprint={goNextSprint}
+          onSelectSprint={setSprintIndex}
+          mobileMenuOpen={mobileMenuOpen}
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
+          sidebarCollapsed={sidebarCollapsed}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
         <main className="mx-auto max-w-6xl px-4 pb-10 pt-20 sm:px-6 lg:px-8 lg:pt-24">
           {sprintsLoading ? (
             <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
@@ -720,12 +727,8 @@ export default function FellowLayout() {
             <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700 shadow-sm">
               Could not load sprint timeline: {sprintsError}
             </div>
-          ) : selectedSprint ? (
-            <Outlet context={{ selectedSprint } satisfies FellowOutletContext} />
           ) : (
-            <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-              No active cohort sprints are available yet.
-            </div>
+            <Outlet context={{ selectedSprint } satisfies FellowOutletContext} />
           )}
         </main>
       </div>

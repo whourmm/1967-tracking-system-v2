@@ -57,10 +57,11 @@
     color-scheme: light;
   }
 
-  .fellow-theme.dark {
+  .fellow-theme.dark,
+  .admin-theme.dark {
     color-scheme: dark;
 
-    /* Invert the existing semantic slate ramp inside the fellow portal only. */
+    /* Invert the existing semantic slate ramp inside the fellow/admin portals only. */
     --color-slate-50: #1e293b;
     --color-slate-100: #273549;
     --color-slate-200: #3f4d63;
@@ -74,6 +75,8 @@
 
     /* Keep brand/status meaning while moving soft tints onto dark surfaces. */
     --color-brand-50: #351218;
+    --color-brand-100: #4c1519;
+    --color-brand-200: #641a1f;
     --color-brand-700: #fca5a5;
 
     --color-emerald-50: #082f2b;
@@ -131,6 +134,107 @@
   .fellow-theme.dark .border-white {
     border-color: #334155;
   }
+
+  /* ── Admin dark theme ─────────────────────────────────────────────────────
+     Surfaces mirror the fellow portal: page #020617 (slate-950), raised
+     surfaces #0f172a, nested items #1e293b. Text color is set here because
+     body{} sits outside the wrapper and would otherwise cascade dark-on-dark. */
+  .admin-theme.dark {
+    color-scheme: dark;
+    color: #e2e8f0;
+
+    --color-admin-page:          #020617;
+    --color-admin-panel:         #1e293b;
+    --color-admin-card:          #0f172a;
+    --color-admin-border:        #334155;
+    --color-admin-border-strong: #475569;
+    --color-admin-text:          #e2e8f0;
+    --color-admin-muted:         #94a3b8;
+    --color-admin-soft:          #64748b;
+    --color-admin-track:         #1e3a5f;
+    --color-admin-green-soft:    #064e3b;
+    --color-admin-red-soft:      #450a0a;
+  }
+
+  .admin-theme.dark .bg-white {
+    background-color: #0f172a;
+  }
+
+  .admin-theme.dark .bg-white\/90 {
+    background-color: rgb(15 23 42 / 0.92);
+  }
+
+  .admin-theme.dark .border-white {
+    border-color: #334155;
+  }
+
+  /* .sidebar/.topbar get bg-white via @apply, so the class override above
+     cannot reach them — restyle the component classes directly. */
+  .admin-theme.dark .sidebar {
+    background-color: #0f172a;
+    border-color: #1e293b;
+  }
+
+  .admin-theme.dark .topbar {
+    background-color: rgb(15 23 42 / 0.9);
+    border-color: #1e293b;
+  }
+
+  /* Nav */
+  .admin-theme.dark .nav-item          { color: #cbd5e1; }
+  .admin-theme.dark .nav-item:hover    { background-color: #1e293b; }
+  .admin-theme.dark .nav-badge         { background-color: #1e3a5f; color: #94a3b8; }
+  .admin-theme.dark .nav-item.active .nav-badge { background-color: #450a0a; }
+  .admin-theme.dark .nav-heading       { color: #64748b; }
+
+  /* Cards & lists */
+  .admin-theme.dark .library-item,
+  .admin-theme.dark .resource-item,
+  .admin-theme.dark .sprint-card       { background-color: #1e293b; border-color: #334155; }
+  .admin-theme.dark .item-summary      { color: #94a3b8; }
+  .admin-theme.dark .sprint-card-info span:not(.sprint-icon) { color: #94a3b8; }
+  .admin-theme.dark .team-row          { border-color: #334155; }
+
+  /* Pills & badges */
+  .admin-theme.dark .pill              { background-color: #1e3a5f; color: #94a3b8; }
+  .admin-theme.dark .date-badge        { background-color: #1e3a5f; color: #e2e8f0; }
+  .admin-theme.dark .date-badge span   { color: #94a3b8; }
+  .admin-theme.dark .status-badge.info { background-color: #1e3a5f; color: #94a3b8; }
+  .admin-theme.dark .status-badge.muted { background-color: #273549; color: #94a3b8; }
+
+  /* Inputs */
+  .admin-theme.dark .input,
+  .admin-theme.dark .textarea,
+  .admin-theme.dark .select            { background-color: #0f172a; border-color: #334155; color: #e2e8f0; }
+
+  /* Segmented control */
+  .admin-theme.dark .segmented         { background-color: #1e293b; }
+  .admin-theme.dark .segmented button  { color: #64748b; }
+  .admin-theme.dark .segmented .selected { background-color: #334155; color: #e2e8f0; }
+
+  /* Dropzone & key-date editor */
+  .admin-theme.dark .dropzone          { background-color: #020617; border-color: #334155; }
+  .admin-theme.dark .dropzone .dropzone-upload-icon { background-color: #1e293b; }
+  .admin-theme.dark .key-date-editor   { background-color: #020617; border-color: #334155; }
+
+  /* Dialog */
+  .admin-theme.dark .dialog-card       { background-color: #1e293b; border-color: #334155; }
+
+  /* Buttons & icon-button */
+  .admin-theme.dark .button,
+  .admin-theme.dark .select-button,
+  .admin-theme.dark .icon-button       { background-color: #1e293b; border-color: #334155; color: #e2e8f0; }
+  .admin-theme.dark .icon-link         { color: #94a3b8; }
+  .admin-theme.dark .icon-link:hover   { background-color: #1e3a5f; color: #e2e8f0; }
+
+  /* Chart */
+  .admin-theme.dark .chart             { border-color: #334155; background: linear-gradient(to top, transparent 24%, rgba(30,58,95,0.6) 25%, transparent 26%), linear-gradient(to top, transparent 49%, rgba(30,58,95,0.6) 50%, transparent 51%), linear-gradient(to top, transparent 74%, rgba(30,58,95,0.6) 75%, transparent 76%); }
+  .admin-theme.dark .chart-y-axis,
+  .admin-theme.dark .chart-labels,
+  .admin-theme.dark .legend            { color: #64748b; }
+
+  /* Sprint key dates border */
+  .admin-theme.dark .sprint-key-dates  { border-color: #334155; }
 }
 
 @layer components {

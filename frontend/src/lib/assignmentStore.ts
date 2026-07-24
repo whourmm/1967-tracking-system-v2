@@ -11,57 +11,12 @@ const seededTasks = () =>
     submittedIds: [...assignment.submittedIds],
   }));
 
-<<<<<<< HEAD
-function isAdminAssignmentList(value: unknown): value is AdminAssignment[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (item) =>
-        item &&
-        typeof item === "object" &&
-        typeof (item as AdminAssignment).id === "number" &&
-        typeof (item as AdminAssignment).title === "string" &&
-        typeof (item as AdminAssignment).sprint === "string" &&
-        typeof (item as AdminAssignment).formUrl === "string" &&
-        typeof (item as AdminAssignment).due === "string" &&
-        typeof (item as AdminAssignment).description === "string" &&
-        Array.isArray((item as AdminAssignment).submittedIds)
-    )
-  );
-}
-
-/** Fills in missing fields for assignments persisted before sheetTab was added. */
-function normaliseAssignment(item: Partial<AdminAssignment> & Pick<AdminAssignment, "id" | "title" | "sprint" | "formUrl" | "due" | "description" | "submittedIds">): AdminAssignment {
-  return { sheetTab: "", ...item };
-}
-
-=======
->>>>>>> 50b4db00ad81db64aedd399589e9e75284f7c653
 export function currentFellowId() {
   return allFellows.find((fellow) => fellow.name === currentFellow.name)?.id ?? allFellows[0]?.id ?? 1;
 }
 
 export function loadAdminAssignments(): AdminAssignment[] {
-<<<<<<< HEAD
-  if (typeof window === "undefined") return seededTasks();
-
-  try {
-    const stored = window.localStorage.getItem(STORE_KEY);
-    if (!stored) return seededTasks();
-
-    const parsed = JSON.parse(stored);
-    if (!isAdminAssignmentList(parsed)) return seededTasks();
-
-    return parsed.map((assignment) => ({
-      ...normaliseAssignment(assignment),
-      submittedIds: [...assignment.submittedIds],
-    }));
-  } catch {
-    return seededTasks();
-  }
-=======
   return seededTasks();
->>>>>>> 50b4db00ad81db64aedd399589e9e75284f7c653
 }
 
 export function saveAdminAssignments(nextAssignments: AdminAssignment[]) {

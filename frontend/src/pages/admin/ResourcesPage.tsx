@@ -193,7 +193,7 @@ export default function ResourcesPage() {
     return (
       <motion.article
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-lg border border-[#dfe5f1] bg-white p-4"
+        className="rounded-lg border border-admin-border bg-white p-4"
         initial={{ opacity: 0, y: 12 }}
         key={item.id}
         transition={{ delay: index * 0.03 }}

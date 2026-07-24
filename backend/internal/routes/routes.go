@@ -33,6 +33,7 @@ func New(db *sql.DB, supabaseURL, publishableKey string) http.Handler {
 	mux.HandleFunc("GET /api/admin/assignments", assignment.AdminList)
 	mux.HandleFunc("POST /api/admin/assignments", assignment.AdminCreate)
 	mux.HandleFunc("PATCH /api/admin/assignments/{assignmentId}", assignment.AdminUpdate)
+	mux.HandleFunc("DELETE /api/admin/assignments/{assignmentId}", assignment.AdminDelete)
 	mux.HandleFunc("POST /api/admin/assignments/{assignmentId}/sync", assignment.AdminSync)
 	mux.HandleFunc("GET /api/admin/assignments/{assignmentId}/submissions", assignment.AdminSubmissions)
 

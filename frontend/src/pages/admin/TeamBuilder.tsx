@@ -100,9 +100,10 @@ export default function TeamBuilder() {
   const [needFinisher, setNeedFinisher] = useState(true);
   const [mixCountries, setMixCountries] = useState(true);
 
-  const board = boards[sprint];
+  const EMPTY_BOARD: SprintBoard = { teams: [], assignment: {} };
+  const board = boards[sprint] ?? EMPTY_BOARD;
   const teams = board.teams;
-  const dirty = !boardEqual(board, saved[sprint]);
+  const dirty = !boardEqual(board, saved[sprint] ?? EMPTY_BOARD);
 
   const isSuspended = (fellowId: number) => suspended.has(fellowId);
   // Suspended fellows are forced into the pool regardless of their assignment.

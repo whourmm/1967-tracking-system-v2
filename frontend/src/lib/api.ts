@@ -149,6 +149,7 @@ export type AdminAssignmentResponse = {
   form_url?: string | null;
   deadline?: string | null;
   description?: string | null;
+  sheet_tab?: string | null;
   submitted_count: number;
   total_fellows: number;
   created_at: string;
@@ -253,10 +254,20 @@ export type MarkResourceReadResponse = {
   read_at: string;
 };
 
+async function errorMessage(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    if (body && typeof body.error === "string" && body.error) return body.error;
+  } catch {
+    /* body was not JSON */
+  }
+  return `${res.status} ${res.statusText}`;
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, { headers: await authHeaders() });
   if (!res.ok) {
-    throw new Error(`${res.status} ${res.statusText}`);
+    throw new Error(await errorMessage(res));
   }
   return res.json() as Promise<T>;
 }
@@ -307,7 +318,7 @@ async function sendData<T>(method: "POST" | "PATCH" | "DELETE", path: string, bo
     headers: await authHeaders(Boolean(body)),
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(await errorMessage(res));
 
   if (res.status === 204) return undefined as T;
 
@@ -322,11 +333,36 @@ async function authHeaders(hasBody = false) {
   if (data.session?.access_token) {
     headers.set("Authorization", `Bearer ${data.session.access_token}`);
   }
+  // Dev mode: tells the backend which DB user to impersonate. Ignored by the
+  // backend whenever Supabase auth is configured.
+  const devEmail = localStorage.getItem("tracking-system-v2.dev-email");
+  if (devEmail) {
+    headers.set("X-Dev-Email", devEmail);
+  }
   if (hasBody) {
     headers.set("Content-Type", "application/json");
   }
   return headers;
 }
+
+async function appsScriptGet<T>(params: Record<string, string>): Promise<T> {
+  if (!APPS_SCRIPT_URL) throw new Error("VITE_APPS_SCRIPT_URL is not configured");
+  const url = new URL(APPS_SCRIPT_URL);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`Apps Script ${res.status}`);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json as T;
+}
+
+type SheetListResult = { count: number; sbieIds: string[]; submissions: Array<{ sbieId: string; timestamp: string; email: string }> };
+type SheetCheckResult = { sbieId: string; submitted: boolean; submittedAt: string | null };
+
+export const sheets = {
+  list: (sheetTab = "") => appsScriptGet<SheetListResult>({ action: "list", sheetTab }),
+  check: (sbieId: string, sheetTab = "") => appsScriptGet<SheetCheckResult>({ action: "check", sbieId, sheetTab }),
+};
 
 export const api = {
   health: () => get<{ status: string }>("/api/health"),
@@ -358,6 +394,8 @@ export const api = {
       sendData<AdminAssignmentResponse>("POST", "/api/admin/assignments", payload),
     updateAssignment: (id: number, payload: Partial<AdminAssignmentResponse>) =>
       sendData<AdminAssignmentResponse>("PATCH", `/api/admin/assignments/${id}`, payload),
+    deleteAssignment: (id: number) =>
+      sendData<{ deleted: boolean }>("DELETE", `/api/admin/assignments/${id}`),
     syncAssignment: (id: number, submittedMemberIds: number[]) =>
       sendData<{ assignment_id: number; updated_count: number; synced_at: string }>(
         "POST",

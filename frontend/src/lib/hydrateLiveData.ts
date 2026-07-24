@@ -155,7 +155,12 @@ export async function hydrateLiveData() {
       deadline: item.submission_deadline?.slice(0, 10) ?? "",
       isCurrent: item.is_current,
     })));
-    replace(SPRINTS, sprintRows.map((item) => item.name ?? `Sprint ${item.id}`));
+    // Keep at least one sprint label — pages like TeamBuilder and FormTracker
+    // index into SPRINTS and break on an empty list.
+    replace(
+      SPRINTS,
+      sprintRows.length ? sprintRows.map((item) => item.name ?? `Sprint ${item.id}`) : ["Unscheduled"],
+    );
 
     replace(adminEvents, eventRows.map((item) => ({
       id: item.id,

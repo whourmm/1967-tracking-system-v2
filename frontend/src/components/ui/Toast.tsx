@@ -17,7 +17,7 @@ export function useToast() {
   const toast = (
     <div
       className={cn(
-        "pointer-events-none fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-all duration-200",
+        "pointer-events-none fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-all duration-200 dark:text-slate-950",
         msg ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
       )}
       role="status"

@@ -2,17 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 
 export type FellowTheme = "light" | "dark";
 
-const STORAGE_KEY = "fellow-theme";
 const DARK_MEDIA_QUERY = "(prefers-color-scheme: dark)";
 
-function isFellowTheme(value: string | null): value is FellowTheme {
+function isTheme(value: string | null): value is FellowTheme {
   return value === "light" || value === "dark";
 }
 
-function storedTheme(): FellowTheme | null {
+function readStored(key: string): FellowTheme | null {
   if (typeof window === "undefined") return null;
-  const value = window.localStorage.getItem(STORAGE_KEY);
-  return isFellowTheme(value) ? value : null;
+  const value = window.localStorage.getItem(key);
+  return isTheme(value) ? value : null;
 }
 
 function systemTheme(): FellowTheme {
@@ -20,53 +19,45 @@ function systemTheme(): FellowTheme {
   return window.matchMedia(DARK_MEDIA_QUERY).matches ? "dark" : "light";
 }
 
-export function useFellowTheme() {
-  const initialStoredTheme = storedTheme();
-  const [theme, setTheme] = useState<FellowTheme>(
-    () => initialStoredTheme ?? systemTheme()
-  );
-  const [followsSystem, setFollowsSystem] = useState(
-    () => initialStoredTheme === null
-  );
+function makeThemeHook(storageKey: string) {
+  return function useTheme() {
+    const [theme, setTheme] = useState<FellowTheme>(
+      () => readStored(storageKey) ?? systemTheme()
+    );
+    const [followsSystem, setFollowsSystem] = useState(
+      () => readStored(storageKey) === null
+    );
 
-  useEffect(() => {
-    if (!followsSystem) return;
+    useEffect(() => {
+      if (!followsSystem) return;
+      const media = window.matchMedia(DARK_MEDIA_QUERY);
+      const handle = (e: MediaQueryListEvent) => setTheme(e.matches ? "dark" : "light");
+      media.addEventListener("change", handle);
+      return () => media.removeEventListener("change", handle);
+    }, [followsSystem]);
 
-    const media = window.matchMedia(DARK_MEDIA_QUERY);
-    const handleChange = (event: MediaQueryListEvent) => {
-      setTheme(event.matches ? "dark" : "light");
-    };
+    useEffect(() => {
+      const handle = (e: StorageEvent) => {
+        if (e.key !== storageKey) return;
+        if (isTheme(e.newValue)) { setFollowsSystem(false); setTheme(e.newValue); }
+        else { setFollowsSystem(true); setTheme(systemTheme()); }
+      };
+      window.addEventListener("storage", handle);
+      return () => window.removeEventListener("storage", handle);
+    }, []);
 
-    media.addEventListener("change", handleChange);
-    return () => media.removeEventListener("change", handleChange);
-  }, [followsSystem]);
+    const toggleTheme = useCallback(() => {
+      setTheme((current) => {
+        const next = current === "dark" ? "light" : "dark";
+        window.localStorage.setItem(storageKey, next);
+        return next;
+      });
+      setFollowsSystem(false);
+    }, []);
 
-  useEffect(() => {
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY) return;
-
-      if (isFellowTheme(event.newValue)) {
-        setFollowsSystem(false);
-        setTheme(event.newValue);
-        return;
-      }
-
-      setFollowsSystem(true);
-      setTheme(systemTheme());
-    };
-
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((current) => {
-      const next = current === "dark" ? "light" : "dark";
-      window.localStorage.setItem(STORAGE_KEY, next);
-      return next;
-    });
-    setFollowsSystem(false);
-  }, []);
-
-  return { theme, toggleTheme };
+    return { theme, toggleTheme };
+  };
 }
+
+export const useFellowTheme = makeThemeHook("fellow-theme");
+export const useAdminTheme = makeThemeHook("admin-theme");

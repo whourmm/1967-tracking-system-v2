@@ -28,9 +28,21 @@ type supabaseUser struct {
 var authHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 func SupabaseAuth(db *sql.DB, supabaseURL, publishableKey string, next http.Handler) http.Handler {
+	devMode := supabaseURL == "" || publishableKey == ""
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/health" {
 			next.ServeHTTP(w, r)
+			return
+		}
+
+		if devMode {
+			user, err := devUser(r.Context(), db, r.Header.Get("X-Dev-Email"))
+			if err != nil {
+				writeAuthError(w, http.StatusUnauthorized, err.Error())
+				return
+			}
+			ctx := context.WithValue(r.Context(), authUserKey{}, user)
+			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
 
@@ -61,6 +73,33 @@ func SupabaseAuth(db *sql.DB, supabaseURL, publishableKey string, next http.Hand
 		ctx := context.WithValue(r.Context(), authUserKey{}, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// devUser resolves the identity used when Supabase credentials are not
+// configured. If the frontend sends an X-Dev-Email header that matches a user,
+// that user is impersonated; otherwise fall back to the first admin, then the
+// first user of any role.
+func devUser(ctx context.Context, db *sql.DB, email string) (AuthenticatedUser, error) {
+	var user AuthenticatedUser
+	email = strings.TrimSpace(email)
+	if email != "" {
+		err := db.QueryRowContext(ctx, `
+			SELECT id, COALESCE(name, ''), COALESCE(gmail, ''), COALESCE(role, 'fellow')
+			FROM "user"
+			WHERE LOWER(gmail) = LOWER($1)
+		`, email).Scan(&user.ID, &user.Name, &user.Email, &user.Role)
+		if errors.Is(err, sql.ErrNoRows) {
+			return AuthenticatedUser{}, fmt.Errorf("dev mode: no user with email %q", email)
+		}
+		return user, err
+	}
+	err := db.QueryRowContext(ctx, `
+		SELECT id, COALESCE(name, ''), COALESCE(gmail, ''), COALESCE(role, 'admin')
+		FROM "user"
+		ORDER BY CASE WHEN role = 'admin' THEN 0 ELSE 1 END, id
+		LIMIT 1
+	`).Scan(&user.ID, &user.Name, &user.Email, &user.Role)
+	return user, err
 }
 
 func CurrentUser(ctx context.Context) (AuthenticatedUser, bool) {

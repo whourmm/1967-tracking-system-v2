@@ -28,11 +28,6 @@ export const adminInitials = adminProfile.name
   .join("")
   .toUpperCase();
 
-// Each fellow's "SEA Bridge ID" (SBIE) — the key a Google Form collects and an
-// Apps Script matches against the response sheet to mark a submission. Mock
-// format: SBIE26-001.
-export const sbieId = (fellowId: number) => `SBIE26-${String(fellowId).padStart(3, "0")}`;
-
 // Program sprints. An assignment is filed under one of these. The last entry is
 // treated as the current sprint (default selection when adding an assignment).
 export const SPRINTS = [

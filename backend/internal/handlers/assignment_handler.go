@@ -158,7 +158,7 @@ func (h *AssignmentHandler) FellowSubmit(w http.ResponseWriter, r *http.Request)
 func (h *AssignmentHandler) AdminList(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.QueryContext(r.Context(), `
 		SELECT
-			a.id, a.cohort_id, a.sprint_id, a.title, a.form_url, a.deadline, a.description,
+			a.id, a.cohort_id, a.sprint_id, a.title, a.form_url, a.deadline, a.description, a.sheet_tab,
 			COUNT(asub.member_id) FILTER (WHERE asub.submit_status = 1) AS submitted_count,
 			(SELECT COUNT(*) FROM fellow) AS total_fellows,
 			a.created_at, a.update_at
@@ -181,6 +181,7 @@ func (h *AssignmentHandler) AdminList(w http.ResponseWriter, r *http.Request) {
 		FormURL        *string    `json:"form_url"`
 		Deadline       *time.Time `json:"deadline"`
 		Description    *string    `json:"description"`
+		SheetTab       *string    `json:"sheet_tab"`
 		SubmittedCount int        `json:"submitted_count"`
 		TotalFellows   int        `json:"total_fellows"`
 		CreatedAt      time.Time  `json:"created_at"`
@@ -191,7 +192,7 @@ func (h *AssignmentHandler) AdminList(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var a AssignmentAdmin
 		if err := rows.Scan(
-			&a.ID, &a.CohortID, &a.SprintID, &a.Title, &a.FormURL, &a.Deadline, &a.Description,
+			&a.ID, &a.CohortID, &a.SprintID, &a.Title, &a.FormURL, &a.Deadline, &a.Description, &a.SheetTab,
 			&a.SubmittedCount, &a.TotalFellows,
 			&a.CreatedAt, &a.UpdateAt,
 		); err != nil {
@@ -215,6 +216,7 @@ func (h *AssignmentHandler) AdminCreate(w http.ResponseWriter, r *http.Request) 
 		FormURL         *string    `json:"form_url"`
 		Deadline        *time.Time `json:"deadline"`
 		Description     *string    `json:"description"`
+		SheetTab        *string    `json:"sheet_tab"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -223,10 +225,10 @@ func (h *AssignmentHandler) AdminCreate(w http.ResponseWriter, r *http.Request) 
 
 	var id int64
 	err := h.DB.QueryRowContext(r.Context(), `
-		INSERT INTO assignment (cohort_id, sprint_id, learning_block_id, title, form_url, deadline, description)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO assignment (cohort_id, sprint_id, learning_block_id, title, form_url, deadline, description, sheet_tab)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id
-	`, body.CohortID, body.SprintID, body.LearningBlockID, body.Title, body.FormURL, body.Deadline, body.Description).Scan(&id)
+	`, body.CohortID, body.SprintID, body.LearningBlockID, body.Title, body.FormURL, body.Deadline, body.Description, body.SheetTab).Scan(&id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -254,6 +256,7 @@ func (h *AssignmentHandler) AdminUpdate(w http.ResponseWriter, r *http.Request) 
 		FormURL     *string    `json:"form_url"`
 		Deadline    *time.Time `json:"deadline"`
 		Description *string    `json:"description"`
+		SheetTab    *string    `json:"sheet_tab"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -267,9 +270,10 @@ func (h *AssignmentHandler) AdminUpdate(w http.ResponseWriter, r *http.Request) 
 			form_url    = COALESCE($3, form_url),
 			deadline    = COALESCE($4, deadline),
 			description = COALESCE($5, description),
+			sheet_tab   = COALESCE($6, sheet_tab),
 			update_at   = NOW()
-		WHERE id = $6
-	`, body.SprintID, body.Title, body.FormURL, body.Deadline, body.Description, id)
+		WHERE id = $7
+	`, body.SprintID, body.Title, body.FormURL, body.Deadline, body.Description, body.SheetTab, id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -280,6 +284,28 @@ func (h *AssignmentHandler) AdminUpdate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeData(w, http.StatusOK, map[string]any{"id": id})
+}
+
+// AdminDelete removes an assignment; submissions cascade via FK.
+// DELETE /api/admin/assignments/{assignmentId}
+func (h *AssignmentHandler) AdminDelete(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r, "assignmentId")
+	if !ok {
+		writeError(w, http.StatusBadRequest, "invalid assignment id")
+		return
+	}
+
+	res, err := h.DB.ExecContext(r.Context(), `DELETE FROM assignment WHERE id = $1`, id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		writeError(w, http.StatusNotFound, "assignment not found")
+		return
+	}
+
+	writeData(w, http.StatusOK, map[string]any{"deleted": true})
 }
 
 // AdminSync upserts Google Form responses into assignment_submission.

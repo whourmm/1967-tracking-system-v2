@@ -1,6 +1,10 @@
 import { api, type FellowMe } from "./api";
 import { supabase } from "./supabase";
 
+const SUPABASE_CONFIGURED =
+  !!import.meta.env.VITE_SUPABASE_URL &&
+  import.meta.env.VITE_SUPABASE_URL !== "https://placeholder.supabase.co";
+
 export type AppRole = "fellow" | "admin";
 
 export interface AppUser {
@@ -19,6 +23,7 @@ type AuthResult =
   | { ok: false; error: string };
 
 const PROFILE_KEY = "tracking-system-v2.profile";
+export const DEV_EMAIL_KEY = "tracking-system-v2.dev-email";
 
 function initialsFor(name: string) {
   return name
@@ -55,22 +60,39 @@ async function loadProfile() {
 }
 
 export async function initializeAuth() {
+  if (!SUPABASE_CONFIGURED) {
+    // Always refetch so DB changes (e.g. a role update) show up on reload.
+    // Keep the cached profile as a fallback when the backend is unreachable.
+    try { await loadProfile(); } catch { /* backend not ready yet */ }
+    return;
+  }
+
   const { data } = await supabase.auth.getSession();
   if (!data.session) {
     localStorage.removeItem(PROFILE_KEY);
     return;
   }
 
-  if (!getCurrentUser()) {
-    try {
-      await loadProfile();
-    } catch {
-      localStorage.removeItem(PROFILE_KEY);
-    }
+  try {
+    await loadProfile();
+  } catch {
+    if (!getCurrentUser()) localStorage.removeItem(PROFILE_KEY);
   }
 }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
+  if (!SUPABASE_CONFIGURED) {
+    // Dev mode: the typed email selects which DB user to impersonate
+    // (sent as X-Dev-Email on every request; see authHeaders in api.ts).
+    localStorage.setItem(DEV_EMAIL_KEY, email.trim());
+    try {
+      return { ok: true, user: await loadProfile() };
+    } catch (error) {
+      localStorage.removeItem(DEV_EMAIL_KEY);
+      return { ok: false, error: error instanceof Error ? error.message : "Unable to load account from backend." };
+    }
+  }
+
   const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
   if (error) {
     return { ok: false, error: error.message };
@@ -115,7 +137,8 @@ export async function registerFellow({
 
 export async function logout() {
   localStorage.removeItem(PROFILE_KEY);
-  await supabase.auth.signOut();
+  localStorage.removeItem(DEV_EMAIL_KEY);
+  if (SUPABASE_CONFIGURED) await supabase.auth.signOut();
 }
 
 export function getCurrentUser(): AppUser | null {

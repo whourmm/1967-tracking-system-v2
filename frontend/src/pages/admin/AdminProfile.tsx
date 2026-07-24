@@ -96,7 +96,7 @@ export default function AdminProfile() {
                 <div className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-600 text-2xl font-bold text-white ring-4 ring-brand-100">
                   {initials}
                 </div>
-                <button className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-white shadow-md transition hover:bg-slate-700" aria-label="Change photo">
+                <button className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-brand-600 text-white shadow-md transition hover:bg-brand-500" aria-label="Change photo">
                   <Camera className="h-3.5 w-3.5" />
                 </button>
               </div>
