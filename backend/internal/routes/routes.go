@@ -22,6 +22,8 @@ func New(db *sql.DB, supabaseURL, publishableKey string) http.Handler {
 	mux.HandleFunc("GET /api/me", fellow.Me)
 	mux.HandleFunc("GET /api/fellows", fellow.List)
 	mux.HandleFunc("GET /api/fellows/{fellowId}", fellow.GetDetail)
+	mux.HandleFunc("GET /api/fellow/team", fellow.TeamMembers)
+	mux.HandleFunc("PATCH /api/fellow/profile", fellow.UpdateProfile)
 	mux.HandleFunc("GET /api/admin/fellows", fellow.AdminList)
 	mux.HandleFunc("POST /api/admin/fellows", fellow.AdminCreate)
 	mux.HandleFunc("PATCH /api/admin/fellows/{fellowId}", fellow.AdminUpdate)
@@ -52,6 +54,7 @@ func New(db *sql.DB, supabaseURL, publishableKey string) http.Handler {
 	mux.HandleFunc("GET /api/admin/overview", admin.Overview)
 	mux.HandleFunc("GET /api/cases", admin.ListCases)
 	mux.HandleFunc("GET /api/admin/cases", admin.ListCases)
+	mux.HandleFunc("GET /api/admin/case-submissions", admin.ListCaseSubmissionStatuses)
 	mux.HandleFunc("GET /api/admin/cases/{caseId}", admin.GetCase)
 	mux.HandleFunc("POST /api/admin/cases", admin.CreateCase)
 	mux.HandleFunc("PATCH /api/admin/cases/{caseId}", admin.UpdateCase)
@@ -81,10 +84,8 @@ func New(db *sql.DB, supabaseURL, publishableKey string) http.Handler {
 }
 
 var plannedRoutes = []string{
-	"GET /api/fellow/team",
 	"GET /api/progress",
 	"GET /api/progress/fellows/{fellowId}",
-	"PATCH /api/fellow/profile",
 }
 
 func notImplemented(w http.ResponseWriter, r *http.Request) {

@@ -122,11 +122,13 @@ export interface FellowProfile {
 export type TeamFlow = "Initiator" | "Translator" | "Sharper" | "Finisher";
 
 export interface TeamMember {
+  id?: number;
   name: string;
   initials: string;
+  photoUrl?: string | null;
   country: string;
   university: string;
-  teamflow: TeamFlow;
+  teamflow: TeamFlow | null;
   // Days of the week ("Mon".."Sun") this member can meet, as picked on their
   // profile. The current fellow's own selection is overridden by localStorage.
   availability: string[];
@@ -139,11 +141,15 @@ export interface FellowRecord {
   id: number;
   name: string;
   initials: string;
+  photoUrl?: string | null;
   country: string;
   university: string;
-  teamflow: TeamFlow;
+  teamflow: TeamFlow | null;
   team: string;
   status: FellowStatus;
+  completedAssignments?: number;
+  totalAssignments?: number;
+  progressPercent?: number;
   startDate: string; // ISO date
   // Contact visibility is per-field; null means the fellow has set it private.
   email: string | null;

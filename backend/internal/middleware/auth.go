@@ -142,6 +142,26 @@ func findOrCreateUser(ctx context.Context, db *sql.DB, account supabaseUser) (Au
 		WHERE LOWER(gmail) = LOWER($1)
 	`, account.Email).Scan(&user.ID, &user.Name, &user.Email, &user.Role)
 	if err == nil {
+		if _, err := db.ExecContext(ctx, `UPDATE "user" SET last_login_at = NOW() WHERE id = $1`, user.ID); err != nil {
+			return AuthenticatedUser{}, err
+		}
+		switch user.Role {
+		case "fellow":
+			_, err = db.ExecContext(ctx, `
+				INSERT INTO fellow (user_id, status)
+				VALUES ($1, 'pending')
+				ON CONFLICT (user_id) DO NOTHING
+			`, user.ID)
+		case "admin":
+			_, err = db.ExecContext(ctx, `
+				INSERT INTO admin (user_id)
+				VALUES ($1)
+				ON CONFLICT (user_id) DO NOTHING
+			`, user.ID)
+		}
+		if err != nil {
+			return AuthenticatedUser{}, err
+		}
 		return user, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {

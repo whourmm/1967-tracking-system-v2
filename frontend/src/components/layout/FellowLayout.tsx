@@ -30,7 +30,7 @@ import { useFellowTheme, type FellowTheme } from "../../lib/fellowTheme";
 import type { NotificationKind, Sprint } from "../../types";
 
 export interface FellowOutletContext {
-  selectedSprint: Sprint;
+  selectedSprint: Sprint | null;
 }
 
 const notificationIcon: Record<NotificationKind, typeof Bell> = {

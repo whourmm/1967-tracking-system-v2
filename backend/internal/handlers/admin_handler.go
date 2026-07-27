@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tracking-system-v2/backend/internal/middleware"
 	"github.com/tracking-system-v2/backend/internal/models"
 )
 
@@ -152,12 +153,22 @@ func (h *AdminHandler) Overview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) ListCases(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.DB.Query(`
+	user, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		writeAPIError(w, http.StatusUnauthorized, "authenticated user missing from request")
+		return
+	}
+	var cohortID *int64
+	if user.Role == "fellow" {
+		cohortID = memberCohortID(r.Context(), h.DB, user.ID)
+	}
+	rows, err := h.DB.QueryContext(r.Context(), `
 		SELECT id, cohort_id, sprint_id, title, case_owner, status, summary, file_name,
 			published_date, googledrive_link, created_at, update_at, theme, create_by
 		FROM "case"
+		WHERE $1::boolean OR cohort_id = $2
 		ORDER BY published_date DESC NULLS LAST, id DESC
-	`)
+	`, user.Role == "admin", cohortID)
 	if err != nil {
 		writeAPIError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -219,8 +230,13 @@ func (h *AdminHandler) CreateCase(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	cohortID, err := resolveCohortID(r.Context(), h.DB, payload.CohortID, payload.SprintID)
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-	item, err := scanCase(h.DB.QueryRow(`
+	item, err := scanCase(h.DB.QueryRowContext(r.Context(), `
 		INSERT INTO "case" (
 			cohort_id, sprint_id, title, case_owner, status, summary, file_name,
 			published_date, googledrive_link, theme, create_by
@@ -228,7 +244,7 @@ func (h *AdminHandler) CreateCase(w http.ResponseWriter, r *http.Request) {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, cohort_id, sprint_id, title, case_owner, status, summary, file_name,
 			published_date, googledrive_link, created_at, update_at, theme, create_by
-	`, payload.CohortID, payload.SprintID, payload.Title, payload.CaseOwner, payload.Status,
+	`, cohortID, payload.SprintID, payload.Title, payload.CaseOwner, payload.Status,
 		payload.Summary, payload.FileName, publishedDate, payload.GoogleDriveLink, payload.Theme, payload.CreateBy))
 	if err != nil {
 		writeDBError(w, err)
@@ -290,6 +306,47 @@ func (h *AdminHandler) UpdateCase(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminHandler) DeleteCase(w http.ResponseWriter, r *http.Request) {
 	h.deleteByID(w, r, "caseId", `DELETE FROM "case" WHERE id = $1`)
+}
+
+// ListCaseSubmissionStatuses returns the aggregate submission state per case.
+func (h *AdminHandler) ListCaseSubmissionStatuses(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.DB.QueryContext(r.Context(), `
+		SELECT c.id,
+			CASE
+				WHEN COUNT(cs.team_id) = 0 THEN 'pending'
+				WHEN BOOL_AND(cs.status = 'reviewed') THEN 'reviewed'
+				WHEN BOOL_OR(cs.status IN ('submitted', 'reviewed')) THEN 'submitted'
+				ELSE 'pending'
+			END
+		FROM "case" c
+		LEFT JOIN case_submission cs ON cs.case_id = c.id
+		GROUP BY c.id
+		ORDER BY c.id
+	`)
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	type caseStatus struct {
+		CaseID int64  `json:"case_id"`
+		Status string `json:"status"`
+	}
+	items := []caseStatus{}
+	for rows.Next() {
+		var item caseStatus
+		if err := rows.Scan(&item.CaseID, &item.Status); err != nil {
+			writeAPIError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		writeAPIError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeData(w, http.StatusOK, items)
 }
 
 func (h *AdminHandler) SyncCaseSubmission(w http.ResponseWriter, r *http.Request) {
@@ -385,13 +442,18 @@ func (h *AdminHandler) CreateSprint(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	cohortID, err := resolveCohortID(r.Context(), h.DB, payload.CohortID, nil)
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-	item, err := scanSprint(h.DB.QueryRow(`
+	item, err := scanSprint(h.DB.QueryRowContext(r.Context(), `
 		INSERT INTO sprint (cohort_id, name, description, starts_on, submission_deadline, is_current, created_by)
 		VALUES ($1, $2, $3, $4, $5, COALESCE($6, false), $7)
 		RETURNING id, cohort_id, name, description, starts_on, submission_deadline,
 			is_current, created_at, update_at, created_by
-	`, payload.CohortID, payload.Name, payload.Description, startsOn, deadline, payload.IsCurrent, payload.CreatedBy))
+	`, cohortID, payload.Name, payload.Description, startsOn, deadline, payload.IsCurrent, payload.CreatedBy))
 	if err != nil {
 		writeDBError(w, err)
 		return

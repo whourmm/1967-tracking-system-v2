@@ -23,6 +23,11 @@ func (h *AssignmentHandler) FellowList(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	cohortID := memberCohortID(r.Context(), h.DB, memberID)
+	if cohortID == nil {
+		writeData(w, http.StatusOK, []any{})
+		return
+	}
 
 	rows, err := h.DB.QueryContext(r.Context(), `
 		SELECT
@@ -33,8 +38,9 @@ func (h *AssignmentHandler) FellowList(w http.ResponseWriter, r *http.Request) {
 		LEFT JOIN learning_block lb ON lb.id = a.learning_block_id
 		LEFT JOIN assignment_submission asub
 			ON asub.assignment_id = a.id AND asub.member_id = $1
+		WHERE a.cohort_id = $2
 		ORDER BY a.deadline NULLS LAST, a.id
-	`, memberID)
+	`, memberID, *cohortID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -119,9 +125,16 @@ func (h *AssignmentHandler) FellowSubmit(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	cohortID := memberCohortID(r.Context(), h.DB, memberID)
+	if cohortID == nil {
+		writeError(w, http.StatusNotFound, "active cohort not found")
+		return
+	}
 
 	var exists bool
-	if err := h.DB.QueryRowContext(r.Context(), `SELECT EXISTS (SELECT 1 FROM assignment WHERE id = $1)`, assignmentID).Scan(&exists); err != nil {
+	if err := h.DB.QueryRowContext(r.Context(), `
+		SELECT EXISTS (SELECT 1 FROM assignment WHERE id = $1 AND cohort_id = $2)
+	`, assignmentID, *cohortID).Scan(&exists); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -222,13 +235,18 @@ func (h *AssignmentHandler) AdminCreate(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	cohortID, err := resolveCohortID(r.Context(), h.DB, body.CohortID, body.SprintID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	var id int64
-	err := h.DB.QueryRowContext(r.Context(), `
+	err = h.DB.QueryRowContext(r.Context(), `
 		INSERT INTO assignment (cohort_id, sprint_id, learning_block_id, title, form_url, deadline, description, sheet_tab)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id
-	`, body.CohortID, body.SprintID, body.LearningBlockID, body.Title, body.FormURL, body.Deadline, body.Description, body.SheetTab).Scan(&id)
+	`, cohortID, body.SprintID, body.LearningBlockID, body.Title, body.FormURL, body.Deadline, body.Description, body.SheetTab).Scan(&id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

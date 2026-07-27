@@ -4,6 +4,16 @@ import { supabase } from "./supabase";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL ?? "";
+const DEBUG_API = import.meta.env.DEV || import.meta.env.VITE_DEBUG_API === "true";
+
+function isLocalApiURL(value: string) {
+  try {
+    const url = new URL(value, window.location.origin);
+    return url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+  } catch {
+    return false;
+  }
+}
 
 type ApiEnvelope<T> = {
   data: T;
@@ -88,6 +98,7 @@ export type AdminFellow = {
   id: number;
   name?: string | null;
   email?: string | null;
+  photo_url?: string | null;
   country?: string | null;
   university?: string | null;
   teamflow?: string | null;
@@ -117,6 +128,21 @@ export type FellowDetail = {
   last_login_at?: string | null;
 };
 
+export type FellowTeamMemberResponse = {
+  id: number;
+  name?: string | null;
+  email?: string | null;
+  photo_url?: string | null;
+  country?: string | null;
+  university?: string | null;
+  teamflow?: string | null;
+  team_id?: number | null;
+  team_name?: string | null;
+  completed_assignments: number;
+  total_assignments: number;
+  progress_percent: number;
+};
+
 export type TeamResponse = {
   id: number;
   group_id?: number | null;
@@ -126,6 +152,11 @@ export type TeamResponse = {
   member_count: number;
   created_at: string;
   update_at: string;
+};
+
+export type CaseSubmissionStatus = {
+  case_id: number;
+  status: "pending" | "submitted" | "reviewed";
 };
 
 export type AdminEventResponse = {
@@ -177,6 +208,11 @@ export type FellowMe = {
   email?: string | null;
   role?: string | null;
   photo_url?: string | null;
+  discord_name?: string | null;
+  line_id?: string | null;
+  phone?: string | null;
+  linkedin?: string | null;
+  country?: string | null;
   fellow?: {
     team_id?: number | null;
     team_name?: string | null;
@@ -187,6 +223,19 @@ export type FellowMe = {
     status?: string | null;
     teamflow?: string | null;
   } | null;
+};
+
+export type FellowProfileUpdatePayload = {
+  name?: string | null;
+  photo_url?: string | null;
+  discord_name?: string | null;
+  line_id?: string | null;
+  phone?: string | null;
+  linkedin?: string | null;
+  country?: string | null;
+  university?: string | null;
+  major?: string | null;
+  teamflow?: string | null;
 };
 
 export type FellowCase = AdminCase;
@@ -254,22 +303,32 @@ export type MarkResourceReadResponse = {
   read_at: string;
 };
 
-async function errorMessage(res: Response): Promise<string> {
-  try {
-    const body = await res.json();
-    if (body && typeof body.error === "string" && body.error) return body.error;
-  } catch {
-    /* body was not JSON */
+async function parseResponse<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  let payload: unknown;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = text;
+    }
   }
-  return `${res.status} ${res.statusText}`;
+  if (!res.ok) {
+    const message = payload && typeof payload === "object" && "error" in payload
+      ? String((payload as { error: unknown }).error)
+      : `${res.status} ${res.statusText}`;
+    throw new Error(message);
+  }
+  return payload as T;
 }
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, { headers: await authHeaders() });
-  if (!res.ok) {
-    throw new Error(await errorMessage(res));
+  const payload = await parseResponse<T>(res);
+  if (DEBUG_API) {
+    console.log(`[api] GET ${path}`, payload);
   }
-  return res.json() as Promise<T>;
+  return payload;
 }
 
 async function getData<T>(path: string): Promise<T> {
@@ -313,17 +372,41 @@ function mapSprint(item: AdminSprint): Sprint {
 }
 
 async function sendData<T>(method: "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const url = `${BASE_URL}${path}`;
+  const res = await fetch(url, {
     method,
     headers: await authHeaders(Boolean(body)),
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(await errorMessage(res));
 
   if (res.status === 204) return undefined as T;
 
-  const envelope = (await res.json()) as ApiEnvelope<T>;
-  if (envelope.error) throw new Error(envelope.error);
+  let envelope: ApiEnvelope<T>;
+  try {
+    envelope = await parseResponse<ApiEnvelope<T>>(res);
+  } catch (error) {
+    if (DEBUG_API) {
+      console.error(`[api] ${method} ${url} failed`, {
+        status: res.status,
+        statusText: res.statusText,
+        error,
+      });
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`${method} ${path} failed (${res.status}): ${detail}`);
+  }
+  if (envelope.error) {
+    if (DEBUG_API) {
+      console.error(`[api] ${method} ${url} returned envelope error`, {
+        status: res.status,
+        error: envelope.error,
+      });
+    }
+    throw new Error(`${method} ${path} failed (${res.status}): ${envelope.error}`);
+  }
+  if (DEBUG_API) {
+    console.log(`[api] ${method} ${url}`, envelope.data);
+  }
   return envelope.data;
 }
 
@@ -333,10 +416,11 @@ async function authHeaders(hasBody = false) {
   if (data.session?.access_token) {
     headers.set("Authorization", `Bearer ${data.session.access_token}`);
   }
-  // Dev mode: tells the backend which DB user to impersonate. Ignored by the
-  // backend whenever Supabase auth is configured.
+  // Dev mode: only local backends allow X-Dev-Email. The published roadmap API
+  // allows Content-Type and Authorization, so sending this to Cloud Run breaks
+  // CORS preflight.
   const devEmail = localStorage.getItem("tracking-system-v2.dev-email");
-  if (devEmail) {
+  if (devEmail && isLocalApiURL(BASE_URL)) {
     headers.set("X-Dev-Email", devEmail);
   }
   if (hasBody) {
@@ -378,6 +462,9 @@ export const api = {
     cases: () => getData<FellowCase[]>("/api/cases"),
     learning: () => getData<FellowLearning>("/api/fellow/learning"),
     markResourceRead: (id: number) => sendData<MarkResourceReadResponse>("POST", `/api/fellow/resources/${id}/read`),
+    teamMembers: () => getData<FellowTeamMemberResponse[]>("/api/fellow/team"),
+    updateProfile: (payload: FellowProfileUpdatePayload) =>
+      sendData<FellowMe>("PATCH", "/api/fellow/profile", payload),
   },
   admin: {
     overview: () => getData<AdminOverview>("/api/admin/overview"),
@@ -410,6 +497,7 @@ export const api = {
     saveTeamAssignments: (assignments: Array<{ member_id: number; team_id: number | null; group_id: number | null }>) =>
       sendData<{ updated_count: number }>("POST", "/api/admin/teams/assignments", { assignments }),
     listCases: () => getData<AdminCase[]>("/api/admin/cases"),
+    caseSubmissionStatuses: () => getData<CaseSubmissionStatus[]>("/api/admin/case-submissions"),
     getCase: (id: number) => getData<AdminCase>(`/api/admin/cases/${id}`),
     createCase: (payload: Partial<AdminCase>) => sendData<AdminCase>("POST", "/api/admin/cases", payload),
     updateCase: (id: number, payload: Partial<AdminCase>) => sendData<AdminCase>("PATCH", `/api/admin/cases/${id}`, payload),

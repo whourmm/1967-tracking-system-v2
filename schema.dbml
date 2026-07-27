@@ -138,6 +138,7 @@ Table assignment {
   learning_block_id int       [ref: > learning_block.id, null]
   title             varchar
   form_url          varchar
+  sheet_tab         varchar   [null, note: 'Google Sheet tab that holds this assignment form responses']
   deadline          timestamp
   description       text
   created_at        timestamp

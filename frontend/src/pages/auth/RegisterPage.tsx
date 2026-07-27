@@ -1,11 +1,10 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import AuthLayout from "./AuthLayout";
 import { homeForRole, registerFellow } from "../../lib/auth";
 
 export default function RegisterPage() {
-  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -25,7 +24,7 @@ export default function RegisterPage() {
       return;
     }
 
-    navigate(homeForRole(result.user.role), { replace: true });
+    window.location.replace(homeForRole(result.user.role));
   };
 
   return (

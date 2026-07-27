@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
-import { adminEvents, caseSubmissionStatus, learningReadIds, resourceReadIds } from "../../data/adminMock";
+import { adminEvents, caseSubmissionStatus } from "../../data/adminMock";
 import { allFellows, caseAssignments } from "../../data/mock";
 import { formatShortDate } from "../../lib/format";
 import { renumberTeamName, sortTeamNames, teamNameMap } from "../../lib/teams";
@@ -80,16 +80,7 @@ const caseRows = caseAssignments.map((assignment) => ({
   status: caseSubmissionStatus[assignment.id] ?? assignment.status,
 }));
 
-const fallbackCaseSubmitted = caseRows.filter((assignment) => assignment.status === "submitted" || assignment.status === "reviewed").length;
 const completeTeams = teams.filter((team) => team.complete).length;
-const trackedReadIds = [...Object.values(resourceReadIds), ...Object.values(learningReadIds)];
-const fallbackAverageReadRate = pct(
-  trackedReadIds.reduce((sum, ids) => sum + ids.length, 0),
-  trackedReadIds.length * allFellows.length
-);
-const fallbackReadsNeedingFollowup = trackedReadIds.length
-  ? allFellows.filter((fellow) => trackedReadIds.some((readIds) => !readIds.includes(fellow.id))).length
-  : 0;
 
 const upcomingEvents = [...adminEvents]
   .sort((a, b) => a.date.localeCompare(b.date))
@@ -106,14 +97,23 @@ const upcomingEvents = [...adminEvents]
 
 export default function AdminDashboard() {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [overviewError, setOverviewError] = useState("");
   useEffect(() => {
-    api.admin.overview().then(setOverview).catch(() => setOverview(null));
+    api.admin.overview()
+      .then((value) => {
+        setOverview(value);
+        setOverviewError("");
+      })
+      .catch((error) => {
+        setOverview(null);
+        setOverviewError(error instanceof Error ? error.message : "Could not load overview");
+      });
   }, []);
 
-  const caseSubmitted = overview?.case_submission_progress.done ?? fallbackCaseSubmitted;
-  const caseTotal = overview?.case_submission_progress.total ?? caseRows.length;
-  const averageReadRate = overview?.resource_read_progress.percent ?? fallbackAverageReadRate;
-  const fellowsNeedingReadFollowup = overview?.resource_read_progress.pending ?? fallbackReadsNeedingFollowup;
+  const caseSubmitted = overview?.case_submission_progress.done ?? 0;
+  const caseTotal = overview?.case_submission_progress.total ?? 0;
+  const averageReadRate = overview?.resource_read_progress.percent ?? 0;
+  const fellowsNeedingReadFollowup = overview?.resource_read_progress.pending ?? 0;
   const adminAssignments = useAdminAssignments();
   const completeAssignments = adminAssignments.filter((assignment) => assignment.submittedIds.length === allFellows.length).length;
   const averageAssignmentPct = pct(
@@ -133,6 +133,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="page">
+      {overviewError && <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">Could not load dashboard overview: {overviewError}</p>}
       <header className="page-header">
         <h1 className="page-title">Overview</h1>
         <p className="page-subtitle">Cohort 2026 - operational health across members, teams, submissions, and learning.</p>

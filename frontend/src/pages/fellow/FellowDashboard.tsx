@@ -8,11 +8,10 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
-  Users,
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { api, type FellowCase, type FellowMe } from "../../lib/api";
+import { api, type FellowCase, type FellowMe, type FellowTeamMemberResponse } from "../../lib/api";
 import {
   daysUntil,
   deadlineLabel,
@@ -22,6 +21,10 @@ import {
 import { cn } from "../../lib/cn";
 import type { Assignment } from "../../types";
 import type { FellowOutletContext } from "../../components/layout/FellowLayout";
+import { Avatar } from "../../components/ui/Avatar";
+import { initialsOf, teamflowOf } from "../../lib/fellowRecords";
+import { allFellows } from "../../data/mock";
+import { resolveCurrentFellowTeamMembers } from "../../lib/fellowTeamMembers";
 
 function dateKey(date: Date) {
   const year = date.getFullYear();
@@ -59,6 +62,7 @@ export default function FellowDashboard() {
   const [me, setMe] = useState<FellowMe | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [cases, setCases] = useState<FellowCase[]>([]);
+  const [teamMembers, setTeamMembers] = useState<FellowTeamMemberResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -74,15 +78,21 @@ export default function FellowDashboard() {
           api.fellow.assignments(),
           api.fellow.cases(),
         ]);
+        const nextTeamMembers = await resolveCurrentFellowTeamMembers({
+          teamID: nextMe.fellow?.team_id,
+          teamName: nextMe.fellow?.team_name,
+        });
         if (!alive) return;
         setMe(nextMe);
         setAssignments(nextAssignments);
         setCases(nextCases);
+        setTeamMembers(nextTeamMembers);
       } catch (err) {
         if (!alive) return;
         setMe(null);
         setAssignments([]);
         setCases([]);
+        setTeamMembers([]);
         setError(err instanceof Error ? err.message : "Could not load dashboard data");
       } finally {
         if (alive) setLoading(false);
@@ -132,22 +142,21 @@ export default function FellowDashboard() {
     [assignments, completedAssignments],
   );
 
-  const sprintDates = getSprintDates(
-    selectedSprint.startsOn,
-    selectedSprint.deadline
-  );
+  const sprintDates = selectedSprint
+    ? getSprintDates(selectedSprint.startsOn, selectedSprint.deadline)
+    : [];
   const todayKey = dateKey(new Date());
 
   // Timing relative to today drives the label/eyebrow, so past and upcoming
   // sprints read correctly (not just "0 days left").
-  const hasStarted = daysUntil(selectedSprint.startsOn) <= 0;
-  const hasEnded = daysUntil(selectedSprint.deadline) < 0;
-  const daysLeft = Math.max(daysUntil(selectedSprint.deadline), 0);
+  const hasStarted = selectedSprint ? daysUntil(selectedSprint.startsOn) <= 0 : false;
+  const hasEnded = selectedSprint ? daysUntil(selectedSprint.deadline) < 0 : false;
+  const daysLeft = selectedSprint ? Math.max(daysUntil(selectedSprint.deadline), 0) : 0;
   const sprintState = hasEnded ? "Past" : !hasStarted ? "Upcoming" : "Current";
   const sprintStatusLabel = hasEnded
     ? "Completed"
     : !hasStarted
-      ? `Starts ${formatShortDate(selectedSprint.startsOn)}`
+      ? `Starts ${formatShortDate(selectedSprint?.startsOn ?? "")}`
       : `${daysLeft} days left`;
 
   const upcoming = [...assignments]
@@ -155,7 +164,7 @@ export default function FellowDashboard() {
     .sort((a, b) => sortDistance(a) - sortDistance(b))
     .slice(0, 3);
   const currentSprintCase = cases.find(
-    (item) => item.sprint_id === selectedSprint.id
+    (item) => item.sprint_id === selectedSprint?.id
   );
 
   const blockProgress = useMemo(() => {
@@ -192,10 +201,43 @@ export default function FellowDashboard() {
     );
   }
 
+  if (!selectedSprint) {
+    return (
+      <Card className="p-6">
+        <h1 className="text-base font-semibold text-slate-900">Welcome to the fellow portal</h1>
+        <p className="mt-1 text-sm text-slate-500">Your profile, roster, team, and learning pages remain available while an admin sets up the active sprint.</p>
+      </Card>
+    );
+  }
+
   const fellowName = me?.name ?? "Fellow";
   const firstName = fellowName.split(" ")[0] || "there";
   const cohortName = me?.fellow?.cohort_name ?? "No cohort assigned";
   const teamName = me?.fellow?.team_name ?? "No team assigned";
+  const hasAssignedTeam = Boolean(me?.fellow?.team_id && me?.fellow?.team_name);
+  const visibleTeamMembers = teamMembers;
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_API === "true") {
+    console.log("[fellow-dashboard] team filter", {
+      teamName,
+      liveTeamMembers: teamMembers,
+      visibleTeamMembers,
+      allFellows,
+    });
+  }
+  const selfMember = {
+    id: me?.id ?? 0,
+    name: fellowName,
+    email: me?.email,
+    photo_url: me?.photo_url,
+    country: null,
+    university: me?.fellow?.university,
+    teamflow: me?.fellow?.teamflow,
+    team_id: me?.fellow?.team_id,
+    team_name: me?.fellow?.team_name,
+    completed_assignments: completedAssignments,
+    total_assignments: assignments.length,
+    progress_percent: assignments.length ? Math.round((completedAssignments / assignments.length) * 100) : 0,
+  };
 
   return (
     <div className="space-y-6">
@@ -401,7 +443,11 @@ export default function FellowDashboard() {
           <Card>
             <CardHeader
               title={teamName}
-              subtitle="Current team assignment from your fellow profile"
+              subtitle={
+                hasAssignedTeam
+                  ? `${visibleTeamMembers.length || 1} fellow${(visibleTeamMembers.length || 1) === 1 ? "" : "s"} in your current team`
+                  : "Your team roster will appear after an admin assigns your team"
+              }
               action={
                 <Link
                   to="/fellow/teams"
@@ -411,16 +457,47 @@ export default function FellowDashboard() {
                 </Link>
               }
             />
-            <div className="flex items-center gap-3 p-4 sm:p-5">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600">
-                <Users className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">{fellowName}</p>
-                <p className="truncate text-xs text-slate-500">
-                  {me?.fellow?.teamflow ?? "Teamflow pending"} · {me?.fellow?.university ?? "University pending"}
+            <div className="divide-y divide-slate-100">
+              {(visibleTeamMembers.length ? visibleTeamMembers : hasAssignedTeam ? [] : [selfMember]).map((member) => {
+                const name = member.name?.trim() || member.email?.split("@")[0] || "Fellow";
+                const isMe = member.id === me?.id;
+                const progress = member.progress_percent ?? 0;
+
+                return (
+                  <Link
+                    key={member.id}
+                    to={isMe ? "/fellow/settings" : `/fellow/roster/${member.id}`}
+                    className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50 sm:px-5"
+                  >
+                    <Avatar
+                      name={name}
+                      initials={initialsOf(name)}
+                      photoUrl={member.photo_url}
+                      className="h-10 w-10 text-sm"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
+                        {isMe && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-700 ring-1 ring-brand-200">You</span>}
+                      </div>
+                      <p className="truncate text-xs text-slate-500">
+                        {[teamflowOf(member.teamflow), member.university ?? "University pending"].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    <div className="w-16 shrink-0 text-right">
+                      <p className="text-xs font-bold text-slate-700">{progress}%</p>
+                      <div className="mt-1 h-1.5 rounded-full bg-slate-100">
+                        <span className="block h-full rounded-full bg-brand-600" style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+              {hasAssignedTeam && visibleTeamMembers.length === 0 && (
+                <p className="px-4 py-8 text-center text-sm text-slate-500 sm:px-5">
+                  Your team roster will appear here after your teammates are added.
                 </p>
-              </div>
+              )}
             </div>
           </Card>
 

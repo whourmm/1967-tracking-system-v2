@@ -163,6 +163,7 @@ CREATE TABLE IF NOT EXISTS assignment (
   learning_block_id INTEGER,
   title TEXT,
   form_url TEXT,
+  sheet_tab TEXT,
   deadline TIMESTAMPTZ,
   description TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

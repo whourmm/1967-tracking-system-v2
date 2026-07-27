@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"github.com/tracking-system-v2/backend/internal/middleware"
 )
 
 type EventHandler struct {
@@ -14,14 +16,24 @@ type EventHandler struct {
 // List returns all events.
 // GET /api/events
 func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
+	user, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authenticated user missing from request")
+		return
+	}
+	var cohortID *int64
+	if user.Role == "fellow" {
+		cohortID = memberCohortID(r.Context(), h.DB, user.ID)
+	}
 	rows, err := h.DB.QueryContext(r.Context(), `
 		SELECT id, cohort_id, name, description,
 		       TO_CHAR(event_date, 'YYYY-MM-DD'), all_day,
 		       start_time, end_time, timezone, location,
 		       user_id, created_at, updated_at, create_by
 		FROM events
+		WHERE $1::boolean OR cohort_id = $2
 		ORDER BY event_date, start_time
-	`)
+	`, user.Role == "admin", cohortID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -29,20 +41,20 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type EventItem struct {
-		ID          int64      `json:"id"`
-		CohortID    *int64     `json:"cohort_id"`
-		Name        *string    `json:"name"`
-		Description *string    `json:"description"`
-		EventDate   *string    `json:"date"`
-		AllDay      bool       `json:"all_day"`
-		Start       *string    `json:"start"`
-		End         *string    `json:"end"`
-		Timezone    *string    `json:"timezone"`
-		Location    *string    `json:"location"`
-		UserID      *int64     `json:"user_id"`
-		CreatedAt   time.Time  `json:"created_at"`
-		UpdatedAt   time.Time  `json:"updated_at"`
-		CreateBy    *int64     `json:"create_by"`
+		ID          int64     `json:"id"`
+		CohortID    *int64    `json:"cohort_id"`
+		Name        *string   `json:"name"`
+		Description *string   `json:"description"`
+		EventDate   *string   `json:"date"`
+		AllDay      bool      `json:"all_day"`
+		Start       *string   `json:"start"`
+		End         *string   `json:"end"`
+		Timezone    *string   `json:"timezone"`
+		Location    *string   `json:"location"`
+		UserID      *int64    `json:"user_id"`
+		CreatedAt   time.Time `json:"created_at"`
+		UpdatedAt   time.Time `json:"updated_at"`
+		CreateBy    *int64    `json:"create_by"`
 	}
 
 	events := []EventItem{}
@@ -81,13 +93,18 @@ func (h *EventHandler) AdminCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	cohortID, err := resolveCohortID(r.Context(), h.DB, body.CohortID, nil)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	var id int64
-	err := h.DB.QueryRowContext(r.Context(), `
+	err = h.DB.QueryRowContext(r.Context(), `
 		INSERT INTO events (cohort_id, name, description, event_date, all_day, start_time, end_time, timezone, location)
 		VALUES ($1, $2, $3, NULLIF($4, '')::date, $5, $6, $7, $8, $9)
 		RETURNING id
-	`, body.CohortID, body.Name, body.Description, body.Date, body.AllDay,
+	`, cohortID, body.Name, body.Description, body.Date, body.AllDay,
 		body.Start, body.End, body.Timezone, body.Location).Scan(&id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

@@ -85,15 +85,15 @@ function parseCsvLine(line: string) {
   return cols;
 }
 
-// CSV import columns: Name, Country, University. A header row is ignored.
+// CSV import columns: Name, Email, Country, University. A header row is ignored.
 function parseCsv(text: string) {
   return text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
     .map(parseCsvLine)
-    .map((cols) => ({ name: cols[0] ?? "", country: cols[1] ?? "", university: cols[2] ?? "" }))
-    .filter((r) => r.name && r.name.toLowerCase() !== "name");
+    .map((cols) => ({ name: cols[0] ?? "", email: cols[1] ?? "", country: cols[2] ?? "", university: cols[3] ?? "" }))
+    .filter((r) => r.name && r.email && r.name.toLowerCase() !== "name");
 }
 
 function managedFellow(fellow: AdminFellow): ManagedFellow {
@@ -130,6 +130,7 @@ export default function FellowManagement() {
   // Add-fellow form
   const [addMode, setAddMode] = useState<"single" | "csv">("single");
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [country, setCountry] = useState(countryOptions[0]);
   const [university, setUniversity] = useState("");
   const [csvText, setCsvText] = useState("");
@@ -169,14 +170,15 @@ export default function FellowManagement() {
 
   async function addFellow() {
     const trimmed = name.trim();
-    if (!trimmed) {
-      showToast("Enter a name first");
+    if (!trimmed || !email.trim()) {
+      showToast("Enter a name and email first");
       return;
     }
     try {
-      await api.admin.createFellow({ name: trimmed, country, university: university.trim(), status: "pending" });
+      await api.admin.createFellow({ name: trimmed, gmail: email.trim(), country, university: university.trim(), status: "pending" });
       await loadFellows();
       setName("");
+      setEmail("");
       setUniversity("");
       showToast(`Added ${trimmed}`);
     } catch (error) {
@@ -206,7 +208,7 @@ export default function FellowManagement() {
       setCsvText(text);
       setCsvFileName(file.name);
       if (parseCsv(text).length === 0) {
-        setCsvError("No valid fellows found. Use columns: Name, Country, University.");
+        setCsvError("No valid fellows found. Use columns: Name, Email, Country, University.");
       }
     };
     reader.onerror = () => {
@@ -233,6 +235,7 @@ export default function FellowManagement() {
     try {
       await Promise.all(rows.map((row) => api.admin.createFellow({
         name: row.name,
+        gmail: row.email,
         country: resolveCountry(row.country),
         university: row.university,
         status: "pending",
@@ -336,7 +339,7 @@ export default function FellowManagement() {
         />
 
         {addMode === "single" ? (
-          <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+          <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
             <div className="lg:col-span-1">
               <label className={labelCls}>Full name</label>
               <input
@@ -346,6 +349,10 @@ export default function FellowManagement() {
                 placeholder="e.g. Sirikit Wong"
                 className={inputCls}
               />
+            </div>
+            <div>
+              <label className={labelCls}>Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="fellow@example.com" className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Country</label>
@@ -376,7 +383,7 @@ export default function FellowManagement() {
               </span>
               <span>
                 <span className="block text-sm font-semibold text-slate-800">Choose a CSV file</span>
-                <span className="mt-1 block text-xs text-slate-500">Columns: Name, Country, University. A header row is ignored.</span>
+                <span className="mt-1 block text-xs text-slate-500">Columns: Name, Email, Country, University. A header row is ignored.</span>
               </span>
               <input
                 key={csvInputKey}
@@ -513,7 +520,7 @@ export default function FellowManagement() {
                       {f.country}
                     </td>
                     <td className="px-5 py-3">
-                      {f.teamflowSubmitted ? (
+                      {f.teamflowSubmitted && f.teamflow ? (
                         <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-medium", teamflowChip[f.teamflow])}>
                           {f.teamflow}
                         </span>

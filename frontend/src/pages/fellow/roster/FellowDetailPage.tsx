@@ -7,6 +7,7 @@ import type { FellowRecord, TeamFlow } from "../../../types";
 import { cn } from "../../../lib/cn";
 import { api } from "../../../lib/api";
 import { detailFellowRecord } from "../../../lib/fellowRecords";
+import { Avatar } from "../../../components/ui/Avatar";
 
 const teamflowChip: Record<TeamFlow, string> = {
   Initiator: "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20",
@@ -72,7 +73,12 @@ export default function FellowDetailPage() {
         <div className="space-y-4">
           <Card className="p-6">
             <div className="flex flex-col items-center gap-4 text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-brand-600 text-2xl font-bold text-white ring-4 ring-brand-100">{fellow.initials}</div>
+              <Avatar
+                name={fellow.name}
+                initials={fellow.initials}
+                photoUrl={fellow.photoUrl}
+                className="h-20 w-20 text-2xl ring-4 ring-brand-100"
+              />
               <div>
                 <h1 className="text-lg font-bold text-slate-900">{fellow.name}</h1>
                 <p className="mt-0.5 text-sm text-slate-500">{fellow.team}</p>
@@ -84,7 +90,9 @@ export default function FellowDetailPage() {
                   <span className={cn("h-1.5 w-1.5 rounded-full", fellow.status === "Confirmed" ? "bg-emerald-500" : "bg-amber-500")} />
                   {fellow.status}
                 </span>
-                <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium", teamflowChip[fellow.teamflow])}>{fellow.teamflow}</span>
+                {fellow.teamflow && (
+                  <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium", teamflowChip[fellow.teamflow])}>{fellow.teamflow}</span>
+                )}
               </div>
             </div>
           </Card>
@@ -125,6 +133,7 @@ export default function FellowDetailPage() {
             </div>
           </Card>
 
+          {fellow.teamflow && (
           <Card className="overflow-hidden">
             <div className={cn("p-5",
               fellow.teamflow === "Initiator" && "bg-amber-50",
@@ -136,6 +145,7 @@ export default function FellowDetailPage() {
               <p className="mt-3 text-sm text-slate-700">{teamflowDesc[fellow.teamflow]}</p>
             </div>
           </Card>
+          )}
 
           {teammates.length > 0 && (
             <Card>
@@ -145,12 +155,19 @@ export default function FellowDetailPage() {
                 {teammates.map((mate: FellowRecord) => (
                   <li key={mate.id}>
                     <Link to={`/fellow/roster/${mate.id}`} className="group flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50 sm:px-5">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">{mate.initials}</div>
+                      <Avatar
+                        name={mate.name}
+                        initials={mate.initials}
+                        photoUrl={mate.photoUrl}
+                        className="h-9 w-9 bg-slate-100 text-xs text-slate-600"
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-slate-900">{mate.name}</p>
                         <p className="text-xs text-slate-500">{countryFlag[mate.country] ?? "🌏"} {mate.country}</p>
                       </div>
-                      <span className={cn("hidden shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium sm:inline-flex", teamflowChip[mate.teamflow])}>{mate.teamflow}</span>
+                      {mate.teamflow && (
+                        <span className={cn("hidden shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium sm:inline-flex", teamflowChip[mate.teamflow])}>{mate.teamflow}</span>
+                      )}
                       <ArrowLeft className="h-3.5 w-3.5 shrink-0 rotate-180 text-slate-300 transition group-hover:text-slate-500" />
                     </Link>
                   </li>

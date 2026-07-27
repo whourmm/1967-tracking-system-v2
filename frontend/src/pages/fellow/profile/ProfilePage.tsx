@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Camera,
   Check,
@@ -16,15 +16,54 @@ import { Card, CardHeader } from "../../../components/ui/Card";
 import { currentFellow } from "../../../data/mock";
 import { getCurrentUser } from "../../../lib/auth";
 import { cn } from "../../../lib/cn";
+import { api } from "../../../lib/api";
 import {
   loadMyAvailability,
   saveMyAvailability,
   weekDays,
 } from "../../../lib/availability";
 import { formatSbieId } from "../../../lib/sbie";
+import { Avatar } from "../../../components/ui/Avatar";
 
 type Visibility = "public" | "private";
 type ProfileVisibilityKey = "availability";
+
+const TEAMFLOW_FORM_URL = import.meta.env.VITE_TEAMFLOW_FORM_URL ?? "";
+const PROFILE_DRAFT_KEY = "tracking-system-v2.profile-draft";
+const AUTH_PROFILE_KEY = "tracking-system-v2.profile";
+
+type ProfileDraft = {
+  name?: string;
+  nickname?: string;
+  university?: string;
+  major?: string;
+  teamflow?: string;
+  country?: string;
+  photoUrl?: string;
+};
+
+function loadProfileDraft(): ProfileDraft {
+  try {
+    return JSON.parse(localStorage.getItem(PROFILE_DRAFT_KEY) ?? "{}") as ProfileDraft;
+  } catch {
+    localStorage.removeItem(PROFILE_DRAFT_KEY);
+    return {};
+  }
+}
+
+function saveProfileDraft(draft: ProfileDraft) {
+  localStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify(draft));
+  try {
+    const stored = localStorage.getItem(AUTH_PROFILE_KEY);
+    if (!stored) return;
+    const profile = JSON.parse(stored) as Record<string, unknown>;
+    if (draft.name) profile.name = draft.name;
+    if (draft.university !== undefined) profile.university = draft.university;
+    localStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(profile));
+  } catch {
+    /* auth profile cache can be rebuilt from /api/me */
+  }
+}
 
 interface ContactField {
   key: string;
@@ -84,8 +123,58 @@ export function ProfileAccountSection() {
   const [nickname, setNickname] = useState(currentFellow.name.split(" ")[0] ?? "");
   const [university, setUniversity] = useState(currentFellow.university);
   const [major, setMajor] = useState("");
+  const [teamflow, setTeamflow] = useState("");
+  const [country, setCountry] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
   const [contacts, setContacts] = useState<ContactField[]>(defaultContacts);
   const [availability, setAvailability] = useState(loadMyAvailability);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const photoUrlInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadProfile() {
+      try {
+        const me = await api.me();
+        if (!alive) return;
+        const nextName = me.name?.trim() || signedInUser?.name || currentFellow.name;
+        setDisplayName(nextName);
+        setNickname(nextName.split(" ")[0] ?? "");
+        setUniversity(me.fellow?.university ?? currentFellow.university);
+        setMajor(me.fellow?.major ?? "");
+        setTeamflow(me.fellow?.teamflow ?? "");
+        setCountry(me.country ?? "");
+        setPhotoUrl(me.photo_url ?? "");
+        setContacts((prev) =>
+          prev.map((contact) =>
+            contact.key === "email"
+              ? { ...contact, value: me.email ?? signedInUser?.email ?? "" }
+              : contact.key === "discord"
+                ? { ...contact, value: me.discord_name ?? "" }
+                : contact.key === "line"
+                  ? { ...contact, value: me.line_id ?? "" }
+              : contact,
+          ),
+        );
+      } catch {
+        const draft = loadProfileDraft();
+        if (draft.name !== undefined) setDisplayName(draft.name);
+        if (draft.nickname !== undefined) setNickname(draft.nickname);
+        if (draft.university !== undefined) setUniversity(draft.university);
+        if (draft.major !== undefined) setMajor(draft.major);
+        if (draft.teamflow !== undefined) setTeamflow(draft.teamflow);
+        if (draft.country !== undefined) setCountry(draft.country);
+        if (draft.photoUrl !== undefined) setPhotoUrl(draft.photoUrl);
+      }
+    }
+
+    loadProfile();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Keep the Team page's availability map in sync with what's picked here.
   useEffect(() => {
@@ -102,7 +191,51 @@ export function ProfileAccountSection() {
   function handleContactValue(key: string, value: string) {
     setContacts((prev) => prev.map((c) => (c.key === key ? { ...c, value } : c)));
   }
-  function handleSave() {
+  function handlePhotoClick() {
+    setEditingInfo(true);
+    window.setTimeout(() => photoUrlInputRef.current?.focus(), 0);
+  }
+  async function handleSave() {
+    setSavingProfile(true);
+    setProfileError("");
+    const nextPhotoUrl = photoUrl.trim();
+    const contactValue = (key: string) => contacts.find((contact) => contact.key === key)?.value.trim() || null;
+    const draft: ProfileDraft = {
+      name: displayName.trim(),
+      nickname: nickname.trim(),
+      university: university.trim(),
+      major: major.trim(),
+      teamflow: teamflow.trim(),
+      country: country.trim(),
+      photoUrl: nextPhotoUrl,
+    };
+    try {
+      await api.fellow.updateProfile({
+        name: draft.name || null,
+        photo_url: nextPhotoUrl,
+        discord_name: contactValue("discord"),
+        line_id: contactValue("line"),
+        phone: contactValue("phone"),
+        linkedin: contactValue("linkedin"),
+        university: draft.university ?? "",
+        major: draft.major ?? "",
+        teamflow: draft.teamflow || null,
+        country: draft.country ?? "",
+      });
+    } catch (error) {
+      setProfileError(
+        error instanceof Error
+          ? `Could not save to backend: ${error.message}`
+          : "Could not save to backend.",
+      );
+      setSavingProfile(false);
+      return;
+    }
+    saveProfileDraft(draft);
+    currentFellow.name = draft.name || currentFellow.name;
+    currentFellow.university = draft.university ?? currentFellow.university;
+    setPhotoUrl(nextPhotoUrl);
+    setSavingProfile(false);
     setSaved(true);
     setEditingInfo(false);
     setTimeout(() => setSaved(false), 2500);
@@ -116,10 +249,18 @@ export function ProfileAccountSection() {
           <Card className="p-6">
             <div className="flex flex-col items-center gap-4">
               <div className="relative">
-                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-600 text-2xl font-bold text-white ring-4 ring-brand-100">
-                  {initials}
-                </div>
-                <button className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-white shadow-md transition hover:bg-slate-700 dark:border-[#0f172a] dark:bg-[#334155] dark:text-white dark:hover:bg-[#475569]" aria-label="Change photo">
+                <Avatar
+                  name={displayName}
+                  initials={initials}
+                  photoUrl={photoUrl}
+                  className="h-24 w-24 text-2xl ring-4 ring-brand-100"
+                />
+                <button
+                  type="button"
+                  onClick={handlePhotoClick}
+                  className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-white shadow-md transition hover:bg-slate-700 dark:border-[#0f172a] dark:bg-[#334155] dark:text-white dark:hover:bg-[#475569]"
+                  aria-label="Change photo"
+                >
                   <Camera className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -171,8 +312,8 @@ export function ProfileAccountSection() {
               {editingInfo ? (
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={() => setEditingInfo(false)} className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50">Cancel</button>
-                  <button type="button" onClick={handleSave} className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-500">
-                    <Save className="h-3.5 w-3.5" />Save
+                  <button type="button" onClick={handleSave} disabled={savingProfile} className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60">
+                    <Save className="h-3.5 w-3.5" />{savingProfile ? "Saving" : "Save"}
                   </button>
                 </div>
               ) : (
@@ -186,17 +327,49 @@ export function ProfileAccountSection() {
                 <Check className="h-4 w-4" />Changes saved successfully
               </div>
             )}
+            {profileError && (
+              <div className="border-b border-red-100 bg-red-50 px-5 py-2.5 text-xs font-medium text-red-700">
+                {profileError}
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
               {[
                 { label: "Full name", value: displayName, setter: setDisplayName },
                 { label: "Nickname", value: nickname, setter: setNickname },
                 { label: "University", value: university, setter: setUniversity },
                 { label: "Major", value: major, setter: setMajor },
+                { label: "Country", value: country, setter: setCountry },
+                { label: "TeamFlow", value: teamflow, setter: setTeamflow },
+                { label: "Profile image URL", value: photoUrl, setter: setPhotoUrl },
               ].map(({ label, value, setter }) => (
-                <div key={label}>
+                <div key={label} className={label === "Profile image URL" ? "sm:col-span-2" : undefined}>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</label>
-                  {editingInfo ? (
-                    <input type="text" value={value} onChange={(e) => setter(e.target.value)}
+                  {label === "TeamFlow" && !value.trim() ? (
+                    TEAMFLOW_FORM_URL ? (
+                      <a
+                        href={TEAMFLOW_FORM_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-500"
+                      >
+                        Complete TeamFlow form
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="inline-flex cursor-not-allowed items-center rounded-md bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-400"
+                        title="Set VITE_TEAMFLOW_FORM_URL to enable this link"
+                      >
+                        Complete TeamFlow form
+                      </button>
+                    )
+                  ) : editingInfo ? (
+                    <input
+                      ref={label === "Profile image URL" ? photoUrlInputRef : undefined}
+                      type="text"
+                      value={value}
+                      onChange={(e) => setter(e.target.value)}
                       className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100" />
                   ) : (
                     <p className="text-sm font-medium text-slate-900">{value}</p>

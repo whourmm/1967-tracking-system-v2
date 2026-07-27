@@ -100,9 +100,13 @@ export default function AdminFellowProfile() {
                   <span className={cn("h-1.5 w-1.5 rounded-full", fellow.status === "Confirmed" ? "bg-emerald-500" : "bg-amber-500")} />
                   {fellow.status}
                 </span>
-                <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium", teamflowChip[fellow.teamflow])}>
-                  {fellow.teamflow}
-                </span>
+                {fellow.teamflow ? (
+                  <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium", teamflowChip[fellow.teamflow])}>
+                    {fellow.teamflow}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-600/20">Not submitted</span>
+                )}
               </div>
             </div>
           </Card>
@@ -144,6 +148,7 @@ export default function AdminFellowProfile() {
             </div>
           </Card>
 
+          {fellow.teamflow && (
           <Card className="overflow-hidden">
             <div
               className={cn(
@@ -158,6 +163,7 @@ export default function AdminFellowProfile() {
               <p className="mt-3 text-sm text-slate-700">{teamflowDesc[fellow.teamflow]}</p>
             </div>
           </Card>
+          )}
 
           {teammates.length > 0 && (
             <Card>
@@ -175,9 +181,13 @@ export default function AdminFellowProfile() {
                         <FellowNameLink fellow={mate} className="block truncate text-sm font-medium" />
                         <p className="text-xs text-slate-500">{flagFor(mate.country)} {mate.country}</p>
                       </div>
-                      <span className={cn("hidden shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium sm:inline-flex", teamflowChip[mate.teamflow])}>
-                        {mate.teamflow}
-                      </span>
+                      {mate.teamflow ? (
+                        <span className={cn("hidden shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium sm:inline-flex", teamflowChip[mate.teamflow])}>
+                          {mate.teamflow}
+                        </span>
+                      ) : (
+                        <span className="hidden shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-600/20 sm:inline-flex">Not submitted</span>
+                      )}
                       <ArrowLeft className="h-3.5 w-3.5 shrink-0 rotate-180 text-slate-300 transition group-hover:text-slate-500" />
                     </div>
                   </li>

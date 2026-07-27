@@ -1,18 +1,23 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { CalendarCheck, Check, ChevronRight, GraduationCap, Pin } from "lucide-react";
 import { Card, CardHeader } from "../../../components/ui/Card";
-import { allFellows, currentFellow, teamMembers } from "../../../data/mock";
+import { currentFellow, teamMembers } from "../../../data/mock";
 import type { TeamMember } from "../../../types";
 import type { FellowOutletContext } from "../../../components/layout/FellowLayout";
 import { cn } from "../../../lib/cn";
+import { getCurrentUser } from "../../../lib/auth";
 import {
   dayFullNames,
   loadMyAvailability,
   weekDays,
 } from "../../../lib/availability";
+import { initialsOf, teamflowOf } from "../../../lib/fellowRecords";
+import { Avatar } from "../../../components/ui/Avatar";
+import { allFellows } from "../../../data/mock";
+import { resolveCurrentFellowTeamMembers } from "../../../lib/fellowTeamMembers";
 
-const teamflowChip: Record<TeamMember["teamflow"], string> = {
+const teamflowChip: Record<NonNullable<TeamMember["teamflow"]>, string> = {
   Initiator: "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20",
   Translator: "bg-sky-50 text-sky-700 ring-1 ring-sky-600/20",
   Sharper: "bg-violet-50 text-violet-700 ring-1 ring-violet-600/20",
@@ -26,8 +31,7 @@ const countryFlag: Record<string, string> = {
 
 function memberProfileTo(member: TeamMember, isMe: boolean) {
   if (isMe) return "/fellow/settings";
-  const fellowRecord = allFellows.find((f) => f.name === member.name);
-  return fellowRecord ? `/fellow/roster/${fellowRecord.id}` : undefined;
+  return member.id ? `/fellow/roster/${member.id}` : undefined;
 }
 
 // Compact row used on phones, where the tall profile cards would force a full
@@ -38,16 +42,15 @@ function MemberRow({ member, isMe }: { member: TeamMember; isMe: boolean }) {
 
   const inner = (
     <>
-      <div
+      <Avatar
+        name={member.name}
+        initials={member.initials}
+        photoUrl={member.photoUrl}
         className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-          isMe
-            ? "bg-brand-600 text-white ring-2 ring-brand-100"
-            : "bg-slate-100 text-slate-600"
+          "h-10 w-10 text-sm",
+          isMe ? "ring-2 ring-brand-100" : "bg-slate-100 text-slate-600",
         )}
-      >
-        {member.initials}
-      </div>
+      />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate text-sm font-semibold text-slate-900 transition-colors group-hover:text-brand-700">
@@ -59,14 +62,16 @@ function MemberRow({ member, isMe }: { member: TeamMember; isMe: boolean }) {
               You
             </span>
           )}
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
-              teamflowChip[member.teamflow]
-            )}
-          >
-            {member.teamflow}
-          </span>
+          {member.teamflow && (
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
+                teamflowChip[member.teamflow]
+              )}
+            >
+              {member.teamflow}
+            </span>
+          )}
         </div>
         <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
           <span>{flag}</span>
@@ -114,16 +119,24 @@ function MemberCard({ member, isMe }: { member: TeamMember; isMe: boolean }) {
           <ChevronRight className="h-4 w-4" />
         </span>
       )}
-      <div className={cn("flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold transition-all duration-200 group-hover:scale-105",
-        isMe ? "bg-brand-600 text-white ring-4 ring-brand-100 group-hover:ring-brand-200" : "bg-slate-100 text-slate-600 group-hover:bg-brand-600 group-hover:text-white group-hover:ring-4 group-hover:ring-brand-100"
-      )}>
-        {member.initials}
-      </div>
+      <Avatar
+        name={member.name}
+        initials={member.initials}
+        photoUrl={member.photoUrl}
+        className={cn(
+          "h-16 w-16 text-xl transition-all duration-200 group-hover:scale-105",
+          isMe
+            ? "ring-4 ring-brand-100 group-hover:ring-brand-200"
+            : "bg-slate-100 text-slate-600 group-hover:bg-brand-600 group-hover:text-white group-hover:ring-4 group-hover:ring-brand-100",
+        )}
+      />
       <div>
         <p className="text-sm font-bold text-slate-900 transition-colors group-hover:text-brand-700">{member.name}</p>
-        <span className={cn("mt-1.5 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium", teamflowChip[member.teamflow])}>
-          {member.teamflow}
-        </span>
+        {member.teamflow && (
+          <span className={cn("mt-1.5 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium", teamflowChip[member.teamflow])}>
+            {member.teamflow}
+          </span>
+        )}
       </div>
       <div className="w-full space-y-1 border-t border-slate-100 pt-3 transition-colors group-hover:border-brand-200">
         <div className="flex items-center justify-center gap-1.5 text-xs text-slate-600">
@@ -162,15 +175,13 @@ function listDays(days: string[]) {
 // Maps each member's available days (picked on their profile) onto a weekly
 // grid so the team can see at a glance which day to book a meeting.
 function TeamAvailability({ members }: { members: TeamMember[] }) {
-  // The current fellow's selection lives in localStorage (set on My Profile);
-  // teammates' days come with their member record.
+  const currentUserID = getCurrentUser()?.id;
   const [myDays] = useState(loadMyAvailability);
-
   const memberDays = members.map((member) => ({
     member,
     days:
-      member.name === currentFellow.name
-        ? new Set(weekDays.filter((d) => myDays[d]))
+      member.id === currentUserID
+        ? new Set(weekDays.filter((day) => myDays[day]))
         : new Set(member.availability),
   }));
 
@@ -238,7 +249,7 @@ function TeamAvailability({ members }: { members: TeamMember[] }) {
 
           {/* One row per member */}
           {memberDays.map(({ member, days }) => {
-            const isMe = member.name === currentFellow.name;
+            const isMe = member.id === currentUserID;
             return (
               <div
                 key={member.name}
@@ -319,11 +330,65 @@ function TeamAvailability({ members }: { members: TeamMember[] }) {
 
 export default function TeamPage() {
   const { selectedSprint } = useOutletContext<FellowOutletContext>();
-  const nationalities = new Set(teamMembers.map((m) => m.country)).size;
+  const [members, setMembers] = useState<TeamMember[]>(teamMembers);
+  const [loading, setLoading] = useState(true);
+  const hasAssignedTeam = currentFellow.team !== "Unassigned";
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadTeam() {
+      setLoading(true);
+      if (!hasAssignedTeam) {
+        setMembers([]);
+        setLoading(false);
+        return;
+      }
+      try {
+        const rows = await resolveCurrentFellowTeamMembers({ teamName: currentFellow.team });
+        if (!alive) return;
+        const nextMembers = rows.map((member) => {
+          const name = member.name?.trim() || member.email?.split("@")[0] || `Fellow ${member.id}`;
+          return {
+            id: member.id,
+            name,
+            initials: initialsOf(name),
+            photoUrl: member.photo_url ?? null,
+            country: member.country ?? "—",
+            university: member.university ?? "—",
+            teamflow: teamflowOf(member.teamflow),
+            availability: [],
+          };
+        });
+        setMembers(nextMembers);
+      } catch (err) {
+        if (!alive) return;
+        setMembers([]);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    loadTeam();
+    return () => {
+      alive = false;
+    };
+  }, [hasAssignedTeam]);
+
+  const currentUser = getCurrentUser();
+  const nationalities = new Set(members.map((m) => m.country)).size;
   const orderedMembers = [
-    ...teamMembers.filter((m) => m.name === currentFellow.name),
-    ...teamMembers.filter((m) => m.name !== currentFellow.name),
+    ...members.filter((m) => m.id === currentUser?.id),
+    ...members.filter((m) => m.id !== currentUser?.id),
   ];
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_API === "true") {
+    console.log("[team-page] team filter", {
+      teamName: currentFellow.team,
+      members,
+      orderedMembers,
+      allFellows,
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -335,20 +400,40 @@ export default function TeamPage() {
       </div>
 
       <Card>
-        <CardHeader title={currentFellow.team} subtitle={`${teamMembers.length} fellows · ${nationalities} nationalities · ${selectedSprint.name}`} />
-        <div className="divide-y divide-slate-100 sm:hidden">
-          {orderedMembers.map((member) => (
-            <MemberRow key={member.name} member={member} isMe={member.name === currentFellow.name} />
-          ))}
-        </div>
-        <div className="hidden gap-4 p-5 sm:grid sm:grid-cols-2 xl:grid-cols-4">
-          {orderedMembers.map((member) => (
-            <MemberCard key={member.name} member={member} isMe={member.name === currentFellow.name} />
-          ))}
-        </div>
+        <CardHeader
+          title={hasAssignedTeam ? currentFellow.team : "No team assigned yet"}
+          subtitle={
+            hasAssignedTeam
+              ? `${members.length} fellows · ${nationalities} nationalities${selectedSprint ? ` · ${selectedSprint.name}` : ""}`
+              : "An admin has not assigned you to a team yet."
+          }
+        />
+        {loading ? (
+          <p className="px-4 py-3 text-sm text-slate-500 sm:px-5">Loading team members...</p>
+        ) : !hasAssignedTeam || orderedMembers.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-slate-500 sm:px-5">
+            Your team roster will appear here after your teammates are added.
+          </p>
+        ) : null}
+        {hasAssignedTeam && orderedMembers.length > 0 && (
+          <>
+            <div className="divide-y divide-slate-100 sm:hidden">
+              {orderedMembers.map((member) => (
+                <MemberRow key={member.id ?? member.name} member={member} isMe={member.id === currentUser?.id} />
+              ))}
+            </div>
+            <div className="hidden gap-4 p-5 sm:grid sm:grid-cols-2 xl:grid-cols-4">
+              {orderedMembers.map((member) => (
+                <MemberCard key={member.id ?? member.name} member={member} isMe={member.id === currentUser?.id} />
+              ))}
+            </div>
+          </>
+        )}
       </Card>
 
-      <TeamAvailability members={orderedMembers} />
+      {hasAssignedTeam && orderedMembers.length > 0 && (
+        <TeamAvailability members={orderedMembers} />
+      )}
     </div>
   );
 }

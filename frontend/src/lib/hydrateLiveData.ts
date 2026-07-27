@@ -24,7 +24,8 @@ import {
 import type { AdminResource } from "./api";
 import { api } from "./api";
 import { getCurrentUser } from "./auth";
-import { adminFellowRecord, detailFellowRecord, initialsOf } from "./fellowRecords";
+import { adminFellowRecord, initialsOf, listFellowRecord } from "./fellowRecords";
+import { applyTeamAssignmentCache } from "./teamAssignmentCache";
 import type { LearningBlock, ResourceType, SpecialCurriculum } from "../types";
 
 function replace<T>(target: T[], values: T[]) {
@@ -126,18 +127,20 @@ export async function hydrateLiveData() {
   });
 
   if (user.role === "admin") {
-    const [me, fellows, sprintRows, assignmentRows, caseRows, resourceRows, eventRows] = await Promise.all([
+    const [me, fellows, sprintRows, assignmentRows, caseRows, caseStatuses, resourceRows, eventRows] = await Promise.all([
       api.me(),
       api.admin.listFellows(),
       api.admin.listSprints(),
       api.admin.listAssignments(),
       api.admin.listCases(),
+      api.admin.caseSubmissionStatuses(),
       api.admin.listResources(),
       api.events(),
     ]);
     const submissionRows = await Promise.all(assignmentRows.map((item) => api.admin.assignmentSubmissions(item.id)));
 
     replace(allFellows, fellows.map(adminFellowRecord));
+    applyTeamAssignmentCache();
     Object.assign(adminProfile, {
       name: me.name ?? user.name,
       nickname: (me.name ?? user.name).split(" ")[0],
@@ -202,20 +205,20 @@ export async function hydrateLiveData() {
       description: item.summary ?? "",
       assignedTeam: "Unassigned",
       deadline: item.published_date?.slice(0, 10) ?? "",
-      status: item.status === "reviewed" || item.status === "submitted" ? item.status : "pending",
+      status: "pending",
       briefUrl: item.googledrive_link ?? "",
       submissionUrl: "",
       deliverable: item.theme ?? "",
     })));
     clearRecord(caseSubmissionStatus);
-    caseAssignments.forEach((item) => { caseSubmissionStatus[item.id] = item.status; });
+    caseStatuses.forEach((item) => { caseSubmissionStatus[item.case_id] = item.status; });
     hydrateResources(resourceRows);
     return;
   }
 
   const [me, summaries] = await Promise.all([api.me(), api.listFellows()]);
-  const details = await Promise.all(summaries.map((fellow) => api.fellowDetail(fellow.id)));
-  replace(allFellows, details.map(detailFellowRecord));
+  replace(allFellows, summaries.map(listFellowRecord));
+  applyTeamAssignmentCache();
   Object.assign(currentFellow, {
     name: me.name ?? user.name,
     role: "Fellow",
@@ -224,12 +227,19 @@ export async function hydrateLiveData() {
     university: me.fellow?.university ?? "—",
     avatarInitials: initialsOf(me.name ?? user.name),
   });
-  replace(teamMembers, allFellows.filter((fellow) => fellow.team === currentFellow.team).map((fellow) => ({
-    name: fellow.name,
-    initials: fellow.initials,
-    country: fellow.country,
-    university: fellow.university,
-    teamflow: fellow.teamflow,
-    availability: [],
-  })));
+  replace(
+    teamMembers,
+    currentFellow.team === "Unassigned"
+      ? []
+      : allFellows.filter((fellow) => fellow.team === currentFellow.team).map((fellow) => ({
+          id: fellow.id,
+          name: fellow.name,
+          initials: fellow.initials,
+          photoUrl: fellow.photoUrl,
+          country: fellow.country,
+          university: fellow.university,
+          teamflow: fellow.teamflow,
+          availability: [],
+        })),
+  );
 }

@@ -3,8 +3,13 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/lib/pq"
+	"github.com/tracking-system-v2/backend/internal/middleware"
 )
 
 // FellowHandler serves fellow-related endpoints.
@@ -37,12 +42,17 @@ func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type MeResponse struct {
-		ID       int64          `json:"id"`
-		Name     *string        `json:"name"`
-		Email    *string        `json:"email"`
-		Role     *string        `json:"role"`
-		PhotoURL *string        `json:"photo_url"`
-		Fellow   *FellowSummary `json:"fellow"`
+		ID          int64          `json:"id"`
+		Name        *string        `json:"name"`
+		Email       *string        `json:"email"`
+		Role        *string        `json:"role"`
+		PhotoURL    *string        `json:"photo_url"`
+		DiscordName *string        `json:"discord_name"`
+		LineID      *string        `json:"line_id"`
+		Phone       *string        `json:"phone"`
+		LinkedIn    *string        `json:"linkedin"`
+		Country     *string        `json:"country"`
+		Fellow      *FellowSummary `json:"fellow"`
 	}
 
 	var res MeResponse
@@ -53,6 +63,7 @@ func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
 	err = h.DB.QueryRowContext(r.Context(), `
 		SELECT
 			u.id, u.name, u.gmail, u.role, u.photo_url,
+			u.discord_name, u.line_id, u.phone, u.linkedin, u.country,
 			fp.team_id, t.name,
 			g.cohort_id, c.name,
 			fp.university, fp.major, fp.status, fp.teamflow
@@ -64,6 +75,7 @@ func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
 		WHERE u.id = $1
 	`, id).Scan(
 		&res.ID, &res.Name, &res.Email, &res.Role, &res.PhotoURL,
+		&res.DiscordName, &res.LineID, &res.Phone, &res.LinkedIn, &res.Country,
 		&teamID, &teamName,
 		&cohortID, &cohortName,
 		&fellow.University, &fellow.Major, &fellow.Status, &fellow.Teamflow,
@@ -90,12 +102,43 @@ func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 // List returns all fellows as JSON (raw, no envelope — existing contract).
 func (h *FellowHandler) List(w http.ResponseWriter, r *http.Request) {
+	user, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authenticated user missing from request")
+		return
+	}
+	var cohortID *int64
+	if user.Role == "fellow" {
+		cohortID = memberCohortID(r.Context(), h.DB, user.ID)
+	}
 	rows, err := h.DB.QueryContext(r.Context(), `
-		SELECT u.id, COALESCE(u.name, ''), COALESCE(u.gmail, ''), COALESCE(f.status, ''), u.created_at
-		FROM fellow f
-		JOIN "user" u ON u.id = f.user_id
-		ORDER BY u.id
-	`)
+		WITH visible_fellows AS (
+			SELECT
+				u.id, COALESCE(u.name, '') AS name, COALESCE(u.gmail, '') AS email,
+				u.photo_url, u.country, COALESCE(f.status, '') AS status,
+				f.university, f.teamflow, f.team_id, t.name AS team_name,
+				u.created_at,
+				COALESCE(g.cohort_id, tg.cohort_id, $2) AS cohort_id
+			FROM fellow f
+			JOIN "user" u ON u.id = f.user_id
+			LEFT JOIN "group" g ON g.id = f.group_id
+			LEFT JOIN team t ON t.id = f.team_id
+			LEFT JOIN "group" tg ON tg.id = t.group_id
+			WHERE $1::boolean OR COALESCE(g.cohort_id, tg.cohort_id, $2) = $2
+		)
+		SELECT
+			v.id, v.name, v.email, v.photo_url, v.country, v.status,
+			v.university, v.teamflow, v.team_id, v.team_name, v.created_at,
+			COUNT(a.id) AS total_assignments,
+			COUNT(asub.assignment_id) FILTER (WHERE asub.submit_status = 1) AS completed_assignments
+		FROM visible_fellows v
+		LEFT JOIN assignment a ON a.cohort_id = v.cohort_id
+		LEFT JOIN assignment_submission asub
+			ON asub.assignment_id = a.id AND asub.member_id = v.id
+		GROUP BY v.id, v.name, v.email, v.photo_url, v.country, v.status,
+			v.university, v.teamflow, v.team_id, v.team_name, v.created_at
+		ORDER BY v.id
+	`, user.Role == "admin", cohortID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -103,26 +146,212 @@ func (h *FellowHandler) List(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type FellowItem struct {
-		ID        int64  `json:"id"`
-		Name      string `json:"name"`
-		Email     string `json:"email"`
-		Status    string `json:"status"`
-		CreatedAt string `json:"created_at"`
+		ID                   int64   `json:"id"`
+		Name                 string  `json:"name"`
+		Email                string  `json:"email"`
+		PhotoURL             *string `json:"photo_url"`
+		Country              *string `json:"country"`
+		Status               string  `json:"status"`
+		University           *string `json:"university"`
+		Teamflow             *string `json:"teamflow"`
+		TeamID               *int64  `json:"team_id"`
+		TeamName             *string `json:"team_name"`
+		CreatedAt            string  `json:"created_at"`
+		TotalAssignments     int     `json:"total_assignments"`
+		CompletedAssignments int     `json:"completed_assignments"`
+		ProgressPercent      int     `json:"progress_percent"`
 	}
 
 	fellows := []FellowItem{}
 	for rows.Next() {
 		var f FellowItem
 		var createdAt time.Time
-		if err := rows.Scan(&f.ID, &f.Name, &f.Email, &f.Status, &createdAt); err != nil {
+		if err := rows.Scan(
+			&f.ID, &f.Name, &f.Email, &f.PhotoURL, &f.Country, &f.Status,
+			&f.University, &f.Teamflow, &f.TeamID, &f.TeamName, &createdAt,
+			&f.TotalAssignments, &f.CompletedAssignments,
+		); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		f.CreatedAt = createdAt.Format(time.RFC3339)
+		if f.TotalAssignments > 0 {
+			f.ProgressPercent = int(float64(f.CompletedAssignments)/float64(f.TotalAssignments)*100 + 0.5)
+		}
 		fellows = append(fellows, f)
 	}
 
 	writeJSON(w, http.StatusOK, fellows)
+}
+
+// TeamMembers returns all fellows assigned to the current fellow's team.
+// GET /api/fellow/team
+func (h *FellowHandler) TeamMembers(w http.ResponseWriter, r *http.Request) {
+	memberID, err := currentFellowID(r.Context())
+	if err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "current fellow not found")
+			return
+		}
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var teamID sql.NullInt64
+	if err := h.DB.QueryRowContext(r.Context(), `
+		SELECT team_id FROM fellow WHERE user_id = $1
+	`, memberID).Scan(&teamID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !teamID.Valid {
+		writeData(w, http.StatusOK, []any{})
+		return
+	}
+
+	rows, err := h.DB.QueryContext(r.Context(), `
+		WITH team_fellows AS (
+			SELECT
+				u.id, u.name, u.gmail, u.photo_url, u.country,
+				f.university, f.teamflow, f.team_id, t.name AS team_name,
+				COALESCE(g.cohort_id, tg.cohort_id) AS cohort_id
+			FROM fellow f
+			JOIN "user" u ON u.id = f.user_id
+			LEFT JOIN team t ON t.id = f.team_id
+			LEFT JOIN "group" g ON g.id = f.group_id
+			LEFT JOIN "group" tg ON tg.id = t.group_id
+			WHERE f.team_id = $1
+		)
+		SELECT
+			tf.id, tf.name, tf.gmail, tf.photo_url, tf.country,
+			tf.university, tf.teamflow, tf.team_id, tf.team_name,
+			COUNT(a.id) AS total_assignments,
+			COUNT(asub.assignment_id) FILTER (WHERE asub.submit_status = 1) AS completed_assignments
+		FROM team_fellows tf
+		LEFT JOIN assignment a ON a.cohort_id = tf.cohort_id
+		LEFT JOIN assignment_submission asub
+			ON asub.assignment_id = a.id AND asub.member_id = tf.id
+		GROUP BY tf.id, tf.name, tf.gmail, tf.photo_url, tf.country,
+			tf.university, tf.teamflow, tf.team_id, tf.team_name
+		ORDER BY CASE WHEN tf.id = $2 THEN 0 ELSE 1 END, tf.name
+	`, teamID.Int64, memberID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	type TeamMember struct {
+		ID                   int64   `json:"id"`
+		Name                 *string `json:"name"`
+		Email                *string `json:"email"`
+		PhotoURL             *string `json:"photo_url"`
+		Country              *string `json:"country"`
+		University           *string `json:"university"`
+		Teamflow             *string `json:"teamflow"`
+		TeamID               *int64  `json:"team_id"`
+		TeamName             *string `json:"team_name"`
+		TotalAssignments     int     `json:"total_assignments"`
+		CompletedAssignments int     `json:"completed_assignments"`
+		ProgressPercent      int     `json:"progress_percent"`
+	}
+
+	members := []TeamMember{}
+	for rows.Next() {
+		var item TeamMember
+		if err := rows.Scan(
+			&item.ID, &item.Name, &item.Email, &item.PhotoURL, &item.Country,
+			&item.University, &item.Teamflow, &item.TeamID, &item.TeamName,
+			&item.TotalAssignments, &item.CompletedAssignments,
+		); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if item.TotalAssignments > 0 {
+			item.ProgressPercent = int(float64(item.CompletedAssignments)/float64(item.TotalAssignments)*100 + 0.5)
+		}
+		members = append(members, item)
+	}
+
+	writeData(w, http.StatusOK, members)
+}
+
+// UpdateProfile updates the current fellow's editable profile fields.
+// PATCH /api/fellow/profile
+func (h *FellowHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	memberID, err := currentFellowID(r.Context())
+	if err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "current fellow not found")
+			return
+		}
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var body struct {
+		Name        *string `json:"name"`
+		PhotoURL    *string `json:"photo_url"`
+		DiscordName *string `json:"discord_name"`
+		LineID      *string `json:"line_id"`
+		Phone       *string `json:"phone"`
+		LinkedIn    *string `json:"linkedin"`
+		Country     *string `json:"country"`
+		University  *string `json:"university"`
+		Major       *string `json:"major"`
+		Teamflow    *string `json:"teamflow"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	tx, err := h.DB.BeginTx(r.Context(), nil)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(r.Context(), `
+		UPDATE "user" SET
+			name = COALESCE($1, name),
+			photo_url = COALESCE($2, photo_url),
+			discord_name = COALESCE($3, discord_name),
+			line_id = COALESCE($4, line_id),
+			phone = COALESCE($5, phone),
+			linkedin = COALESCE($6, linkedin),
+			country = COALESCE($7, country),
+			update_at = NOW()
+		WHERE id = $8
+	`, body.Name, body.PhotoURL, body.DiscordName, body.LineID, body.Phone, body.LinkedIn, body.Country, memberID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		writeError(w, http.StatusNotFound, "current fellow not found")
+		return
+	}
+
+	_, err = tx.ExecContext(r.Context(), `
+		UPDATE fellow SET
+			university = COALESCE($1, university),
+			major = COALESCE($2, major),
+			teamflow = COALESCE($3, teamflow)
+		WHERE user_id = $4
+	`, body.University, body.Major, body.Teamflow, memberID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.Me(w, r)
 }
 
 // GetDetail returns one fellow's full profile.
@@ -161,6 +390,15 @@ func (h *FellowHandler) GetDetail(w http.ResponseWriter, r *http.Request) {
 	var d FellowDetail
 	var teamID sql.NullInt64
 	var teamName sql.NullString
+	user, authenticated := middleware.CurrentUser(r.Context())
+	if !authenticated {
+		writeError(w, http.StatusUnauthorized, "authenticated user missing from request")
+		return
+	}
+	var cohortID *int64
+	if user.Role == "fellow" {
+		cohortID = memberCohortID(r.Context(), h.DB, user.ID)
+	}
 
 	err := h.DB.QueryRowContext(r.Context(), `
 		SELECT
@@ -171,8 +409,11 @@ func (h *FellowHandler) GetDetail(w http.ResponseWriter, r *http.Request) {
 		FROM "user" u
 		JOIN fellow fp ON fp.user_id = u.id
 		LEFT JOIN team t ON t.id = fp.team_id
+		LEFT JOIN "group" g ON g.id = fp.group_id
+		LEFT JOIN "group" tg ON tg.id = t.group_id
 		WHERE u.id = $1
-	`, id).Scan(
+			AND ($2::boolean OR COALESCE(g.cohort_id, tg.cohort_id, $3) = $3)
+	`, id, user.Role == "admin", cohortID).Scan(
 		&d.ID, &d.Name, &d.Email, &d.DiscordName, &d.LineID, &d.Phone, &d.LinkedIn, &d.PhotoURL,
 		&d.Country, &d.University, &d.Major, &d.Status, &d.Teamflow,
 		&teamID, &teamName,
@@ -199,7 +440,7 @@ func (h *FellowHandler) GetDetail(w http.ResponseWriter, r *http.Request) {
 func (h *FellowHandler) AdminList(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.QueryContext(r.Context(), `
 		SELECT
-			u.id, u.name, u.gmail, u.country,
+			u.id, u.name, u.gmail, u.photo_url, u.country,
 			fp.university, fp.teamflow, fp.team_id, t.name AS team_name,
 			fp.status, u.created_at, u.last_login_at
 		FROM "user" u
@@ -217,6 +458,7 @@ func (h *FellowHandler) AdminList(w http.ResponseWriter, r *http.Request) {
 		ID          int64      `json:"id"`
 		Name        *string    `json:"name"`
 		Email       *string    `json:"email"`
+		PhotoURL    *string    `json:"photo_url"`
 		Country     *string    `json:"country"`
 		University  *string    `json:"university"`
 		Teamflow    *string    `json:"teamflow"`
@@ -231,7 +473,7 @@ func (h *FellowHandler) AdminList(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var f FellowAdmin
 		if err := rows.Scan(
-			&f.ID, &f.Name, &f.Email, &f.Country,
+			&f.ID, &f.Name, &f.Email, &f.PhotoURL, &f.Country,
 			&f.University, &f.Teamflow, &f.TeamID, &f.TeamName,
 			&f.Status, &f.CreatedAt, &f.LastLoginAt,
 		); err != nil {
@@ -262,6 +504,15 @@ func (h *FellowHandler) AdminCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if body.Name == nil || strings.TrimSpace(*body.Name) == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if body.Gmail == nil || strings.TrimSpace(*body.Gmail) == "" {
+		writeError(w, http.StatusBadRequest, "gmail is required")
+		return
+	}
+	*body.Gmail = strings.ToLower(strings.TrimSpace(*body.Gmail))
 
 	tx, err := h.DB.BeginTx(r.Context(), nil)
 	if err != nil {
@@ -277,6 +528,11 @@ func (h *FellowHandler) AdminCreate(w http.ResponseWriter, r *http.Request) {
 		RETURNING id
 	`, body.Name, body.Gmail, body.Country).Scan(&userID)
 	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			writeError(w, http.StatusConflict, "a user with this email already exists")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

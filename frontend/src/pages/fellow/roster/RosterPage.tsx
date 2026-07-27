@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart3, ChevronRight, Filter, GraduationCap, Search, TrendingUp, Users, X } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
-import { allFellows, currentFellow } from "../../../data/mock";
-import { useAdminAssignments } from "../../../lib/assignmentStore";
-import type { AdminAssignment, FellowRecord, FellowStatus, TeamFlow } from "../../../types";
+import { allFellows } from "../../../data/mock";
+import { getCurrentUser } from "../../../lib/auth";
+import type { FellowRecord, FellowStatus, TeamFlow } from "../../../types";
 import { cn } from "../../../lib/cn";
+import { Avatar } from "../../../components/ui/Avatar";
 
 const teamflowChip: Record<TeamFlow, string> = {
   Initiator: "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20",
@@ -19,23 +20,19 @@ const countryFlag: Record<string, string> = {
   Philippines: "🇵🇭", Malaysia: "🇲🇾", Myanmar: "🇲🇲", Cambodia: "🇰🇭",
 };
 
-const allCountries = [...new Set(allFellows.map((f) => f.country))].sort();
 const allTeamflows: TeamFlow[] = ["Initiator", "Translator", "Sharper", "Finisher"];
-const allTeams = [...new Set(allFellows.map((f) => f.team))].sort();
-const currentFellowRecord = allFellows.find((f) => f.name === currentFellow.name) ?? allFellows[0];
 
 function pct(done: number, total: number) {
   return total ? Math.round((done / total) * 100) : 0;
 }
 
-function fellowProgress(fellowId: number, assignmentTasks: AdminAssignment[]) {
-  const completed = assignmentTasks.filter((assignment) =>
-    assignment.submittedIds.includes(fellowId)
-  ).length;
+function fellowProgress(fellow?: FellowRecord) {
+  const completed = fellow?.completedAssignments ?? 0;
+  const total = fellow?.totalAssignments ?? 0;
   return {
     completed,
-    total: assignmentTasks.length,
-    percent: pct(completed, assignmentTasks.length),
+    total,
+    percent: fellow?.progressPercent ?? pct(completed, total),
   };
 }
 
@@ -51,12 +48,14 @@ function StatusPill({ status }: { status: FellowStatus }) {
 }
 
 export default function RosterPage() {
-  const assignmentTasks = useAdminAssignments();
+  const currentUserID = getCurrentUser()?.id;
   const [query, setQuery] = useState("");
   const [country, setCountry] = useState("");
   const [teamflow, setTeamflow] = useState<TeamFlow | "">("");
   const [team, setTeam] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const allCountries = [...new Set(allFellows.map((f) => f.country))].sort();
+  const allTeams = [...new Set(allFellows.map((f) => f.team))].sort();
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -70,15 +69,18 @@ export default function RosterPage() {
   }, [query, country, teamflow, team]);
 
   const countryCount = new Set(allFellows.map((f) => f.country)).size;
-  const myProgress = fellowProgress(currentFellowRecord.id, assignmentTasks);
-  const otherFellows = allFellows.filter((f) => f.id !== currentFellowRecord.id);
+  const myProgress = currentUserID
+    ? fellowProgress(allFellows.find((f) => f.id === currentUserID) ?? allFellows[0])
+    : { completed: 0, total: 0, percent: 0 };
+  const otherFellows = allFellows.filter((f) => f.id !== currentUserID);
   const fellowsAtOrBelowMe = otherFellows.filter(
-    (f) => fellowProgress(f.id, assignmentTasks).percent <= myProgress.percent
+    (f) => fellowProgress(f).percent <= myProgress.percent
   ).length;
   const relativeStanding = pct(fellowsAtOrBelowMe, otherFellows.length);
-  const averageCompleted = allFellows.reduce((sum, fellow) => sum + fellowProgress(fellow.id, assignmentTasks).completed, 0) / allFellows.length;
-  const averageProgress = pct(averageCompleted, assignmentTasks.length);
-  const topProgress = Math.max(0, ...allFellows.map((fellow) => fellowProgress(fellow.id, assignmentTasks).percent));
+  const averageProgress = allFellows.length
+    ? Math.round(allFellows.reduce((sum, fellow) => sum + fellowProgress(fellow).percent, 0) / allFellows.length)
+    : 0;
+  const topProgress = Math.max(0, ...allFellows.map((fellow) => fellowProgress(fellow).percent));
   const activeFilters = [
     country && { label: `Country: ${country}`, clear: () => setCountry("") },
     teamflow && { label: `Archetype: ${teamflow}`, clear: () => setTeamflow("") },
@@ -194,14 +196,19 @@ export default function RosterPage() {
         ) : (
           <ul className="divide-y divide-slate-100">
             {filtered.map((fellow) => {
-              const progress = fellowProgress(fellow.id, assignmentTasks);
-              const isMe = fellow.id === currentFellowRecord.id;
+              const progress = fellowProgress(fellow);
+              const isMe = fellow.id === currentUserID;
 
               return (
                 <li key={fellow.id}>
                   <Link to={`/fellow/roster/${fellow.id}`} className="group grid gap-3 px-4 py-4 transition hover:bg-slate-50 sm:grid-cols-[minmax(0,1fr)_14rem_7rem_auto] sm:items-center sm:gap-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_18rem_8rem_auto]">
                     <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-white">{fellow.initials}</div>
+                      <Avatar
+                        name={fellow.name}
+                        initials={fellow.initials}
+                        photoUrl={fellow.photoUrl}
+                        className="h-10 w-10 text-sm"
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="truncate text-sm font-semibold text-slate-900">{fellow.name}</p>
@@ -234,7 +241,9 @@ export default function RosterPage() {
                       <BarChart3 className={cn("h-4 w-4 shrink-0", isMe ? "text-brand-500" : "text-slate-300")} />
                     </div>
                     <div className="hidden min-w-0 flex-col items-end gap-1.5 sm:flex">
-                      <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-medium", teamflowChip[fellow.teamflow])}>{fellow.teamflow}</span>
+                      {fellow.teamflow && (
+                        <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-medium", teamflowChip[fellow.teamflow])}>{fellow.teamflow}</span>
+                      )}
                       <span className="text-xs text-slate-400">{fellow.team}</span>
                     </div>
                     <ChevronRight className="hidden h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-slate-500 sm:block" />

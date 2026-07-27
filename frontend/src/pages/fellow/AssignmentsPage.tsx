@@ -252,7 +252,9 @@ export default function AssignmentsPage() {
     }
   }
 
-  const currentSprintCase = cases.find((item) => item.sprint_id === selectedSprint.id);
+  const currentSprintCase = selectedSprint
+    ? cases.find((item) => item.sprint_id === selectedSprint.id)
+    : undefined;
 
   const queueItems = useMemo(
     () => [...assignments].sort(sortByActionDate),
@@ -308,7 +310,7 @@ export default function AssignmentsPage() {
         </Card>
       )}
 
-      {currentSprintCase ? (
+      {currentSprintCase && selectedSprint ? (
         <CurrentSprintCaseCard
           item={currentSprintCase}
           sprintName={selectedSprint.name}
