@@ -154,6 +154,19 @@ export type TeamResponse = {
   update_at: string;
 };
 
+export type FellowTeamResponse = {
+  id: number;
+  name: string;
+  case?: { id: number; title: string } | null;
+  members: Array<{
+    id: number;
+    name: string;
+    country: string;
+    university: string;
+    teamflow: string;
+  }>;
+};
+
 export type CaseSubmissionStatus = {
   case_id: number;
   status: "pending" | "submitted" | "reviewed";
@@ -456,6 +469,7 @@ export const api = {
   events: () => getData<AdminEventResponse[]>("/api/events"),
   teams: () => getData<TeamResponse[]>("/api/teams"),
   fellow: {
+    team: () => getData<FellowTeamResponse | null>("/api/fellow/team"),
     assignments: async () => (await getData<FellowAssignmentResponse[]>("/api/fellow/assignments")).map(mapFellowAssignment),
     submitAssignment: (id: number) => sendData<SubmitAssignmentResponse>("POST", `/api/fellow/assignments/${id}/submit`),
     activeSprints: async () => (await getData<AdminSprint[]>("/api/cohorts/active/sprints")).map(mapSprint),

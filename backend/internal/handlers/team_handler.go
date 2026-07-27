@@ -11,6 +11,90 @@ type TeamHandler struct {
 	DB *sql.DB
 }
 
+// FellowCurrent returns the authenticated fellow's current team and members.
+// GET /api/fellow/team
+func (h *TeamHandler) FellowCurrent(w http.ResponseWriter, r *http.Request) {
+	memberID, err := currentFellowID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	type CaseRef struct {
+		ID    int64  `json:"id"`
+		Title string `json:"title"`
+	}
+	type TeamMember struct {
+		ID         int64  `json:"id"`
+		Name       string `json:"name"`
+		Country    string `json:"country"`
+		University string `json:"university"`
+		Teamflow   string `json:"teamflow"`
+	}
+	type FellowTeam struct {
+		ID      int64        `json:"id"`
+		Name    string       `json:"name"`
+		Case    *CaseRef     `json:"case"`
+		Members []TeamMember `json:"members"`
+	}
+
+	var team FellowTeam
+	var caseID sql.NullInt64
+	var caseTitle sql.NullString
+	err = h.DB.QueryRowContext(r.Context(), `
+		SELECT t.id, COALESCE(t.name, ''), c.id, c.title
+		FROM fellow f
+		JOIN team t ON t.id = f.team_id
+		LEFT JOIN "case" c ON c.id = t.case_id
+		WHERE f.user_id = $1
+	`, memberID).Scan(&team.ID, &team.Name, &caseID, &caseTitle)
+	if err == sql.ErrNoRows {
+		writeData(w, http.StatusOK, nil)
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if caseID.Valid {
+		team.Case = &CaseRef{ID: caseID.Int64, Title: caseTitle.String}
+	}
+
+	rows, err := h.DB.QueryContext(r.Context(), `
+		SELECT
+			u.id,
+			COALESCE(u.name, ''),
+			COALESCE(u.country, ''),
+			COALESCE(f.university, ''),
+			COALESCE(f.teamflow, '')
+		FROM fellow f
+		JOIN "user" u ON u.id = f.user_id
+		WHERE f.team_id = $1
+		ORDER BY u.id
+	`, team.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer rows.Close()
+
+	team.Members = []TeamMember{}
+	for rows.Next() {
+		var member TeamMember
+		if err := rows.Scan(&member.ID, &member.Name, &member.Country, &member.University, &member.Teamflow); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		team.Members = append(team.Members, member)
+	}
+	if err := rows.Err(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeData(w, http.StatusOK, team)
+}
+
 // List returns teams with group, case, and member summary.
 // GET /api/teams
 func (h *TeamHandler) List(w http.ResponseWriter, r *http.Request) {

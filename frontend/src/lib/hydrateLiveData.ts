@@ -24,7 +24,8 @@ import {
 import type { AdminResource } from "./api";
 import { api } from "./api";
 import { getCurrentUser } from "./auth";
-import { adminFellowRecord, initialsOf, listFellowRecord } from "./fellowRecords";
+import { adminFellowRecord, initialsOf, listFellowRecord, teamflowOf } from "./fellowRecords";
+import { resolveCurrentFellowTeamMembers } from "./fellowTeamMembers";
 import { applyTeamAssignmentCache } from "./teamAssignmentCache";
 import type { LearningBlock, ResourceType, SpecialCurriculum } from "../types";
 
@@ -219,6 +220,10 @@ export async function hydrateLiveData() {
   const [me, summaries] = await Promise.all([api.me(), api.listFellows()]);
   replace(allFellows, summaries.map(listFellowRecord));
   applyTeamAssignmentCache();
+  const liveTeamMembers = await resolveCurrentFellowTeamMembers({
+    teamID: me.fellow?.team_id,
+    teamName: me.fellow?.team_name,
+  });
   Object.assign(currentFellow, {
     name: me.name ?? user.name,
     role: "Fellow",
@@ -231,7 +236,18 @@ export async function hydrateLiveData() {
     teamMembers,
     currentFellow.team === "Unassigned"
       ? []
-      : allFellows.filter((fellow) => fellow.team === currentFellow.team).map((fellow) => ({
+      : (liveTeamMembers.length
+          ? liveTeamMembers.map((member) => ({
+              id: member.id,
+              name: member.name?.trim() || member.email?.split("@")[0] || `Fellow ${member.id}`,
+              initials: initialsOf(member.name?.trim() || member.email?.split("@")[0] || `Fellow ${member.id}`),
+              photoUrl: member.photo_url ?? null,
+              country: member.country ?? "—",
+              university: member.university ?? "—",
+              teamflow: teamflowOf(member.teamflow),
+              availability: [],
+            }))
+          : allFellows.filter((fellow) => fellow.team === currentFellow.team).map((fellow) => ({
           id: fellow.id,
           name: fellow.name,
           initials: fellow.initials,
@@ -240,6 +256,6 @@ export async function hydrateLiveData() {
           university: fellow.university,
           teamflow: fellow.teamflow,
           availability: [],
-        })),
+        }))),
   );
 }
