@@ -135,56 +135,30 @@ func fetchSupabaseUser(ctx context.Context, supabaseURL, publishableKey, token s
 }
 
 func findOrCreateUser(ctx context.Context, db *sql.DB, account supabaseUser) (AuthenticatedUser, error) {
-	var user AuthenticatedUser
-	err := db.QueryRowContext(ctx, `
-		SELECT id, COALESCE(name, ''), gmail, COALESCE(role, '')
-		FROM "user"
-		WHERE LOWER(gmail) = LOWER($1)
-	`, account.Email).Scan(&user.ID, &user.Name, &user.Email, &user.Role)
-	if err == nil {
-		if _, err := db.ExecContext(ctx, `UPDATE "user" SET last_login_at = NOW() WHERE id = $1`, user.ID); err != nil {
-			return AuthenticatedUser{}, err
-		}
-		switch user.Role {
-		case "fellow":
-			_, err = db.ExecContext(ctx, `
-				INSERT INTO fellow (user_id, status)
-				VALUES ($1, 'pending')
-				ON CONFLICT (user_id) DO NOTHING
-			`, user.ID)
-		case "admin":
-			_, err = db.ExecContext(ctx, `
-				INSERT INTO admin (user_id)
-				VALUES ($1)
-				ON CONFLICT (user_id) DO NOTHING
-			`, user.ID)
-		}
-		if err != nil {
-			return AuthenticatedUser{}, err
-		}
-		return user, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return AuthenticatedUser{}, err
-	}
-
 	name, _ := account.UserMetadata["full_name"].(string)
 	if strings.TrimSpace(name) == "" {
 		name = strings.Split(account.Email, "@")[0]
 	}
-	err = db.QueryRowContext(ctx, `
-		WITH new_user AS (
+
+	var user AuthenticatedUser
+	err := db.QueryRowContext(ctx, `
+		WITH upserted_user AS (
 			INSERT INTO "user" (name, gmail, role, last_login_at)
 			VALUES ($1, LOWER($2), 'fellow', NOW())
+			ON CONFLICT (LOWER(gmail)) WHERE gmail IS NOT NULL DO UPDATE SET
+				last_login_at = EXCLUDED.last_login_at
 			RETURNING id, name, gmail, role
-		), new_fellow AS (
+		), ensure_fellow AS (
 			INSERT INTO fellow (user_id, status)
-			SELECT id, 'pending' FROM new_user
-			RETURNING user_id
+			SELECT id, 'pending' FROM upserted_user WHERE role = 'fellow'
+			ON CONFLICT (user_id) DO NOTHING
+		), ensure_admin AS (
+			INSERT INTO admin (user_id)
+			SELECT id FROM upserted_user WHERE role = 'admin'
+			ON CONFLICT (user_id) DO NOTHING
 		)
 		SELECT u.id, COALESCE(u.name, ''), u.gmail, u.role
-		FROM new_user u
-		JOIN new_fellow f ON f.user_id = u.id
+		FROM upserted_user u
 	`, name, account.Email).Scan(&user.ID, &user.Name, &user.Email, &user.Role)
 	return user, err
 }

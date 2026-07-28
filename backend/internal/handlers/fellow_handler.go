@@ -3,12 +3,10 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/tracking-system-v2/backend/internal/middleware"
 )
 
@@ -486,7 +484,7 @@ func (h *FellowHandler) AdminList(w http.ResponseWriter, r *http.Request) {
 	writeData(w, http.StatusOK, fellows)
 }
 
-// AdminCreate creates a user + fellow row.
+// AdminCreate creates or updates a user + fellow row.
 // POST /api/admin/fellows
 func (h *FellowHandler) AdminCreate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -525,12 +523,16 @@ func (h *FellowHandler) AdminCreate(w http.ResponseWriter, r *http.Request) {
 	err = tx.QueryRowContext(r.Context(), `
 		INSERT INTO "user" (name, gmail, country, role)
 		VALUES ($1, $2, $3, 'fellow')
+		ON CONFLICT (LOWER(gmail)) WHERE gmail IS NOT NULL DO UPDATE SET
+			name = EXCLUDED.name,
+			country = COALESCE(EXCLUDED.country, "user".country),
+			update_at = NOW()
+		WHERE "user".role = 'fellow'
 		RETURNING id
 	`, body.Name, body.Gmail, body.Country).Scan(&userID)
 	if err != nil {
-		var pqErr *pq.Error
-		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
-			writeError(w, http.StatusConflict, "a user with this email already exists")
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusConflict, "this email belongs to a non-fellow account")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -540,6 +542,13 @@ func (h *FellowHandler) AdminCreate(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.ExecContext(r.Context(), `
 		INSERT INTO fellow (user_id, university, major, teamflow, status, team_id, group_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (user_id) DO UPDATE SET
+			university = COALESCE(EXCLUDED.university, fellow.university),
+			major = COALESCE(EXCLUDED.major, fellow.major),
+			teamflow = COALESCE(EXCLUDED.teamflow, fellow.teamflow),
+			status = COALESCE(EXCLUDED.status, fellow.status),
+			team_id = COALESCE(EXCLUDED.team_id, fellow.team_id),
+			group_id = COALESCE(EXCLUDED.group_id, fellow.group_id)
 	`, userID, body.University, body.Major, body.Teamflow, body.Status, body.TeamID, body.GroupID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
