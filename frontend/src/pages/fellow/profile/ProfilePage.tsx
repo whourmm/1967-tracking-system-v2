@@ -22,7 +22,6 @@ import {
   saveMyAvailability,
   weekDays,
 } from "../../../lib/availability";
-import { formatSbieId } from "../../../lib/sbie";
 import { Avatar } from "../../../components/ui/Avatar";
 
 type Visibility = "public" | "private";
@@ -76,11 +75,6 @@ interface ContactField {
 
 const signedInUser = getCurrentUser();
 
-function sbieFellowId(user: ReturnType<typeof getCurrentUser>) {
-  if (!user) return "—";
-  const year = user.cohort?.match(/\d{4}/)?.[0] ?? String(new Date().getFullYear());
-  return formatSbieId(user.id, year);
-}
 const defaultContacts: ContactField[] = [
   { key: "email", label: "Email", icon: Mail, placeholder: "your@email.com", value: signedInUser?.email ?? "", visibility: "public" },
   { key: "discord", label: "Discord", icon: MessageCircle, placeholder: "username#0000", value: "", visibility: "public" },
@@ -421,7 +415,7 @@ export function ProfileAccountSection() {
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600"><User className="h-4 w-4" /></span>
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">SBIE Fellow ID</p>
-                <p className="mt-0.5 font-mono text-sm font-semibold text-slate-900">{sbieFellowId(signedInUser)}</p>
+                <p className="mt-0.5 font-mono text-sm font-semibold text-slate-900">{signedInUser?.publicId ?? "—"}</p>
               </div>
               <span className="self-start rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 sm:ml-auto sm:self-auto">Confirmed</span>
             </div>

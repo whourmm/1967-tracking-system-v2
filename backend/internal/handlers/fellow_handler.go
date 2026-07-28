@@ -41,6 +41,7 @@ func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 	type MeResponse struct {
 		ID          int64          `json:"id"`
+		PublicID    *string        `json:"public_id"`
 		Name        *string        `json:"name"`
 		Email       *string        `json:"email"`
 		Role        *string        `json:"role"`
@@ -60,7 +61,7 @@ func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 	err = h.DB.QueryRowContext(r.Context(), `
 		SELECT
-			u.id, u.name, u.gmail, u.role, u.photo_url,
+			u.id, u.public_id, u.name, u.gmail, u.role, u.photo_url,
 			u.discord_name, u.line_id, u.phone, u.linkedin, u.country,
 			fp.team_id, t.name,
 			g.cohort_id, c.name,
@@ -72,7 +73,7 @@ func (h *FellowHandler) Me(w http.ResponseWriter, r *http.Request) {
 		LEFT JOIN cohort c ON c.id = g.cohort_id
 		WHERE u.id = $1
 	`, id).Scan(
-		&res.ID, &res.Name, &res.Email, &res.Role, &res.PhotoURL,
+		&res.ID, &res.PublicID, &res.Name, &res.Email, &res.Role, &res.PhotoURL,
 		&res.DiscordName, &res.LineID, &res.Phone, &res.LinkedIn, &res.Country,
 		&teamID, &teamName,
 		&cohortID, &cohortName,

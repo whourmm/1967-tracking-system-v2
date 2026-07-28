@@ -4,6 +4,7 @@ import "time"
 
 type User struct {
 	ID          int64      `json:"id"`
+	PublicID    *string    `json:"public_id,omitempty"`
 	Name        *string    `json:"name,omitempty"`
 	Role        *string    `json:"role,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`

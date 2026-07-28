@@ -9,6 +9,7 @@ export type AppRole = "fellow" | "admin";
 
 export interface AppUser {
   id: number;
+  publicId?: string;
   name: string;
   email: string;
   role: AppRole;
@@ -43,6 +44,7 @@ function profileFromMe(profile: FellowMe): AppUser {
   const name = profile.name?.trim() || profile.email?.split("@")[0] || "User";
   return {
     id: profile.id,
+    publicId: profile.public_id ?? undefined,
     name,
     email: profile.email ?? "",
     role: profile.role,

@@ -12,6 +12,7 @@ Table cohort {
 
 Table user {
   id           int        [pk]
+  public_id    varchar    [unique, note: 'human-facing fellow ID: SBIE-YYYY-NNN']
   name         varchar
   role         varchar    [note: 'fellow, admin, PO']
   created_at   timestamp
