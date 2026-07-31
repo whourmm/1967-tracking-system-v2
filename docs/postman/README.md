@@ -5,6 +5,11 @@ Import these two files into Postman:
 - `backend-all.postman_collection.json`
 - `cloud.postman_environment.json`
 
+For a focused profile update test, import:
+
+- `fellow-profile-update.postman_collection.json`
+- `cloud.postman_environment.json`
+
 Select the **Tracking System V2 - Cloud** environment and set:
 
 - `baseUrl` to the deployed backend URL, without a trailing slash.
@@ -42,3 +47,19 @@ npx newman run docs/postman/backend-all.postman_collection.json `
 
 Do not commit an exported environment containing real passwords, keys, or
 tokens.
+
+## Fellow profile update test
+
+Use `fellow-profile-update.postman_collection.json` when you only want to test
+the fellow profile save flow.
+
+1. Import the collection and `cloud.postman_environment.json`.
+2. Select the **Tracking System V2 - Cloud** environment.
+3. Fill either `fellowToken`, or fill `fellowEmail` and `fellowPassword` and run
+   `1. Login fellow with Supabase password`.
+4. Run requests 2 through 4 in order.
+
+Expected result for `3. Update fellow profile` is `200 OK`. A `501` means the
+deployed API is still serving the planned/not-implemented route for
+`PATCH /api/fellow/profile`; a `401` means the token is missing or expired; a
+`403` means the token is valid but that account is not allowed to update.

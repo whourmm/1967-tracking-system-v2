@@ -4,6 +4,7 @@ import AdminRoutes from "./routes/AdminRoutes";
 import FellowRoutes from "./routes/FellowRoutes";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import { getCurrentUser, homeForRole } from "./lib/auth";
 
@@ -27,6 +28,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<AuthEntry><LoginPage /></AuthEntry>} />
       <Route path="/register" element={<AuthEntry><RegisterPage /></AuthEntry>} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         path="/admin/*"
         element={

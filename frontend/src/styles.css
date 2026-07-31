@@ -135,6 +135,28 @@
     border-color: #334155;
   }
 
+  .fellow-theme input,
+  .fellow-theme textarea {
+    color: #0f172a;
+  }
+
+  .fellow-theme input::placeholder,
+  .fellow-theme textarea::placeholder {
+    color: #64748b;
+    opacity: 1;
+  }
+
+  .fellow-theme.dark input,
+  .fellow-theme.dark textarea {
+    color: #e2e8f0;
+  }
+
+  .fellow-theme.dark input::placeholder,
+  .fellow-theme.dark textarea::placeholder {
+    color: #94a3b8;
+    opacity: 1;
+  }
+
   /* ── Admin dark theme ─────────────────────────────────────────────────────
      Surfaces mirror the fellow portal: page #020617 (slate-950), raised
      surfaces #0f172a, nested items #1e293b. Text color is set here because

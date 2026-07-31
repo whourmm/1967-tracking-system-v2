@@ -2,8 +2,6 @@ import { useState } from "react";
 import {
   Bell,
   Check,
-  Eye,
-  EyeOff,
   KeyRound,
   LogOut,
   Mail,
@@ -13,7 +11,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardHeader } from "../../../components/ui/Card";
-import { changePassword, logout } from "../../../lib/auth";
+import { getCurrentUser, logout, sendPasswordResetEmail } from "../../../lib/auth";
 import { cn } from "../../../lib/cn";
 import { ProfileAccountSection } from "../profile/ProfilePage";
 
@@ -248,37 +246,22 @@ function NotificationsSection() {
 }
 
 function SecuritySection() {
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const user = getCurrentUser();
 
   async function handleSave() {
     setError("");
-    if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError("New passwords do not match.");
-      return;
-    }
     setSaving(true);
-    const result = await changePassword(currentPassword, newPassword);
+    const result = await sendPasswordResetEmail();
     setSaving(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
     setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setTimeout(() => setSaved(false), 5000);
   }
 
   return (
@@ -286,12 +269,12 @@ function SecuritySection() {
       <Card>
         <CardHeader
           title="Change Password"
-          subtitle="Use a strong password of at least 8 characters"
+          subtitle="Receive a secure reset link and set the new password on a separate page"
         />
         {saved && (
           <div className="flex items-center gap-2 border-b border-emerald-100 bg-emerald-50 px-5 py-2.5 text-xs font-medium text-emerald-700">
             <Check className="h-4 w-4" />
-            Password updated
+            Password reset link sent. Check your Gmail inbox.
           </div>
         )}
         {error && (
@@ -300,60 +283,23 @@ function SecuritySection() {
           </div>
         )}
         <div className="space-y-4 p-5">
-          {[
-            {
-              label: "Current password",
-              show: showCurrent,
-              toggle: () => setShowCurrent((showing) => !showing),
-              value: currentPassword,
-              setValue: setCurrentPassword,
-            },
-            {
-              label: "New password",
-              show: showNew,
-              toggle: () => setShowNew((showing) => !showing),
-              value: newPassword,
-              setValue: setNewPassword,
-            },
-            {
-              label: "Confirm new password",
-              show: showNew,
-              toggle: () => setShowNew((showing) => !showing),
-              value: confirmPassword,
-              setValue: setConfirmPassword,
-            },
-          ].map(({ label, show, toggle, value, setValue }) => (
-            <div key={label}>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                {label}
-              </label>
-              <div className="relative">
-                <input
-                  type={show ? "text" : "password"}
-                  value={value}
-                  onChange={(event) => setValue(event.target.value)}
-                  placeholder="••••••••"
-                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 pr-10 text-sm text-slate-900 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-                />
-                <button
-                  type="button"
-                  onClick={toggle}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
-                  aria-label={show ? "Hide password" : "Show password"}
-                >
-                  {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+          <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">Reset password by email</p>
+              <p className="mt-1 text-xs text-slate-500">
+                We will send a secure link to {user?.email || "your Gmail account"} that opens the reset password page.
+              </p>
             </div>
-          ))}
+            <Mail className="hidden h-5 w-5 shrink-0 text-slate-400 sm:block" />
+          </div>
           <div className="flex justify-end">
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving || !currentPassword || !newPassword || !confirmPassword}
+              disabled={saving}
               className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500 disabled:opacity-50"
             >
-              {saving ? "Updating..." : "Update password"}
+              {saving ? "Sending..." : "Send reset link"}
             </button>
           </div>
         </div>

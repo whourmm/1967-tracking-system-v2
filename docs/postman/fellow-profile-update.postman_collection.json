@@ -1,0 +1,287 @@
+{
+  "info": {
+    "_postman_id": "1c9b0c8a-5f9d-4b0b-b8b4-0e4e462a8b51",
+    "name": "Tracking System V2 - Fellow Profile Update",
+    "description": "Focused Postman collection for testing the deployed fellow profile update route at PATCH /api/fellow/profile.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{fellowToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "profileName",
+      "value": "Postman Profile Test"
+    },
+    {
+      "key": "profileUniversity",
+      "value": "Postman University"
+    },
+    {
+      "key": "profileMajor",
+      "value": "Postman Major"
+    },
+    {
+      "key": "profileCountry",
+      "value": "Thailand"
+    },
+    {
+      "key": "profilePhotoUrl",
+      "value": "https://drive.google.com/file/d/1qcQ9y6N5xRisBk63LIwwjSXwz0OyTQ2E/view?usp=sharing"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Login fellow with Supabase password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Supabase login returns 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const json = pm.response.json();",
+              "if (json.access_token) {",
+              "  pm.environment.set(\"fellowToken\", json.access_token);",
+              "}",
+              "",
+              "pm.test(\"fellowToken is available\", function () {",
+              "  pm.expect(pm.environment.get(\"fellowToken\")).to.be.a(\"string\").and.not.empty;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "apikey",
+            "value": "{{supabaseKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{fellowEmail}}\",\n  \"password\": \"{{fellowPassword}}\"\n}"
+        },
+        "url": {
+          "raw": "{{supabaseUrl}}/auth/v1/token?grant_type=password",
+          "host": [
+            "{{supabaseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "v1",
+            "token"
+          ],
+          "query": [
+            {
+              "key": "grant_type",
+              "value": "password"
+            }
+          ]
+        },
+        "description": "Use this when `fellowToken` is empty or expired. Set `fellowEmail` and `fellowPassword` in the Cloud environment first."
+      }
+    },
+    {
+      "name": "2. Check current fellow profile",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Current profile loads\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const json = pm.response.json();",
+              "const data = json.data || json;",
+              "if (data.id) {",
+              "  pm.environment.set(\"fellowId\", String(data.id));",
+              "}",
+              "",
+              "pm.test(\"Current fellow id is available\", function () {",
+              "  pm.expect(pm.environment.get(\"fellowId\")).to.be.a(\"string\").and.not.empty;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "me"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Update fellow profile",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Profile route is not the planned stub\", function () {",
+              "  pm.expect(pm.response.code).to.not.equal(501);",
+              "});",
+              "",
+              "pm.test(\"Profile route accepts PATCH\", function () {",
+              "  pm.expect(pm.response.code).to.not.equal(405);",
+              "});",
+              "",
+              "pm.test(\"Profile update succeeds\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const json = pm.response.json();",
+              "const data = json.data || json;",
+              "pm.test(\"Updated response has profile data\", function () {",
+              "  pm.expect(data).to.be.an(\"object\");",
+              "  pm.expect(data.name).to.exist;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{profileName}}\",\n  \"university\": \"{{profileUniversity}}\",\n  \"major\": \"{{profileMajor}}\",\n  \"country\": \"{{profileCountry}}\",\n  \"teamflow\": null,\n  \"photo_url\": \"{{profilePhotoUrl}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/fellow/profile",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "fellow",
+            "profile"
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Verify profile after update",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Current profile reloads\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const json = pm.response.json();",
+              "const data = json.data || json;",
+              "pm.test(\"Name matches requested update\", function () {",
+              "  pm.expect(data.name).to.equal(pm.variables.get(\"profileName\"));",
+              "});",
+              "",
+              "pm.test(\"University matches requested update\", function () {",
+              "  pm.expect(data.fellow && data.fellow.university).to.equal(pm.variables.get(\"profileUniversity\"));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "me"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Diagnostics - profile route CORS preflight",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Preflight succeeds\", function () {",
+              "  pm.response.to.have.status(204);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "OPTIONS",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "http://localhost:5173"
+          },
+          {
+            "key": "Access-Control-Request-Method",
+            "value": "PATCH"
+          },
+          {
+            "key": "Access-Control-Request-Headers",
+            "value": "authorization,content-type"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/fellow/profile",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "fellow",
+            "profile"
+          ]
+        }
+      }
+    }
+  ]
+}

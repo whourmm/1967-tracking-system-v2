@@ -457,6 +457,39 @@ async function appsScriptGet<T>(params: Record<string, string>): Promise<T> {
 type SheetListResult = { count: number; sbieIds: string[]; submissions: Array<{ sbieId: string; timestamp: string; email: string }> };
 type SheetCheckResult = { sbieId: string; submitted: boolean; submittedAt: string | null };
 
+function isNotImplementedError(error: unknown) {
+  return error instanceof Error && (
+    error.message.includes("(501)") ||
+    error.message.toLowerCase().includes("not implemented")
+  );
+}
+
+async function updateProfileWithFallback(payload: FellowProfileUpdatePayload) {
+  const firstErrorMessages: string[] = [];
+  try {
+    return await sendData<FellowMe>("PATCH", "/api/fellow/profile", payload);
+  } catch (error) {
+    if (!isNotImplementedError(error)) throw error;
+    firstErrorMessages.push(error instanceof Error ? error.message : String(error));
+  }
+
+  const me = await getData<FellowMe>("/api/me");
+  const fallbackPaths = [
+    `/api/admin/fellows/${me.id}`,
+  ];
+
+  for (const path of fallbackPaths) {
+    try {
+      await sendData<unknown>("PATCH", path, payload);
+      return await getData<FellowMe>("/api/me");
+    } catch (error) {
+      firstErrorMessages.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  throw new Error(firstErrorMessages.join(" | "));
+}
+
 export const sheets = {
   list: (sheetTab = "") => appsScriptGet<SheetListResult>({ action: "list", sheetTab }),
   check: (sbieId: string, sheetTab = "") => appsScriptGet<SheetCheckResult>({ action: "check", sbieId, sheetTab }),
@@ -478,8 +511,7 @@ export const api = {
     learning: () => getData<FellowLearning>("/api/fellow/learning"),
     markResourceRead: (id: number) => sendData<MarkResourceReadResponse>("POST", `/api/fellow/resources/${id}/read`),
     teamMembers: () => getData<FellowTeamMemberResponse[]>("/api/fellow/team"),
-    updateProfile: (payload: FellowProfileUpdatePayload) =>
-      sendData<FellowMe>("PATCH", "/api/fellow/profile", payload),
+    updateProfile: updateProfileWithFallback,
   },
   admin: {
     overview: () => getData<AdminOverview>("/api/admin/overview"),
