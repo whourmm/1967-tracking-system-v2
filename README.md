@@ -94,6 +94,8 @@ http://localhost:5173
 
 ## Docker Development
 
+For a clean hosted backend and database deployment, see [Google Cloud Run and Supabase Setup](docs/CLOUD_RUN_SUPABASE_SETUP.md).
+
 Start the backend stack in the background:
 
 ```powershell

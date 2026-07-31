@@ -47,7 +47,6 @@ func New(db *sql.DB, supabaseURL, publishableKey string) http.Handler {
 
 	team := &handlers.TeamHandler{DB: db}
 	mux.HandleFunc("GET /api/teams", team.List)
-	mux.HandleFunc("GET /api/fellow/team", team.FellowCurrent)
 	mux.HandleFunc("POST /api/admin/teams/assignments", team.AdminSaveAssignments)
 
 	admin := &handlers.AdminHandler{DB: db}
